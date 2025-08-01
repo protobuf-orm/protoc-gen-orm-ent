@@ -1,0 +1,15 @@
+version: v2
+inputs:
+  - directory: proto
+    exclude_paths:
+      - proto/apptest/generated
+plugins:
+  # - local: protoc-gen-go
+  #   out: .
+  #   opt:
+  #     - module=github.com/protobuf-orm/protoc-gen-orm-go
+  #     - default_api_level=API_OPAQUE
+  - local: ./protoc-gen-orm-ent
+    out: .
+    opt:
+      - module=github.com/protobuf-orm/protoc-gen-orm-ent

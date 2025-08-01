@@ -1,0 +1,16 @@
+{
+	"name": "protoc-gen-orm-ent",
+	"dockerComposeFile": "docker-compose.yaml",
+	"service": "dev",
+	"workspaceFolder": "/workspace",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"bufbuild.vscode-buf",
+				"jinliming2.vscode-go-template",
+				"streetsidesoftware.code-spell-checker"
+			]
+		}
+	}
+}

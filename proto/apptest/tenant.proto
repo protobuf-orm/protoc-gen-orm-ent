@@ -1,0 +1,33 @@
+edition = "2023";
+
+package apptest;
+
+import "google/protobuf/timestamp.proto";
+import "orm.proto";
+
+option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
+
+message Tenant {
+  bytes id = 1 [(orm.field) = {
+    type: TYPE_UUID
+    key: true
+  }];
+  string alias = 4 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  string name = 5 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  map<string, string> labels = 7;
+
+  google.protobuf.Timestamp date_created = 15 [(orm.field) = {
+    immutable: true
+    default: ""
+  }];
+
+  option (orm.message) = {
+    rpc: {crud: true}
+  };
+}
