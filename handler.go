@@ -13,6 +13,7 @@ import (
 type Handler struct {
 	NamerSchema string
 	NamerEnt    string
+	NamerServer string
 }
 
 func (h *Handler) Run(p *protogen.Plugin) error {
@@ -36,6 +37,9 @@ func (h *Handler) Run(p *protogen.Plugin) error {
 		return err
 	}
 	if err := h.runEntApp(ctx, p, g); err != nil {
+		return err
+	}
+	if err := h.runServerApp(ctx, p, g); err != nil {
 		return err
 	}
 

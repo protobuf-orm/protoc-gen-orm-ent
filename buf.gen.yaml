@@ -9,6 +9,12 @@ plugins:
     opt:
       - module=github.com/protobuf-orm/protoc-gen-orm-ent
       - default_api_level=API_OPAQUE
+  - local: protoc-gen-go-grpc
+    out: .
+    opt:
+      - module=github.com/protobuf-orm/protoc-gen-orm-ent
+  - local: ./protoc-gen-orm-service
+    out: ./proto
   - local: ./protoc-gen-orm-ent
     out: .
     opt:
