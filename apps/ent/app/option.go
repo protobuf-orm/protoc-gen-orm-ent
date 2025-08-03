@@ -1,6 +1,8 @@
 package app
 
-import "text/template"
+import (
+	"text/template"
+)
 
 type Option func(a *App)
 

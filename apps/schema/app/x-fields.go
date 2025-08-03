@@ -5,14 +5,13 @@ import (
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
 
-func (w *fileWork) xFields() {
-	name := string(w.entity.FullName().Name())
-
-	w.P("func (", name, ")", "Fields() []", pkgEnt.Ident("Field"), " {")
-	w.P("	return []", pkgEnt.Ident("Field"), "{")
-	for p := range w.entity.Props() {
+func xFields(w *work.FileWork) {
+	w.P("func (", w.Ident.GoName, ") Fields() []", work.PkgEnt.Ident("Field"), " {")
+	w.P("	return []", work.PkgEnt.Ident("Field"), "{")
+	for p := range w.Entity.Props() {
 		p_, ok := p.(graph.Field)
 		if !ok {
 			continue
@@ -23,19 +22,19 @@ func (w *fileWork) xFields() {
 		ctor := ""
 		switch t {
 		case ormpb.Type_TYPE_UUID:
-			ctor = w.QualifiedGoIdent(pkgGoogleUuid.Ident("UUID")) + "{}"
+			ctor = w.QualifiedGoIdent(work.PkgGoogleUuid.Ident("UUID")) + "{}"
 		case ormpb.Type_TYPE_JSON:
 			s := p_.Shape()
 			switch s_ := s.(type) {
 			case graph.MessageShape:
-				pkg, ok := w.root.imports[string(s_.FullName)]
+				pkg, ok := w.Root.Imports[s_.FullName]
 				if !ok {
 					panic("import path for the entity must be exist")
 				}
 
 				ctor = "&" + w.QualifiedGoIdent(pkg.Ident(string(s_.FullName.Name()))) + "{}"
 			case graph.MapShape:
-				ctor = w.goType(t, s) + "{}"
+				ctor = w.GoType(t, s) + "{}"
 			default:
 				panic("shape not implemented")
 			}

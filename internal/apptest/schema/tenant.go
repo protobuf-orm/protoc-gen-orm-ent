@@ -28,11 +28,3 @@ func (Tenant) Fields() []ent.Field {
 			Optional(),
 	}
 }
-
-func (Tenant) Edges() []ent.Edge {
-	return []ent.Edge{}
-}
-
-func (Tenant) Indexes() []ent.Index {
-	return []ent.Index{}
-}

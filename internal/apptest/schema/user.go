@@ -34,6 +34,7 @@ func (User) Fields() []ent.Field {
 func (User) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("tenant", Tenant.Type).
+			Unique().
 			Required(),
 	}
 }

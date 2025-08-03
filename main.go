@@ -10,7 +10,8 @@ func main() {
 	h := Handler{}
 
 	var flags flag.FlagSet
-	flags.StringVar(&h.Namer, "namer", "schema/{{ .Name }}.go", "golang text template for output filename")
+	flags.StringVar(&h.NamerSchema, "namer-schema", "schema/{{ .Name }}.go", "golang text template for output filename of Ent schema")
+	flags.StringVar(&h.NamerEnt, "namer-ent", "ent/{{ .Name }}.g.go", "golang text template for output filename of utility code for Ent generated code")
 
 	opts := protogen.Options{ParamFunc: flags.Set}
 	opts.Run(h.Run)

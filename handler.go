@@ -3,17 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"text/template"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
-	"github.com/protobuf-orm/protoc-gen-orm-ent/app"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
 type Handler struct {
-	Namer string
+	NamerSchema string
+	NamerEnt    string
 }
 
 func (h *Handler) Run(p *protogen.Plugin) error {
@@ -24,20 +23,6 @@ func (h *Handler) Run(p *protogen.Plugin) error {
 		pluginpb.CodeGeneratorResponse_FEATURE_SUPPORTS_EDITIONS,
 	)
 
-	opts := []app.Option{}
-	if h.Namer != "" {
-		v, err := template.New("namer").Parse(h.Namer)
-		if err != nil {
-			return fmt.Errorf("opt.namer: %w", err)
-		}
-		opts = append(opts, app.WithNamer(v))
-	}
-
-	app, err := app.New(opts...)
-	if err != nil {
-		return fmt.Errorf("initialize plugin: %w", err)
-	}
-
 	ctx := context.Background()
 	// TODO: set logger
 
@@ -47,6 +32,12 @@ func (h *Handler) Run(p *protogen.Plugin) error {
 			return fmt.Errorf("parse entity at %s: %w", *f.Proto.Name, err)
 		}
 	}
+	if err := h.runSchemaApp(ctx, p, g); err != nil {
+		return err
+	}
+	if err := h.runEntApp(ctx, p, g); err != nil {
+		return err
+	}
 
-	return app.Run(ctx, p, g)
+	return nil
 }

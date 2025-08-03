@@ -4,14 +4,15 @@ import (
 	"fmt"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
 
-func (w *fileWork) xEdges() {
-	name := string(w.entity.FullName().Name())
+func xEdges(w *work.FileWork) {
+	edge := work.PkgEdge
 
-	w.P("func (", name, ")", "Edges() []", pkgEnt.Ident("Edge"), " {")
-	w.P("	return []", pkgEnt.Ident("Edge"), "{")
-	for p := range w.entity.Props() {
+	w.P("func (", w.Ident.GoName, ") Edges() []", work.PkgEnt.Ident("Edge"), " {")
+	w.P("	return []", work.PkgEnt.Ident("Edge"), "{")
+	for p := range w.Entity.Props() {
 		p_, ok := p.(graph.Edge)
 		if !ok {
 			continue
@@ -20,12 +21,10 @@ func (w *fileWork) xEdges() {
 		name_edge := string(p.FullName().Name())
 		name_target := string(p_.Target().FullName().Name())
 		if inv := p_.Inverse(); inv == nil {
-			fmt.Fprintf(w, "		%s(%q, %s.Type)",
-				w.QualifiedGoIdent(pkgEdge.Ident("To")), name_edge, name_target)
+			w.Pf("		%s(%q, %s.Type)", edge.Ident("To"), name_edge, name_target)
 		} else {
 			name_inv := inv.FullName().Name()
-			fmt.Fprintf(w, "		%s(%q, %s.Type).Ref(%q)",
-				w.QualifiedGoIdent(pkgEdge.Ident("From")), name_edge, name_target, name_inv)
+			w.Pf("		%s(%q, %s.Type).Ref(%q)", edge.Ident("From"), name_edge, name_target, name_inv)
 		}
 		if p.IsUnique() {
 			w.P(".")

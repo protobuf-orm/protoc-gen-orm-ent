@@ -6,14 +6,15 @@ import (
 	"strings"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
 
-func (w *fileWork) xIndexes() {
-	name := string(w.entity.FullName().Name())
+func xIndexes(w *work.FileWork) {
+	index := work.PkgIndex
 
-	w.P("func (", name, ")", "Indexes() []", pkgEnt.Ident("Index"), " {")
-	w.P("	return []", pkgEnt.Ident("Index"), "{")
-	for v := range w.entity.Indexes() {
+	w.P("func (", w.Ident.GoName, ")", "Indexes() []", work.PkgEnt.Ident("Index"), " {")
+	w.P("	return []", work.PkgEnt.Ident("Index"), "{")
+	for v := range w.Entity.Indexes() {
 		props := slices.Collect(v.Props())
 		if len(props) == 0 {
 			continue
@@ -33,29 +34,23 @@ func (w *fileWork) xIndexes() {
 			}
 		}
 		if len(fields) > 0 {
-			fmt.Fprintf(w, "		%s(%s)",
-				w.QualifiedGoIdent(pkgIndex.Ident("Fields")),
-				strings.Join(fields, ", "),
-			)
+			w.Pf("		%s(%s)", index.Ident("Fields"), strings.Join(fields, ", "))
 		}
 		if len(edges) > 0 {
 			if len(fields) > 0 {
 				w.P(".")
-				fmt.Fprint(w, "			Edges(", strings.Join(edges, ","), ")")
+				w.Pf("			Edges(%s)", strings.Join(edges, ","))
 			} else {
-				fmt.Fprintf(w, "		%s(%s)",
-					w.QualifiedGoIdent(pkgIndex.Ident("Edges")),
-					strings.Join(fields, ", "),
-				)
+				w.Pf("		%s(%s)", index.Ident("Edges"), strings.Join(fields, ", "))
 			}
 		}
 		if v.IsUnique() {
 			w.P(".")
-			fmt.Fprint(w, "			Unique()")
+			w.Pf("			Unique()")
 		}
 		if v.IsImmutable() {
 			w.P(".")
-			fmt.Fprint(w, "			Immutable()")
+			w.Pf("			Immutable()")
 		}
 		w.P(",")
 	}
