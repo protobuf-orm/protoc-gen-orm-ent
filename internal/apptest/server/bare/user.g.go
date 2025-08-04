@@ -4,8 +4,12 @@
 package ent
 
 import (
+	context "context"
+	uuid "github.com/google/uuid"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 )
 
 type UserServiceServer struct {
@@ -15,4 +19,30 @@ type UserServiceServer struct {
 
 func NewUserServiceServer(db *ent.Client) UserServiceServer {
 	return UserServiceServer{Db: db}
+}
+
+func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
+	q := s.Db.User.Create()
+	if v, err := uuid.FromBytes(req.GetId()); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+	} else {
+		q.SetID(v)
+	}
+	if req.HasAlias() {
+		q.SetAlias(req.GetAlias())
+	}
+	if req.HasName() {
+		q.SetName(req.GetName())
+	}
+	q.SetLabels(req.GetLabels())
+	if req.HasDateCreated() {
+		q.SetDateCreated(req.GetDateCreated().AsTime())
+	}
+
+	v, err := q.Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return v.Proto(), nil
 }

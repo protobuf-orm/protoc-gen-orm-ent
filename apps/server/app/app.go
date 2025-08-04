@@ -81,6 +81,10 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 	}
 
 	w.xServer()
+	rpcs := w.Entity.Rpcs()
+	if rpcs.HasAdd() {
+		w.xAdd()
+	}
 
 	return nil
 }

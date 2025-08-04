@@ -21,10 +21,10 @@ service TenantService {
 message TenantAddRequest {
 	bytes id = 1;
 	string alias = 4 [
-		features.field_presence = IMPLICIT
+		features.field_presence = EXPLICIT
 	];
 	string name = 5 [
-		features.field_presence = IMPLICIT
+		features.field_presence = EXPLICIT
 	];
 	map<string,string> labels = 7;
 	google.protobuf.Timestamp date_created = 15;
