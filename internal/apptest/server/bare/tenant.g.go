@@ -8,6 +8,8 @@ import (
 	uuid "github.com/google/uuid"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
+	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 )
@@ -45,4 +47,17 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	}
 
 	return v.Proto(), nil
+}
+
+func TenantPick(req *apptest.TenantRef) (predicate.Tenant, error) {
+	switch req.WhichKey() {
+	case apptest.TenantRef_Id_case:
+		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			return tenant.IDEQ(v), nil
+		}
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "unknown type of key: %s", req.WhichKey())
+	}
 }

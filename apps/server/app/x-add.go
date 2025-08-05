@@ -29,7 +29,7 @@ func (w *fileWork) xAdd() {
 			switch t {
 			case ormpb.Type_TYPE_UUID:
 				w.P("if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(req.Get", name_go, "()); err != nil {")
-				w.P("	return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", ", "err)")
+				w.P("	return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")
 				w.P("} else {")
 				w.P("	q.Set", name_ent, "(v)")
 				w.P("}")

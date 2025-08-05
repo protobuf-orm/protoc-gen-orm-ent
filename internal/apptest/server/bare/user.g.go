@@ -8,6 +8,8 @@ import (
 	uuid "github.com/google/uuid"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
+	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 )
@@ -45,4 +47,27 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	}
 
 	return v.Proto(), nil
+}
+
+func UserPick(req *apptest.UserRef) (predicate.User, error) {
+	switch req.WhichKey() {
+	case apptest.UserRef_Id_case:
+		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			return user.IDEQ(v), nil
+		}
+	case apptest.UserRef_Alias_case:
+		k := req.GetAlias()
+		ps := make([]predicate.User, 0, 2)
+		ps = append(ps, user.AliasEQ(k.GetAlias()))
+		if p, err := TenantPick(k.GetTenant()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "alias.tenant: %s", err)
+		} else {
+			ps = append(ps, user.HasTenantWith(p))
+		}
+		return user.And(ps...), nil
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "unknown type of key: %s", req.WhichKey())
+	}
 }

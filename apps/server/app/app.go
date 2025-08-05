@@ -84,6 +84,7 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 	rpcs := w.Entity.Rpcs()
 	if rpcs.HasAdd() {
 		w.xAdd()
+		w.xPick()
 	}
 
 	return nil

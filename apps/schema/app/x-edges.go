@@ -26,7 +26,7 @@ func xEdges(w *work.FileWork) {
 			name_inv := inv.FullName().Name()
 			w.Pf("		%s(%q, %s.Type).Ref(%q)", edge.Ident("From"), name_edge, name_target, name_inv)
 		}
-		if p.IsUnique() {
+		if !p.IsList() {
 			w.P(".")
 			fmt.Fprint(w, "			Unique()")
 		}

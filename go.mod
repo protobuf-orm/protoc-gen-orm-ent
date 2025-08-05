@@ -5,9 +5,9 @@ go 1.24.5
 require (
 	entgo.io/ent v0.14.5
 	github.com/ettle/strcase v0.2.0
-	github.com/go-openapi/inflect v0.19.0
+	github.com/go-openapi/inflect v0.21.2
 	github.com/google/uuid v1.6.0
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20250727101530-cd9c2fcf952f
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20250805163000-957350c44edc
 	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
 )
