@@ -25,7 +25,7 @@ func (w *fileWork) xPick() {
 			continue
 		}
 
-		name := Name(p.Name())
+		name := work.Name(p.Name())
 		switch p_ := p.(type) {
 		case graph.Field:
 			eq := x.Ident(name.Ent() + "EQ")
@@ -55,12 +55,12 @@ func (w *fileWork) xPick() {
 			continue
 		}
 
-		name_k := Name(p.Name())
+		name_k := work.Name(p.Name())
 		w.P("	case ", pkg.Ident(w.Ident.GoName+"Ref_"+name_k.Go()+"_case"), ":")
 		w.P("		k := req.Get", name_k.Go(), "()")
 		w.P("		ps := make([]", predicate, ", 0, ", len(slices.Collect(p.Props())), ")")
 		for p := range p.Props() {
-			name := Name(p.Name())
+			name := work.Name(p.Name())
 			eq := x.Ident(name.Ent() + "EQ")
 			switch p_ := p.(type) {
 			case graph.Field:
@@ -78,7 +78,7 @@ func (w *fileWork) xPick() {
 					w.P("		ps = append(ps, ", eq, "(k.Get", name.Go(), "()))")
 				}
 			case graph.Edge:
-				name_target := Name(p_.Target().Name())
+				name_target := work.Name(p_.Target().Name())
 				w.P("		if p, err := ", name_target, "Pick(k.Get", name_target.Go(), "()); err != nil {")
 				w.P("			return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name_k, ".", name, ": %s\", ", "err)")
 				w.P("		} else {")
@@ -94,4 +94,5 @@ func (w *fileWork) xPick() {
 	w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"unknown type of key: %s\", req.WhichKey())")
 	w.P("	}")
 	w.P("}")
+	w.P("")
 }

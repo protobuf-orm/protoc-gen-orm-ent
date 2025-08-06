@@ -29,6 +29,9 @@ message UserAddRequest {
 		features.field_presence = EXPLICIT
 	];
 	map<string,string> labels = 7;
+	string lock = 8 [
+		features.field_presence = EXPLICIT
+	];
 	google.protobuf.Timestamp date_created = 15;
 }
 
@@ -50,6 +53,7 @@ message UserSelect {
 	bool alias = 4;
 	bool name = 5;
 	bool labels = 7;
+	bool lock = 8;
 	bool date_created = 15;
 }
 
@@ -64,4 +68,6 @@ message UserPatchRequest {
 	string alias = 7;
 	string name = 9;
 	map<string,string> labels = 13;
+	string lock = 15;
+	bool lock_null = 16;
 }

@@ -12,6 +12,7 @@ import (
 	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type TenantServiceServer struct {
@@ -47,6 +48,64 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	}
 
 	return v.Proto(), nil
+}
+
+func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequest) (*apptest.Tenant, error) {
+	q := s.Db.Tenant.Query()
+
+	if p, err := TenantPick(req.GetRef()); err != nil {
+		return nil, err
+	} else {
+		q.Where(p)
+	}
+
+	if s := req.GetSelect(); s != nil {
+		// TODO
+	} else {
+	}
+
+	v, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return v.Proto(), nil
+}
+
+func selectTenantKey(q *ent.TenantQuery) {
+	q.Select(tenant.FieldID)
+}
+func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*emptypb.Empty, error) {
+	p, err := TenantPick(req.GetTarget())
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.Tenant.Update().Where(p)
+	if req.HasAlias() {
+		q.SetAlias(req.GetAlias())
+	}
+	if req.HasName() {
+		q.SetName(req.GetName())
+	}
+	q.SetLabels(req.GetLabels())
+
+	if _, err := q.Save(ctx); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) (*emptypb.Empty, error) {
+	p, err := TenantPick(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := s.Db.Tenant.Delete().Where(p).Exec(ctx); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func TenantPick(req *apptest.TenantRef) (predicate.Tenant, error) {

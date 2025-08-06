@@ -75,6 +75,26 @@ func (_u *UserUpdate) SetLabels(v map[string]string) *UserUpdate {
 	return _u
 }
 
+// SetLock sets the "lock" field.
+func (_u *UserUpdate) SetLock(v string) *UserUpdate {
+	_u.mutation.SetLock(v)
+	return _u
+}
+
+// SetNillableLock sets the "lock" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableLock(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetLock(*v)
+	}
+	return _u
+}
+
+// ClearLock clears the value of the "lock" field.
+func (_u *UserUpdate) ClearLock() *UserUpdate {
+	_u.mutation.ClearLock()
+	return _u
+}
+
 // SetTenantID sets the "tenant" edge to the Tenant entity by ID.
 func (_u *UserUpdate) SetTenantID(id uuid.UUID) *UserUpdate {
 	_u.mutation.SetTenantID(id)
@@ -158,6 +178,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Labels(); ok {
 		_spec.SetField(user.FieldLabels, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.Lock(); ok {
+		_spec.SetField(user.FieldLock, field.TypeString, value)
+	}
+	if _u.mutation.LockCleared() {
+		_spec.ClearField(user.FieldLock, field.TypeString)
 	}
 	if _u.mutation.DateCreatedCleared() {
 		_spec.ClearField(user.FieldDateCreated, field.TypeTime)
@@ -254,6 +280,26 @@ func (_u *UserUpdateOne) ClearName() *UserUpdateOne {
 // SetLabels sets the "labels" field.
 func (_u *UserUpdateOne) SetLabels(v map[string]string) *UserUpdateOne {
 	_u.mutation.SetLabels(v)
+	return _u
+}
+
+// SetLock sets the "lock" field.
+func (_u *UserUpdateOne) SetLock(v string) *UserUpdateOne {
+	_u.mutation.SetLock(v)
+	return _u
+}
+
+// SetNillableLock sets the "lock" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableLock(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetLock(*v)
+	}
+	return _u
+}
+
+// ClearLock clears the value of the "lock" field.
+func (_u *UserUpdateOne) ClearLock() *UserUpdateOne {
+	_u.mutation.ClearLock()
 	return _u
 }
 
@@ -370,6 +416,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.Labels(); ok {
 		_spec.SetField(user.FieldLabels, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.Lock(); ok {
+		_spec.SetField(user.FieldLock, field.TypeString, value)
+	}
+	if _u.mutation.LockCleared() {
+		_spec.ClearField(user.FieldLock, field.TypeString)
 	}
 	if _u.mutation.DateCreatedCleared() {
 		_spec.ClearField(user.FieldDateCreated, field.TypeTime)

@@ -28,6 +28,7 @@ var (
 		{Name: "alias", Type: field.TypeString, Nullable: true},
 		{Name: "name", Type: field.TypeString, Nullable: true},
 		{Name: "labels", Type: field.TypeJSON},
+		{Name: "lock", Type: field.TypeString, Nullable: true},
 		{Name: "date_created", Type: field.TypeTime, Nullable: true},
 		{Name: "user_tenant", Type: field.TypeUUID},
 	}
@@ -39,7 +40,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_tenants_tenant",
-				Columns:    []*schema.Column{UsersColumns[5]},
+				Columns:    []*schema.Column{UsersColumns[6]},
 				RefColumns: []*schema.Column{TenantsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -48,7 +49,7 @@ var (
 			{
 				Name:    "user_alias_user_tenant",
 				Unique:  true,
-				Columns: []*schema.Column{UsersColumns[1], UsersColumns[5]},
+				Columns: []*schema.Column{UsersColumns[1], UsersColumns[6]},
 			},
 		},
 	}

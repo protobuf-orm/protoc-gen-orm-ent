@@ -16,6 +16,7 @@ import (
 type App struct {
 	namer *template.Template
 
+	// Generated file path -> Generated file.
 	gfs map[string]*protogen.GeneratedFile
 }
 

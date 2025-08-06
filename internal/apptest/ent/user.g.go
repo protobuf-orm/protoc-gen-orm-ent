@@ -17,6 +17,9 @@ func (e *User) Proto() *apptest.User {
 	x.SetAlias(e.Alias)
 	x.SetName(e.Name)
 	x.SetLabels(e.Labels)
+	if e.Lock != nil {
+		x.SetLock(*e.Lock)
+	}
 	x.SetDateCreated(timestamppb.New(e.DateCreated))
 	return x
 }

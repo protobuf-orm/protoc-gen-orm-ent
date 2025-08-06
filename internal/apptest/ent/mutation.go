@@ -593,6 +593,7 @@ type UserMutation struct {
 	alias         *string
 	name          *string
 	labels        *map[string]string
+	lock          *string
 	date_created  *time.Time
 	clearedFields map[string]struct{}
 	tenant        *uuid.UUID
@@ -840,6 +841,55 @@ func (m *UserMutation) ResetLabels() {
 	m.labels = nil
 }
 
+// SetLock sets the "lock" field.
+func (m *UserMutation) SetLock(s string) {
+	m.lock = &s
+}
+
+// Lock returns the value of the "lock" field in the mutation.
+func (m *UserMutation) Lock() (r string, exists bool) {
+	v := m.lock
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLock returns the old "lock" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldLock(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLock is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLock requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLock: %w", err)
+	}
+	return oldValue.Lock, nil
+}
+
+// ClearLock clears the value of the "lock" field.
+func (m *UserMutation) ClearLock() {
+	m.lock = nil
+	m.clearedFields[user.FieldLock] = struct{}{}
+}
+
+// LockCleared returns if the "lock" field was cleared in this mutation.
+func (m *UserMutation) LockCleared() bool {
+	_, ok := m.clearedFields[user.FieldLock]
+	return ok
+}
+
+// ResetLock resets all changes to the "lock" field.
+func (m *UserMutation) ResetLock() {
+	m.lock = nil
+	delete(m.clearedFields, user.FieldLock)
+}
+
 // SetDateCreated sets the "date_created" field.
 func (m *UserMutation) SetDateCreated(t time.Time) {
 	m.date_created = &t
@@ -962,7 +1012,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.alias != nil {
 		fields = append(fields, user.FieldAlias)
 	}
@@ -971,6 +1021,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.labels != nil {
 		fields = append(fields, user.FieldLabels)
+	}
+	if m.lock != nil {
+		fields = append(fields, user.FieldLock)
 	}
 	if m.date_created != nil {
 		fields = append(fields, user.FieldDateCreated)
@@ -989,6 +1042,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case user.FieldLabels:
 		return m.Labels()
+	case user.FieldLock:
+		return m.Lock()
 	case user.FieldDateCreated:
 		return m.DateCreated()
 	}
@@ -1006,6 +1061,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldName(ctx)
 	case user.FieldLabels:
 		return m.OldLabels(ctx)
+	case user.FieldLock:
+		return m.OldLock(ctx)
 	case user.FieldDateCreated:
 		return m.OldDateCreated(ctx)
 	}
@@ -1037,6 +1094,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLabels(v)
+		return nil
+	case user.FieldLock:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLock(v)
 		return nil
 	case user.FieldDateCreated:
 		v, ok := value.(time.Time)
@@ -1081,6 +1145,9 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldName) {
 		fields = append(fields, user.FieldName)
 	}
+	if m.FieldCleared(user.FieldLock) {
+		fields = append(fields, user.FieldLock)
+	}
 	if m.FieldCleared(user.FieldDateCreated) {
 		fields = append(fields, user.FieldDateCreated)
 	}
@@ -1104,6 +1171,9 @@ func (m *UserMutation) ClearField(name string) error {
 	case user.FieldName:
 		m.ClearName()
 		return nil
+	case user.FieldLock:
+		m.ClearLock()
+		return nil
 	case user.FieldDateCreated:
 		m.ClearDateCreated()
 		return nil
@@ -1123,6 +1193,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldLabels:
 		m.ResetLabels()
+		return nil
+	case user.FieldLock:
+		m.ResetLock()
 		return nil
 	case user.FieldDateCreated:
 		m.ResetDateCreated()

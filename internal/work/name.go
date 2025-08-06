@@ -1,4 +1,4 @@
-package app
+package work
 
 import (
 	"github.com/ettle/strcase"

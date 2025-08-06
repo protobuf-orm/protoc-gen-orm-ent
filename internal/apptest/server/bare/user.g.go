@@ -12,6 +12,7 @@ import (
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type UserServiceServer struct {
@@ -37,6 +38,9 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		q.SetName(req.GetName())
 	}
 	q.SetLabels(req.GetLabels())
+	if req.HasLock() {
+		q.SetLock(req.GetLock())
+	}
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
 	}
@@ -47,6 +51,70 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	}
 
 	return v.Proto(), nil
+}
+
+func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest) (*apptest.User, error) {
+	q := s.Db.User.Query()
+
+	if p, err := UserPick(req.GetRef()); err != nil {
+		return nil, err
+	} else {
+		q.Where(p)
+	}
+
+	if s := req.GetSelect(); s != nil {
+		// TODO
+	} else {
+		q.WithTenant(selectTenantKey)
+	}
+
+	v, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return v.Proto(), nil
+}
+
+func selectUserKey(q *ent.UserQuery) {
+	q.Select(user.FieldID)
+}
+func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*emptypb.Empty, error) {
+	p, err := UserPick(req.GetTarget())
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.User.Update().Where(p)
+	if req.HasAlias() {
+		q.SetAlias(req.GetAlias())
+	}
+	if req.HasName() {
+		q.SetName(req.GetName())
+	}
+	q.SetLabels(req.GetLabels())
+	if req.GetLockNull() {
+		q.ClearLock()
+	} else if req.HasLock() {
+		q.SetLock(req.GetLock())
+	}
+
+	if _, err := q.Save(ctx); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*emptypb.Empty, error) {
+	p, err := UserPick(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := s.Db.User.Delete().Where(p).Exec(ctx); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func UserPick(req *apptest.UserRef) (predicate.User, error) {

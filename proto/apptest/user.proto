@@ -27,6 +27,8 @@ message User {
   ];
   map<string, string> labels = 7;
 
+  string lock = 8 [(orm.field) = {nullable: true}];
+
   google.protobuf.Timestamp date_created = 15 [(orm.field) = {
     immutable: true
     default: ""

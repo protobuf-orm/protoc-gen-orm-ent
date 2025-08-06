@@ -29,7 +29,10 @@ type User struct {
 	xxx_hidden_Alias       string                 `protobuf:"bytes,4,opt,name=alias"`
 	xxx_hidden_Name        string                 `protobuf:"bytes,5,opt,name=name"`
 	xxx_hidden_Labels      map[string]string      `protobuf:"bytes,7,rep,name=labels" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Lock        *string                `protobuf:"bytes,8,opt,name=lock"`
 	xxx_hidden_DateCreated *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=date_created,json=dateCreated"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -94,6 +97,16 @@ func (x *User) GetLabels() map[string]string {
 	return nil
 }
 
+func (x *User) GetLock() string {
+	if x != nil {
+		if x.xxx_hidden_Lock != nil {
+			return *x.xxx_hidden_Lock
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *User) GetDateCreated() *timestamppb.Timestamp {
 	if x != nil {
 		return x.xxx_hidden_DateCreated
@@ -124,6 +137,11 @@ func (x *User) SetLabels(v map[string]string) {
 	x.xxx_hidden_Labels = v
 }
 
+func (x *User) SetLock(v string) {
+	x.xxx_hidden_Lock = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
+}
+
 func (x *User) SetDateCreated(v *timestamppb.Timestamp) {
 	x.xxx_hidden_DateCreated = v
 }
@@ -135,6 +153,13 @@ func (x *User) HasTenant() bool {
 	return x.xxx_hidden_Tenant != nil
 }
 
+func (x *User) HasLock() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *User) HasDateCreated() bool {
 	if x == nil {
 		return false
@@ -144,6 +169,11 @@ func (x *User) HasDateCreated() bool {
 
 func (x *User) ClearTenant() {
 	x.xxx_hidden_Tenant = nil
+}
+
+func (x *User) ClearLock() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Lock = nil
 }
 
 func (x *User) ClearDateCreated() {
@@ -158,6 +188,7 @@ type User_builder struct {
 	Alias       string
 	Name        string
 	Labels      map[string]string
+	Lock        *string
 	DateCreated *timestamppb.Timestamp
 }
 
@@ -170,6 +201,10 @@ func (b0 User_builder) Build() *User {
 	x.xxx_hidden_Alias = b.Alias
 	x.xxx_hidden_Name = b.Name
 	x.xxx_hidden_Labels = b.Labels
+	if b.Lock != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		x.xxx_hidden_Lock = b.Lock
+	}
 	x.xxx_hidden_DateCreated = b.DateCreated
 	return m0
 }
@@ -178,13 +213,14 @@ var File_apptest_user_proto protoreflect.FileDescriptor
 
 const file_apptest_user_proto_rawDesc = "" +
 	"\n" +
-	"\x12apptest/user.proto\x12\aapptest\x1a\x14apptest/tenant.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\torm.proto\"\xf8\x02\n" +
+	"\x12apptest/user.proto\x12\aapptest\x1a\x14apptest/tenant.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\torm.proto\"\x94\x03\n" +
 	"\x04User\x12\x1d\n" +
 	"\x02id\x18\x01 \x01(\fB\r\xea\x82\x16\x04\x10@(\x01\xaa\x01\x02\b\x02R\x02id\x12'\n" +
 	"\x06tenant\x18\x02 \x01(\v2\x0f.apptest.TenantR\x06tenant\x12\"\n" +
 	"\x05alias\x18\x04 \x01(\tB\f\xea\x82\x16\x03\x82\x01\x00\xaa\x01\x02\b\x02R\x05alias\x12 \n" +
 	"\x04name\x18\x05 \x01(\tB\f\xea\x82\x16\x03\x82\x01\x00\xaa\x01\x02\b\x02R\x04name\x121\n" +
-	"\x06labels\x18\a \x03(\v2\x19.apptest.User.LabelsEntryR\x06labels\x12H\n" +
+	"\x06labels\x18\a \x03(\v2\x19.apptest.User.LabelsEntryR\x06labels\x12\x1a\n" +
+	"\x04lock\x18\b \x01(\tB\x06\xea\x82\x16\x028\x01R\x04lock\x12H\n" +
 	"\fdate_created\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampB\t\xea\x82\x16\x05@\x01\x82\x01\x00R\vdateCreated\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +

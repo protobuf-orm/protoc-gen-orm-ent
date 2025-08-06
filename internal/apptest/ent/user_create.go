@@ -56,6 +56,20 @@ func (_c *UserCreate) SetLabels(v map[string]string) *UserCreate {
 	return _c
 }
 
+// SetLock sets the "lock" field.
+func (_c *UserCreate) SetLock(v string) *UserCreate {
+	_c.mutation.SetLock(v)
+	return _c
+}
+
+// SetNillableLock sets the "lock" field if the given value is not nil.
+func (_c *UserCreate) SetNillableLock(v *string) *UserCreate {
+	if v != nil {
+		_c.SetLock(*v)
+	}
+	return _c
+}
+
 // SetDateCreated sets the "date_created" field.
 func (_c *UserCreate) SetDateCreated(v time.Time) *UserCreate {
 	_c.mutation.SetDateCreated(v)
@@ -173,6 +187,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Labels(); ok {
 		_spec.SetField(user.FieldLabels, field.TypeJSON, value)
 		_node.Labels = value
+	}
+	if value, ok := _c.mutation.Lock(); ok {
+		_spec.SetField(user.FieldLock, field.TypeString, value)
+		_node.Lock = &value
 	}
 	if value, ok := _c.mutation.DateCreated(); ok {
 		_spec.SetField(user.FieldDateCreated, field.TypeTime, value)

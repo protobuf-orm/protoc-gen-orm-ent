@@ -66,6 +66,11 @@ func Name(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldName, v))
 }
 
+// Lock applies equality check predicate on the "lock" field. It's identical to LockEQ.
+func Lock(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldLock, v))
+}
+
 // DateCreated applies equality check predicate on the "date_created" field. It's identical to DateCreatedEQ.
 func DateCreated(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldDateCreated, v))
@@ -219,6 +224,81 @@ func NameEqualFold(v string) predicate.User {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldName, v))
+}
+
+// LockEQ applies the EQ predicate on the "lock" field.
+func LockEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldLock, v))
+}
+
+// LockNEQ applies the NEQ predicate on the "lock" field.
+func LockNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldLock, v))
+}
+
+// LockIn applies the In predicate on the "lock" field.
+func LockIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldLock, vs...))
+}
+
+// LockNotIn applies the NotIn predicate on the "lock" field.
+func LockNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldLock, vs...))
+}
+
+// LockGT applies the GT predicate on the "lock" field.
+func LockGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldLock, v))
+}
+
+// LockGTE applies the GTE predicate on the "lock" field.
+func LockGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldLock, v))
+}
+
+// LockLT applies the LT predicate on the "lock" field.
+func LockLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldLock, v))
+}
+
+// LockLTE applies the LTE predicate on the "lock" field.
+func LockLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldLock, v))
+}
+
+// LockContains applies the Contains predicate on the "lock" field.
+func LockContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldLock, v))
+}
+
+// LockHasPrefix applies the HasPrefix predicate on the "lock" field.
+func LockHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldLock, v))
+}
+
+// LockHasSuffix applies the HasSuffix predicate on the "lock" field.
+func LockHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldLock, v))
+}
+
+// LockIsNil applies the IsNil predicate on the "lock" field.
+func LockIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldLock))
+}
+
+// LockNotNil applies the NotNil predicate on the "lock" field.
+func LockNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldLock))
+}
+
+// LockEqualFold applies the EqualFold predicate on the "lock" field.
+func LockEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldLock, v))
+}
+
+// LockContainsFold applies the ContainsFold predicate on the "lock" field.
+func LockContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldLock, v))
 }
 
 // DateCreatedEQ applies the EQ predicate on the "date_created" field.

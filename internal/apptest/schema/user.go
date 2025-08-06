@@ -25,6 +25,9 @@ func (User) Fields() []ent.Field {
 		field.String("name").
 			Optional(),
 		field.JSON("labels", map[string]string{}),
+		field.String("lock").
+			Nillable().
+			Optional(),
 		field.Time("date_created").
 			Immutable().
 			Optional(),

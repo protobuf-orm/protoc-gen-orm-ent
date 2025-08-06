@@ -18,6 +18,8 @@ const (
 	FieldName = "name"
 	// FieldLabels holds the string denoting the labels field in the database.
 	FieldLabels = "labels"
+	// FieldLock holds the string denoting the lock field in the database.
+	FieldLock = "lock"
 	// FieldDateCreated holds the string denoting the date_created field in the database.
 	FieldDateCreated = "date_created"
 	// EdgeTenant holds the string denoting the tenant edge name in mutations.
@@ -39,6 +41,7 @@ var Columns = []string{
 	FieldAlias,
 	FieldName,
 	FieldLabels,
+	FieldLock,
 	FieldDateCreated,
 }
 
@@ -79,6 +82,11 @@ func ByAlias(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByLock orders the results by the lock field.
+func ByLock(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLock, opts...).ToFunc()
 }
 
 // ByDateCreated orders the results by the date_created field.

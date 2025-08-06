@@ -29,6 +29,7 @@ type UserAddRequest struct {
 	xxx_hidden_Alias       *string                `protobuf:"bytes,4,opt,name=alias"`
 	xxx_hidden_Name        *string                `protobuf:"bytes,5,opt,name=name"`
 	xxx_hidden_Labels      map[string]string      `protobuf:"bytes,7,rep,name=labels" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Lock        *string                `protobuf:"bytes,8,opt,name=lock"`
 	xxx_hidden_DateCreated *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=date_created,json=dateCreated"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -102,6 +103,16 @@ func (x *UserAddRequest) GetLabels() map[string]string {
 	return nil
 }
 
+func (x *UserAddRequest) GetLock() string {
+	if x != nil {
+		if x.xxx_hidden_Lock != nil {
+			return *x.xxx_hidden_Lock
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *UserAddRequest) GetDateCreated() *timestamppb.Timestamp {
 	if x != nil {
 		return x.xxx_hidden_DateCreated
@@ -114,7 +125,7 @@ func (x *UserAddRequest) SetId(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Id = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
 }
 
 func (x *UserAddRequest) SetTenant(v *TenantRef) {
@@ -123,16 +134,21 @@ func (x *UserAddRequest) SetTenant(v *TenantRef) {
 
 func (x *UserAddRequest) SetAlias(v string) {
 	x.xxx_hidden_Alias = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
 }
 
 func (x *UserAddRequest) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
 }
 
 func (x *UserAddRequest) SetLabels(v map[string]string) {
 	x.xxx_hidden_Labels = v
+}
+
+func (x *UserAddRequest) SetLock(v string) {
+	x.xxx_hidden_Lock = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
 }
 
 func (x *UserAddRequest) SetDateCreated(v *timestamppb.Timestamp) {
@@ -167,6 +183,13 @@ func (x *UserAddRequest) HasName() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *UserAddRequest) HasLock() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *UserAddRequest) HasDateCreated() bool {
 	if x == nil {
 		return false
@@ -193,6 +216,11 @@ func (x *UserAddRequest) ClearName() {
 	x.xxx_hidden_Name = nil
 }
 
+func (x *UserAddRequest) ClearLock() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Lock = nil
+}
+
 func (x *UserAddRequest) ClearDateCreated() {
 	x.xxx_hidden_DateCreated = nil
 }
@@ -205,6 +233,7 @@ type UserAddRequest_builder struct {
 	Alias       *string
 	Name        *string
 	Labels      map[string]string
+	Lock        *string
 	DateCreated *timestamppb.Timestamp
 }
 
@@ -213,19 +242,23 @@ func (b0 UserAddRequest_builder) Build() *UserAddRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Id != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
 		x.xxx_hidden_Id = b.Id
 	}
 	x.xxx_hidden_Tenant = b.Tenant
 	if b.Alias != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
 		x.xxx_hidden_Alias = b.Alias
 	}
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
 		x.xxx_hidden_Name = b.Name
 	}
 	x.xxx_hidden_Labels = b.Labels
+	if b.Lock != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		x.xxx_hidden_Lock = b.Lock
+	}
 	x.xxx_hidden_DateCreated = b.DateCreated
 	return m0
 }
@@ -510,6 +543,7 @@ type UserSelect struct {
 	xxx_hidden_Alias       bool                   `protobuf:"varint,4,opt,name=alias"`
 	xxx_hidden_Name        bool                   `protobuf:"varint,5,opt,name=name"`
 	xxx_hidden_Labels      bool                   `protobuf:"varint,7,opt,name=labels"`
+	xxx_hidden_Lock        bool                   `protobuf:"varint,8,opt,name=lock"`
 	xxx_hidden_DateCreated bool                   `protobuf:"varint,15,opt,name=date_created,json=dateCreated"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -577,6 +611,13 @@ func (x *UserSelect) GetLabels() bool {
 	return false
 }
 
+func (x *UserSelect) GetLock() bool {
+	if x != nil {
+		return x.xxx_hidden_Lock
+	}
+	return false
+}
+
 func (x *UserSelect) GetDateCreated() bool {
 	if x != nil {
 		return x.xxx_hidden_DateCreated
@@ -586,7 +627,7 @@ func (x *UserSelect) GetDateCreated() bool {
 
 func (x *UserSelect) SetAll(v bool) {
 	x.xxx_hidden_All = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
 }
 
 func (x *UserSelect) SetTenant(v *TenantSelect) {
@@ -595,22 +636,27 @@ func (x *UserSelect) SetTenant(v *TenantSelect) {
 
 func (x *UserSelect) SetAlias(v bool) {
 	x.xxx_hidden_Alias = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
 }
 
 func (x *UserSelect) SetName(v bool) {
 	x.xxx_hidden_Name = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
 }
 
 func (x *UserSelect) SetLabels(v bool) {
 	x.xxx_hidden_Labels = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
+}
+
+func (x *UserSelect) SetLock(v bool) {
+	x.xxx_hidden_Lock = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
 }
 
 func (x *UserSelect) SetDateCreated(v bool) {
 	x.xxx_hidden_DateCreated = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 7)
 }
 
 func (x *UserSelect) HasAll() bool {
@@ -648,11 +694,18 @@ func (x *UserSelect) HasLabels() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
-func (x *UserSelect) HasDateCreated() bool {
+func (x *UserSelect) HasLock() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *UserSelect) HasDateCreated() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
 }
 
 func (x *UserSelect) ClearAll() {
@@ -679,8 +732,13 @@ func (x *UserSelect) ClearLabels() {
 	x.xxx_hidden_Labels = false
 }
 
-func (x *UserSelect) ClearDateCreated() {
+func (x *UserSelect) ClearLock() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Lock = false
+}
+
+func (x *UserSelect) ClearDateCreated() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
 	x.xxx_hidden_DateCreated = false
 }
 
@@ -692,6 +750,7 @@ type UserSelect_builder struct {
 	Alias       *bool
 	Name        *bool
 	Labels      *bool
+	Lock        *bool
 	DateCreated *bool
 }
 
@@ -700,24 +759,28 @@ func (b0 UserSelect_builder) Build() *UserSelect {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.All != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
 		x.xxx_hidden_All = *b.All
 	}
 	x.xxx_hidden_Tenant = b.Tenant
 	if b.Alias != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
 		x.xxx_hidden_Alias = *b.Alias
 	}
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
 		x.xxx_hidden_Name = *b.Name
 	}
 	if b.Labels != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
 		x.xxx_hidden_Labels = *b.Labels
 	}
+	if b.Lock != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		x.xxx_hidden_Lock = *b.Lock
+	}
 	if b.DateCreated != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 7)
 		x.xxx_hidden_DateCreated = *b.DateCreated
 	}
 	return m0
@@ -823,6 +886,8 @@ type UserPatchRequest struct {
 	xxx_hidden_Alias       *string                `protobuf:"bytes,7,opt,name=alias"`
 	xxx_hidden_Name        *string                `protobuf:"bytes,9,opt,name=name"`
 	xxx_hidden_Labels      map[string]string      `protobuf:"bytes,13,rep,name=labels" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	xxx_hidden_Lock        *string                `protobuf:"bytes,15,opt,name=lock"`
+	xxx_hidden_LockNull    bool                   `protobuf:"varint,16,opt,name=lock_null,json=lockNull"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -895,6 +960,23 @@ func (x *UserPatchRequest) GetLabels() map[string]string {
 	return nil
 }
 
+func (x *UserPatchRequest) GetLock() string {
+	if x != nil {
+		if x.xxx_hidden_Lock != nil {
+			return *x.xxx_hidden_Lock
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *UserPatchRequest) GetLockNull() bool {
+	if x != nil {
+		return x.xxx_hidden_LockNull
+	}
+	return false
+}
+
 func (x *UserPatchRequest) SetTarget(v *UserRef) {
 	x.xxx_hidden_Target = v
 }
@@ -905,16 +987,26 @@ func (x *UserPatchRequest) SetTenant(v *TenantRef) {
 
 func (x *UserPatchRequest) SetAlias(v string) {
 	x.xxx_hidden_Alias = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
 }
 
 func (x *UserPatchRequest) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
 }
 
 func (x *UserPatchRequest) SetLabels(v map[string]string) {
 	x.xxx_hidden_Labels = v
+}
+
+func (x *UserPatchRequest) SetLock(v string) {
+	x.xxx_hidden_Lock = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
+}
+
+func (x *UserPatchRequest) SetLockNull(v bool) {
+	x.xxx_hidden_LockNull = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 7)
 }
 
 func (x *UserPatchRequest) HasTarget() bool {
@@ -945,6 +1037,20 @@ func (x *UserPatchRequest) HasName() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *UserPatchRequest) HasLock() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *UserPatchRequest) HasLockNull() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
 func (x *UserPatchRequest) ClearTarget() {
 	x.xxx_hidden_Target = nil
 }
@@ -963,14 +1069,26 @@ func (x *UserPatchRequest) ClearName() {
 	x.xxx_hidden_Name = nil
 }
 
+func (x *UserPatchRequest) ClearLock() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Lock = nil
+}
+
+func (x *UserPatchRequest) ClearLockNull() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_LockNull = false
+}
+
 type UserPatchRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Target *UserRef
-	Tenant *TenantRef
-	Alias  *string
-	Name   *string
-	Labels map[string]string
+	Target   *UserRef
+	Tenant   *TenantRef
+	Alias    *string
+	Name     *string
+	Labels   map[string]string
+	Lock     *string
+	LockNull *bool
 }
 
 func (b0 UserPatchRequest_builder) Build() *UserPatchRequest {
@@ -980,14 +1098,22 @@ func (b0 UserPatchRequest_builder) Build() *UserPatchRequest {
 	x.xxx_hidden_Target = b.Target
 	x.xxx_hidden_Tenant = b.Tenant
 	if b.Alias != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
 		x.xxx_hidden_Alias = b.Alias
 	}
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
 		x.xxx_hidden_Name = b.Name
 	}
 	x.xxx_hidden_Labels = b.Labels
+	if b.Lock != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		x.xxx_hidden_Lock = b.Lock
+	}
+	if b.LockNull != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 7)
+		x.xxx_hidden_LockNull = *b.LockNull
+	}
 	return m0
 }
 
@@ -995,13 +1121,14 @@ var File_apptest_user_svc_g_proto protoreflect.FileDescriptor
 
 const file_apptest_user_svc_g_proto_rawDesc = "" +
 	"\n" +
-	"\x18apptest/user_svc.g.proto\x12\aapptest\x1a\x1aapptest/tenant_svc.g.proto\x1a\x12apptest/user.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x02\n" +
+	"\x18apptest/user_svc.g.proto\x12\aapptest\x1a\x1aapptest/tenant_svc.g.proto\x1a\x12apptest/user.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd6\x02\n" +
 	"\x0eUserAddRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12*\n" +
 	"\x06tenant\x18\x02 \x01(\v2\x12.apptest.TenantRefR\x06tenant\x12\x1b\n" +
 	"\x05alias\x18\x04 \x01(\tB\x05\xaa\x01\x02\b\x01R\x05alias\x12\x19\n" +
 	"\x04name\x18\x05 \x01(\tB\x05\xaa\x01\x02\b\x01R\x04name\x12;\n" +
-	"\x06labels\x18\a \x03(\v2#.apptest.UserAddRequest.LabelsEntryR\x06labels\x12=\n" +
+	"\x06labels\x18\a \x03(\v2#.apptest.UserAddRequest.LabelsEntryR\x06labels\x12\x19\n" +
+	"\x04lock\x18\b \x01(\tB\x05\xaa\x01\x02\b\x01R\x04lock\x12=\n" +
 	"\fdate_created\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\vdateCreated\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -1012,24 +1139,27 @@ const file_apptest_user_svc_g_proto_rawDesc = "" +
 	"\aUserRef\x12\x10\n" +
 	"\x02id\x18\x01 \x01(\fH\x00R\x02id\x12/\n" +
 	"\x05alias\x18\x04 \x01(\v2\x17.apptest.UserRefByAliasH\x00R\x05aliasB\x05\n" +
-	"\x03key\"\xb2\x01\n" +
+	"\x03key\"\xc6\x01\n" +
 	"\n" +
 	"UserSelect\x12\x10\n" +
 	"\x03all\x18\x01 \x01(\bR\x03all\x12-\n" +
 	"\x06tenant\x18\x02 \x01(\v2\x15.apptest.TenantSelectR\x06tenant\x12\x14\n" +
 	"\x05alias\x18\x04 \x01(\bR\x05alias\x12\x12\n" +
 	"\x04name\x18\x05 \x01(\bR\x04name\x12\x16\n" +
-	"\x06labels\x18\a \x01(\bR\x06labels\x12!\n" +
+	"\x06labels\x18\a \x01(\bR\x06labels\x12\x12\n" +
+	"\x04lock\x18\b \x01(\bR\x04lock\x12!\n" +
 	"\fdate_created\x18\x0f \x01(\bR\vdateCreated\"a\n" +
 	"\x0eUserGetRequest\x12\"\n" +
 	"\x03ref\x18\x01 \x01(\v2\x10.apptest.UserRefR\x03ref\x12+\n" +
-	"\x06select\x18\x02 \x01(\v2\x13.apptest.UserSelectR\x06select\"\x8c\x02\n" +
+	"\x06select\x18\x02 \x01(\v2\x13.apptest.UserSelectR\x06select\"\xbd\x02\n" +
 	"\x10UserPatchRequest\x12(\n" +
 	"\x06target\x18\x01 \x01(\v2\x10.apptest.UserRefR\x06target\x12*\n" +
 	"\x06tenant\x18\x03 \x01(\v2\x12.apptest.TenantRefR\x06tenant\x12\x14\n" +
 	"\x05alias\x18\a \x01(\tR\x05alias\x12\x12\n" +
 	"\x04name\x18\t \x01(\tR\x04name\x12=\n" +
-	"\x06labels\x18\r \x03(\v2%.apptest.UserPatchRequest.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\r \x03(\v2%.apptest.UserPatchRequest.LabelsEntryR\x06labels\x12\x12\n" +
+	"\x04lock\x18\x0f \x01(\tR\x04lock\x12\x1b\n" +
+	"\tlock_null\x18\x10 \x01(\bR\blockNull\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012\xd1\x01\n" +

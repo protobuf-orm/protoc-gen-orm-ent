@@ -26,6 +26,8 @@ type User struct {
 	Name string `json:"name,omitempty"`
 	// Labels holds the value of the "labels" field.
 	Labels map[string]string `json:"labels,omitempty"`
+	// Lock holds the value of the "lock" field.
+	Lock *string `json:"lock,omitempty"`
 	// DateCreated holds the value of the "date_created" field.
 	DateCreated time.Time `json:"date_created,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -62,7 +64,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldLabels:
 			values[i] = new([]byte)
-		case user.FieldAlias, user.FieldName:
+		case user.FieldAlias, user.FieldName, user.FieldLock:
 			values[i] = new(sql.NullString)
 		case user.FieldDateCreated:
 			values[i] = new(sql.NullTime)
@@ -110,6 +112,13 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.Labels); err != nil {
 					return fmt.Errorf("unmarshal field labels: %w", err)
 				}
+			}
+		case user.FieldLock:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field lock", values[i])
+			} else if value.Valid {
+				_m.Lock = new(string)
+				*_m.Lock = value.String
 			}
 		case user.FieldDateCreated:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -173,6 +182,11 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("labels=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Labels))
+	builder.WriteString(", ")
+	if v := _m.Lock; v != nil {
+		builder.WriteString("lock=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("date_created=")
 	builder.WriteString(_m.DateCreated.Format(time.ANSIC))
