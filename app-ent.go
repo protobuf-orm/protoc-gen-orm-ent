@@ -10,10 +10,14 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func (h *Handler) runEntApp(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error {
+type EntOpts struct {
+	Namer string
+}
+
+func (h *EntOpts) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error {
 	opts := []app.Option{}
-	if h.NamerEnt != "" {
-		v, err := template.New("namer").Parse(h.NamerEnt)
+	if h.Namer != "" {
+		v, err := template.New("namer").Parse(h.Namer)
 		if err != nil {
 			return fmt.Errorf("opt.namer-ent: %w", err)
 		}

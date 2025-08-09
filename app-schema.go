@@ -10,10 +10,14 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func (h *Handler) runSchemaApp(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error {
+type SchemaOpts struct {
+	Namer string
+}
+
+func (h *SchemaOpts) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error {
 	opts := []app.Option{}
-	if h.NamerSchema != "" {
-		v, err := template.New("namer").Parse(h.NamerSchema)
+	if h.Namer != "" {
+		v, err := template.New("namer").Parse(h.Namer)
 		if err != nil {
 			return fmt.Errorf("opt.namer-schema: %w", err)
 		}

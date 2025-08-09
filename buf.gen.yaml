@@ -15,6 +15,11 @@ plugins:
       - module=github.com/protobuf-orm/protoc-gen-orm-ent
   - local: ./protoc-gen-orm-service
     out: ./proto
+  - local: ./protoc-gen-orm-go
+    out: .
+    opt:
+      - module=github.com/protobuf-orm/protoc-gen-orm-ent
+      - query.namer=query.g.go
   - local: ./protoc-gen-orm-ent
     out: .
     opt:

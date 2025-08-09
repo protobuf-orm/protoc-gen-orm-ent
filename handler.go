@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
+	"text/template"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"google.golang.org/protobuf/compiler/protogen"
@@ -11,9 +14,10 @@ import (
 )
 
 type Handler struct {
-	NamerSchema string
-	NamerEnt    string
-	NamerServer string
+	Schema SchemaOpts
+	Ent    EntOpts
+	Server ServerOpts
+	Store  StoreOpts
 }
 
 func (h *Handler) Run(p *protogen.Plugin) error {
@@ -27,21 +31,31 @@ func (h *Handler) Run(p *protogen.Plugin) error {
 	ctx := context.Background()
 	// TODO: set logger
 
+	if v, err := template.New("namer").Parse(h.Ent.Namer); err != nil {
+		return fmt.Errorf("opt.ent.namer: %w", err)
+	} else {
+		b := strings.Builder{}
+		if err := v.Execute(&b, struct{ Name string }{Name: "_"}); err != nil {
+			return fmt.Errorf("opt.ent.namer: %w", err)
+		}
+
+		path := b.String() // path/to/package/_.g.go
+		pkg_user_ent := protogen.GoImportPath(filepath.Dir(path))
+		h.Server.ent = pkg_user_ent
+		h.Store.ent = pkg_user_ent
+	}
+
 	g := graph.NewGraph()
 	for _, f := range p.Files {
 		if err := graph.Parse(ctx, g, f.Desc); err != nil {
 			return fmt.Errorf("parse entity at %s: %w", *f.Proto.Name, err)
 		}
 	}
-	if err := h.runSchemaApp(ctx, p, g); err != nil {
-		return err
-	}
-	if err := h.runEntApp(ctx, p, g); err != nil {
-		return err
-	}
-	if err := h.runServerApp(ctx, p, g); err != nil {
-		return err
-	}
+
+	h.Schema.Run(ctx, p, g)
+	h.Ent.Run(ctx, p, g)
+	h.Server.Run(ctx, p, g)
+	h.Store.Run(ctx, p, g)
 
 	return nil
 }
