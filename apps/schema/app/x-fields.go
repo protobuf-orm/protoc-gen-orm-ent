@@ -58,7 +58,7 @@ func xFields(w *work.FileWork) {
 			w.P(".")
 			fmt.Fprint(w, "			Immutable()")
 		}
-		if p.IsOptional() {
+		if p.IsOptional() && p != w.Entity.Key() {
 			w.P(".")
 			fmt.Fprint(w, "			Optional()")
 		}

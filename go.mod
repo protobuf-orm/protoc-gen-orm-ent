@@ -8,7 +8,7 @@ require (
 	github.com/go-openapi/inflect v0.21.2
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.17
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20250805163000-957350c44edc
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20250810091554-c9ce152f91bd
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6

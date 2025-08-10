@@ -13,6 +13,7 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	time "time"
 )
 
 type TenantServiceServer struct {
@@ -20,26 +21,36 @@ type TenantServiceServer struct {
 	apptest.UnimplementedTenantServiceServer
 }
 
-func NewTenantServiceServer(db *ent.Client) TenantServiceServer {
+func NewTenantServiceServer(db *ent.Client) apptest.TenantServiceServer {
 	return TenantServiceServer{Db: db}
 }
 
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {
 	q := s.Db.Tenant.Create()
-	if v, err := uuid.FromBytes(req.GetId()); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+	if req.HasId() {
+		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			q.SetID(v)
+		}
 	} else {
-		q.SetID(v)
+		q.SetID(uuid.New())
 	}
 	if req.HasAlias() {
 		q.SetAlias(req.GetAlias())
+	} else {
+		q.SetAlias("")
 	}
 	if req.HasName() {
 		q.SetName(req.GetName())
+	} else {
+		q.SetName("")
 	}
 	q.SetLabels(req.GetLabels())
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
+	} else {
+		q.SetDateCreated(time.Now().UTC())
 	}
 
 	v, err := q.Save(ctx)
@@ -75,7 +86,7 @@ func selectTenantKey(q *ent.TenantQuery) {
 	q.Select(tenant.FieldID)
 }
 
-func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*emptypb.Empty, error) {
+func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*apptest.Tenant, error) {
 	p, err := TenantPick(req.GetTarget())
 	if err != nil {
 		return nil, err
@@ -95,6 +106,29 @@ func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatch
 	}
 
 	return nil, nil
+}
+
+func TenantGetKey(ctx context.Context, db *ent.Client, ref *apptest.TenantRef) (uuid.UUID, error) {
+	var z uuid.UUID
+	if ref.HasId() {
+		if v, err := uuid.FromBytes(ref.GetId()); err != nil {
+			return z, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			return v, nil
+		}
+	}
+
+	p, err := TenantPick(ref)
+	if err != nil {
+		return z, nil
+	}
+
+	v, err := db.Tenant.Query().Where(p).OnlyID(ctx)
+	if err != nil {
+		return z, err
+	}
+
+	return v, nil
 }
 
 func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) (*emptypb.Empty, error) {

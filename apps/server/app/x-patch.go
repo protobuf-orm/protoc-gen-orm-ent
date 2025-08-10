@@ -6,39 +6,12 @@ import (
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
 
-// func (s MissionServiceServer) Patch(ctx context.Context, req *odin.MissionPatchRequest) (*emptypb.Empty, error) {
-// 	id, err := MissionGetId(ctx, s.Db, req.GetKey())
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	q := s.Db.Mission.UpdateOneID(id)
-// 	if req.HasTenant() {
-// 		if id, err := TenantGetId(ctx, s.Db, req.GetTenant()); err != nil {
-// 			return nil, err
-// 		} else {
-// 			q.SetTenantID(id)
-// 		}
-// 	}
-// 	if req.GetSiteNull() {
-// 		q.ClearSite()
-// 	} else if req.HasSite() {
-// 		if id, err := SiteGetId(ctx, s.Db, req.GetSite()); err != nil {
-// 			return nil, err
-// 		} else {
-// 			q.SetSiteID(id)
-// 		}
-// 	}
-// 	if req.HasAlias() {
-// 		q.SetAlias(req.GetAlias())
-// 	}
-
 func (w *fileWork) xPatch() {
 	name := w.Ident.GoName
 	w.P("func (s ", name, "ServiceServer) Patch(",
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "req *", w.Src.GoImportPath.Ident(name+"PatchRequest"),
-		") (*", work.IdentEmpty, ", error) {")
+		") (*", w.Ident, ", error) {")
 	w.P("	p, err := ", name, "Pick(req.GetTarget())")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")

@@ -1121,9 +1121,9 @@ var File_apptest_user_svc_g_proto protoreflect.FileDescriptor
 
 const file_apptest_user_svc_g_proto_rawDesc = "" +
 	"\n" +
-	"\x18apptest/user_svc.g.proto\x12\aapptest\x1a\x1aapptest/tenant_svc.g.proto\x1a\x12apptest/user.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd6\x02\n" +
-	"\x0eUserAddRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\fR\x02id\x12*\n" +
+	"\x18apptest/user_svc.g.proto\x12\aapptest\x1a\x1aapptest/tenant_svc.g.proto\x1a\x12apptest/user.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdd\x02\n" +
+	"\x0eUserAddRequest\x12\x15\n" +
+	"\x02id\x18\x01 \x01(\fB\x05\xaa\x01\x02\b\x01R\x02id\x12*\n" +
 	"\x06tenant\x18\x02 \x01(\v2\x12.apptest.TenantRefR\x06tenant\x12\x1b\n" +
 	"\x05alias\x18\x04 \x01(\tB\x05\xaa\x01\x02\b\x01R\x05alias\x12\x19\n" +
 	"\x04name\x18\x05 \x01(\tB\x05\xaa\x01\x02\b\x01R\x04name\x12;\n" +

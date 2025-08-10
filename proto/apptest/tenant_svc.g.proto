@@ -19,7 +19,9 @@ service TenantService {
 }
 
 message TenantAddRequest {
-	bytes id = 1;
+	bytes id = 1 [
+		features.field_presence = EXPLICIT
+	];
 	string alias = 4 [
 		features.field_presence = EXPLICIT
 	];

@@ -94,6 +94,7 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 	}
 	if rpcs.HasPatch() {
 		w.xPatch()
+		w.xGetKey()
 		need_pick = true
 	}
 	if rpcs.HasErase() {

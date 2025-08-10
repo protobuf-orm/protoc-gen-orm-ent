@@ -84,6 +84,13 @@ func (w *FileWork) entTypeScalar(t ormpb.Type) string {
 }
 
 func (w *FileWork) EntType(t ormpb.Type, s graph.Shape) string {
+	if t == ormpb.Type_TYPE_GROUP {
+		panic("TODO")
+	}
+	if t.IsScalar() {
+		return w.entTypeScalar(t)
+	}
+
 	switch t {
 	case ormpb.Type_TYPE_MESSAGE, ormpb.Type_TYPE_JSON:
 		s, ok := s.(graph.MessageShape)

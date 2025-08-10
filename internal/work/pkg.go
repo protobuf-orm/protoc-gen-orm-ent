@@ -12,6 +12,7 @@ var (
 	PkgIndex = protogen.GoImportPath("entgo.io/ent/schema/index")
 
 	PkgGoogleUuid = protogen.GoImportPath("github.com/google/uuid")
+	PkgUuid       = PkgGoogleUuid
 
 	PkgProtoEmpty     = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
 	PkgProtoTimestamp = protogen.GoImportPath("google.golang.org/protobuf/types/known/timestamppb")
@@ -20,6 +21,6 @@ var (
 	PkgGrpcStatus = protogen.GoImportPath("google.golang.org/grpc/status")
 
 	IdentContext = PkgContext.Ident("Context")
-	IdentUuid    = PkgGoogleUuid.Ident("UUID")
+	IdentUuid    = PkgUuid.Ident("UUID")
 	IdentEmpty   = PkgProtoEmpty.Ident("Empty")
 )

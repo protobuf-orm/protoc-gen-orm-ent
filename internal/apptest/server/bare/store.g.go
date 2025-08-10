@@ -3,6 +3,7 @@
 package bare
 
 import (
+	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 )
 
@@ -14,5 +15,5 @@ func NewServer(db *ent.Client) Server {
 	return Server{Db: db}
 }
 
-func (s Server) Tenant() TenantServiceServer { return NewTenantServiceServer(s.Db) }
-func (s Server) User() UserServiceServer     { return NewUserServiceServer(s.Db) }
+func (s Server) Tenant() apptest.TenantServiceServer { return NewTenantServiceServer(s.Db) }
+func (s Server) User() apptest.UserServiceServer     { return NewUserServiceServer(s.Db) }

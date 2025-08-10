@@ -13,6 +13,7 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	time "time"
 )
 
 type UserServiceServer struct {
@@ -20,22 +21,37 @@ type UserServiceServer struct {
 	apptest.UnimplementedUserServiceServer
 }
 
-func NewUserServiceServer(db *ent.Client) UserServiceServer {
+func NewUserServiceServer(db *ent.Client) apptest.UserServiceServer {
 	return UserServiceServer{Db: db}
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
 	q := s.Db.User.Create()
-	if v, err := uuid.FromBytes(req.GetId()); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+	if req.HasId() {
+		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			q.SetID(v)
+		}
 	} else {
-		q.SetID(v)
+		q.SetID(uuid.New())
+	}
+	if req.HasTenant() {
+		if k, err := TenantGetKey(ctx, s.Db, req.GetTenant()); err != nil {
+			return nil, err
+		} else {
+			q.SetTenantID(k)
+		}
 	}
 	if req.HasAlias() {
 		q.SetAlias(req.GetAlias())
+	} else {
+		q.SetAlias("")
 	}
 	if req.HasName() {
 		q.SetName(req.GetName())
+	} else {
+		q.SetName("")
 	}
 	q.SetLabels(req.GetLabels())
 	if req.HasLock() {
@@ -43,6 +59,8 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	}
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
+	} else {
+		q.SetDateCreated(time.Now().UTC())
 	}
 
 	v, err := q.Save(ctx)
@@ -79,7 +97,7 @@ func selectUserKey(q *ent.UserQuery) {
 	q.Select(user.FieldID)
 }
 
-func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*emptypb.Empty, error) {
+func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*apptest.User, error) {
 	p, err := UserPick(req.GetTarget())
 	if err != nil {
 		return nil, err
@@ -104,6 +122,29 @@ func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequ
 	}
 
 	return nil, nil
+}
+
+func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid.UUID, error) {
+	var z uuid.UUID
+	if ref.HasId() {
+		if v, err := uuid.FromBytes(ref.GetId()); err != nil {
+			return z, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			return v, nil
+		}
+	}
+
+	p, err := UserPick(ref)
+	if err != nil {
+		return z, nil
+	}
+
+	v, err := db.User.Query().Where(p).OnlyID(ctx)
+	if err != nil {
+		return z, err
+	}
+
+	return v, nil
 }
 
 func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*emptypb.Empty, error) {

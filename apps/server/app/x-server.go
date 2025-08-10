@@ -7,7 +7,7 @@ func (w *fileWork) xServer() {
 	w.P("	", w.Src.GoImportPath.Ident("Unimplemented"+name))
 	w.P("}")
 	w.P("")
-	w.P("func New", name, "(db *", w.ent.Ident("Client"), ") ", name, "{")
+	w.P("func New", name, "(db *", w.ent.Ident("Client"), ") ", w.Src.GoImportPath.Ident(name), "{")
 	w.P("	return ", name, "{Db: db}")
 	w.P("}")
 	w.P("")

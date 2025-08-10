@@ -11,6 +11,7 @@ message Tenant {
   bytes id = 1 [(orm.field) = {
     type: TYPE_UUID
     key: true
+    default: ""
   }];
   string alias = 4 [
     features.field_presence = IMPLICIT,
