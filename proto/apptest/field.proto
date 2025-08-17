@@ -1,0 +1,386 @@
+edition = "2023";
+
+package apptest;
+
+import "google/protobuf/struct.proto";
+import "orm.proto";
+
+option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
+
+enum Level {
+  LEVEL_UNSPECIFIED = 0;
+
+  LEVEL_EASY = 1;
+  LEVEL_NORM = 2;
+  LEVEL_HARD = 3;
+}
+
+message ValueField {
+  string id = 1 [(orm.field) = {key: true}];
+
+  double implicit_f64 = 0x10 [features.field_presence = IMPLICIT];
+  float implicit_f32 = 0x11 [features.field_presence = IMPLICIT];
+  int32 implicit_i32 = 0x12 [features.field_presence = IMPLICIT];
+  int64 implicit_i64 = 0x13 [features.field_presence = IMPLICIT];
+  uint32 implicit_u32 = 0x14 [features.field_presence = IMPLICIT];
+  uint64 implicit_u64 = 0x15 [features.field_presence = IMPLICIT];
+  sint32 implicit_si32 = 0x16 [features.field_presence = IMPLICIT];
+  sint64 implicit_si64 = 0x17 [features.field_presence = IMPLICIT];
+  fixed32 implicit_fi32 = 0x18 [features.field_presence = IMPLICIT];
+  fixed64 implicit_fi64 = 0x19 [features.field_presence = IMPLICIT];
+  sfixed32 implicit_sfi32 = 0x1A [features.field_presence = IMPLICIT];
+  sfixed64 implicit_sfi64 = 0x1B [features.field_presence = IMPLICIT];
+  bool implicit_bool = 0x1C [features.field_presence = IMPLICIT];
+  string implicit_string = 0x1D [features.field_presence = IMPLICIT];
+  bytes implicit_bytes = 0x1E [features.field_presence = IMPLICIT];
+  Level implicit_enum = 0x1F [features.field_presence = IMPLICIT];
+
+  double explicit_f64 = 0x30 [features.field_presence = EXPLICIT];
+  float explicit_f32 = 0x31 [features.field_presence = EXPLICIT];
+  int32 explicit_i32 = 0x32 [features.field_presence = EXPLICIT];
+  int64 explicit_i64 = 0x33 [features.field_presence = EXPLICIT];
+  uint32 explicit_u32 = 0x34 [features.field_presence = EXPLICIT];
+  uint64 explicit_u64 = 0x35 [features.field_presence = EXPLICIT];
+  sint32 explicit_si32 = 0x36 [features.field_presence = EXPLICIT];
+  sint64 explicit_si64 = 0x37 [features.field_presence = EXPLICIT];
+  fixed32 explicit_fi32 = 0x38 [features.field_presence = EXPLICIT];
+  fixed64 explicit_fi64 = 0x39 [features.field_presence = EXPLICIT];
+  sfixed32 explicit_sfi32 = 0x3A [features.field_presence = EXPLICIT];
+  sfixed64 explicit_sfi64 = 0x3B [features.field_presence = EXPLICIT];
+  bool explicit_bool = 0x3C [features.field_presence = EXPLICIT];
+  string explicit_string = 0x3D [features.field_presence = EXPLICIT];
+  bytes explicit_bytes = 0x3E [features.field_presence = EXPLICIT];
+  Level explicit_enum = 0x3F [features.field_presence = EXPLICIT];
+
+  repeated double implicit_f64s = 0x50;
+  repeated float implicit_f32s = 0x51;
+  repeated int32 implicit_i32s = 0x52;
+  repeated int64 implicit_i64s = 0x53;
+  repeated uint32 implicit_u32s = 0x54;
+  repeated uint64 implicit_u64s = 0x55;
+  repeated sint32 implicit_si32s = 0x56;
+  repeated sint64 implicit_si64s = 0x57;
+  repeated fixed32 implicit_fi32s = 0x58;
+  repeated fixed64 implicit_fi64s = 0x59;
+  repeated sfixed32 implicit_sfi32s = 0x5A;
+  repeated sfixed64 implicit_sfi64s = 0x5B;
+  repeated bool implicit_bools = 0x5C;
+  repeated string implicit_strings = 0x5D;
+  repeated bytes implicit_bytess = 0x5E;
+  repeated Level implicit_levels = 0x5F;
+
+  double nullable_f64 = 0x70 [(orm.field) = {nullable: true}];
+  float nullable_f32 = 0x71 [(orm.field) = {nullable: true}];
+  int32 nullable_i32 = 0x72 [(orm.field) = {nullable: true}];
+  int64 nullable_i64 = 0x73 [(orm.field) = {nullable: true}];
+  uint32 nullable_u32 = 0x74 [(orm.field) = {nullable: true}];
+  uint64 nullable_u64 = 0x75 [(orm.field) = {nullable: true}];
+  sint32 nullable_si32 = 0x76 [(orm.field) = {nullable: true}];
+  sint64 nullable_si64 = 0x77 [(orm.field) = {nullable: true}];
+  fixed32 nullable_fi32 = 0x78 [(orm.field) = {nullable: true}];
+  fixed64 nullable_fi64 = 0x79 [(orm.field) = {nullable: true}];
+  sfixed32 nullable_sfi32 = 0x7A [(orm.field) = {nullable: true}];
+  sfixed64 nullable_sfi64 = 0x7B [(orm.field) = {nullable: true}];
+  bool nullable_bool = 0x7C [(orm.field) = {nullable: true}];
+  string nullable_string = 0x7D [(orm.field) = {nullable: true}];
+  bytes nullable_bytes = 0x7E [(orm.field) = {nullable: true}];
+  Level nullable_level = 0x7F [(orm.field) = {nullable: true}];
+
+  double implicit_f64_with_default = 0x90 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  float implicit_f32_with_default = 0x91 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  int32 implicit_i32_with_default = 0x92 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  int64 implicit_i64_with_default = 0x93 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  uint32 implicit_u32_with_default = 0x94 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  uint64 implicit_u64_with_default = 0x95 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sint32 implicit_si32_with_default = 0x96 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sint64 implicit_si64_with_default = 0x97 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  fixed32 implicit_fi32_with_default = 0x98 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  fixed64 implicit_fi64_with_default = 0x99 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sfixed32 implicit_sfi32_with_default = 0x9A [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sfixed64 implicit_sfi64_with_default = 0x9B [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  bool implicit_bool_with_default = 0x9C [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  string implicit_string_with_default = 0x9D [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  bytes implicit_bytes_with_default = 0x9E [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  Level implicit_level_with_default = 0x9F [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: ""}
+  ];
+
+  double explicit_f64_with_default = 0xB0 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  float explicit_f32_with_default = 0xB1 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  int32 explicit_i32_with_default = 0xB2 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  int64 explicit_i64_with_default = 0xB3 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  uint32 explicit_u32_with_default = 0xB4 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  uint64 explicit_u64_with_default = 0xB5 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sint32 explicit_si32_with_default = 0xB6 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sint64 explicit_si64_with_default = 0xB7 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  fixed32 explicit_fi32_with_default = 0xB8 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  fixed64 explicit_fi64_with_default = 0xB9 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sfixed32 explicit_sfi32_with_default = 0xBA [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  sfixed64 explicit_sfi64_with_default = 0xBB [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  bool explicit_bool_with_default = 0xBC [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  string explicit_string_with_default = 0xBD [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  bytes explicit_bytes_with_default = 0xBE [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+  Level explicit_level_with_default = 0xBF [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {default: ""}
+  ];
+
+  double implicit_immutable_f64 = 0xD0 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  float implicit_immutable_f32 = 0xD1 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  int32 implicit_immutable_i32 = 0xD2 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  int64 implicit_immutable_i64 = 0xD3 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  uint32 implicit_immutable_u32 = 0xD4 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  uint64 implicit_immutable_u64 = 0xD5 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sint32 implicit_immutable_si32 = 0xD6 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sint64 implicit_immutable_si64 = 0xD7 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  fixed32 implicit_immutable_fi32 = 0xD8 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  fixed64 implicit_immutable_fi64 = 0xD9 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sfixed32 implicit_immutable_sfi32 = 0xDA [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sfixed64 implicit_immutable_sfi64 = 0xDB [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  bool implicit_immutable_bool = 0xDC [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  string implicit_immutable_string = 0xDD [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  bytes implicit_immutable_bytes = 0xDE [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  Level implicit_immutable_level = 0xDF [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+
+  double explicit_immutable_f64 = 0xF0 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  float explicit_immutable_f32 = 0xF1 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  int32 explicit_immutable_i32 = 0xF2 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  int64 explicit_immutable_i64 = 0xF3 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  uint32 explicit_immutable_u32 = 0xF4 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  uint64 explicit_immutable_u64 = 0xF5 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sint32 explicit_immutable_si32 = 0xF6 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sint64 explicit_immutable_si64 = 0xF7 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  fixed32 explicit_immutable_fi32 = 0xF8 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  fixed64 explicit_immutable_fi64 = 0xF9 [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sfixed32 explicit_immutable_sfi32 = 0xFA [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  sfixed64 explicit_immutable_sfi64 = 0xFB [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  bool explicit_immutable_bool = 0xFC [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  string explicit_immutable_string = 0xFD [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  bytes explicit_immutable_bytes = 0xFE [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+  Level explicit_immutable_level = 0xFF [
+    features.field_presence = EXPLICIT,
+    (orm.field) = {immutable: true}
+  ];
+
+  option (orm.message) = {
+    rpc: {crud: true}
+  };
+}
+
+message MessageField {
+  string id = 1 [(orm.field) = {key: true}];
+
+  google.protobuf.Struct explicit = 0x30;
+  repeated google.protobuf.Struct repeated = 0x50;
+  google.protobuf.Struct nullable = 0x70 [(orm.field) = {nullable: true}];
+  google.protobuf.Struct explicit_with_default = 0xB0 [(orm.field) = {default: ""}];
+  google.protobuf.Struct explicit_immutable = 0xF0 [(orm.field) = {immutable: true}];
+
+  option (orm.message) = {
+    rpc: {crud: true}
+  };
+}
+
+message MapField {
+  string id = 1 [(orm.field) = {key: true}];
+
+  map<string, string> implicit_string = 0x10;
+  map<string, Level> implicit_enum = 0x11;
+  map<string, google.protobuf.Struct> implicit_json = 0x12;
+
+  map<string, string> implicit_string_with_default = 0x90 [(orm.field) = {default: ""}];
+  map<string, Level> implicit_enum_with_default = 0x91 [(orm.field) = {default: ""}];
+  map<string, google.protobuf.Struct> implicit_json_with_default = 0x92 [(orm.field) = {default: ""}];
+
+  map<string, string> implicit_immutable_string = 0xD0 [(orm.field) = {immutable: true}];
+  map<string, Level> implicit_immutable_enum = 0xD1 [(orm.field) = {immutable: true}];
+  map<string, google.protobuf.Struct> implicit_immutable_json = 0xD2 [(orm.field) = {immutable: true}];
+
+  option (orm.message) = {
+    rpc: {crud: true}
+  };
+}

@@ -9,7 +9,7 @@ import (
 )
 
 type Work struct {
-	// Full name of entity -> Go import path
+	// Full name of message (e.g. entity) -> Go import path
 	Imports map[protoreflect.FullName]protogen.GoImportPath
 }
 

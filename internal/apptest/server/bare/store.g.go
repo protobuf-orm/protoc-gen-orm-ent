@@ -15,5 +15,10 @@ func NewServer(db *ent.Client) Server {
 	return Server{Db: db}
 }
 
-func (s Server) Tenant() apptest.TenantServiceServer { return NewTenantServiceServer(s.Db) }
-func (s Server) User() apptest.UserServiceServer     { return NewUserServiceServer(s.Db) }
+func (s Server) ValueField() apptest.ValueFieldServiceServer { return NewValueFieldServiceServer(s.Db) }
+func (s Server) MessageField() apptest.MessageFieldServiceServer {
+	return NewMessageFieldServiceServer(s.Db)
+}
+func (s Server) MapField() apptest.MapFieldServiceServer { return NewMapFieldServiceServer(s.Db) }
+func (s Server) Tenant() apptest.TenantServiceServer     { return NewTenantServiceServer(s.Db) }
+func (s Server) User() apptest.UserServiceServer         { return NewUserServiceServer(s.Db) }

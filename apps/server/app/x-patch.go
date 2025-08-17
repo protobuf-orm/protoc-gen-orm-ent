@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
@@ -34,23 +36,41 @@ func (w *fileWork) xPatch() {
 			}
 		}
 
+		u := "req.Get" + name.Go() + "()"
 		if p.IsOptional() {
-			w.P("	if req.Has", name.Go(), "() {")
+			if graph.IsCollection(p) {
+				w.P("	if u := ", u, "; len(u) > 0 {")
+				u = "u"
+			} else {
+				w.P("	if req.Has", name.Go(), "() {")
+			}
 		}
-		switch p_ := p.(type) {
+
+		switch p := p.(type) {
 		case graph.Field:
-			t := p_.Type()
+			u := "req.Get" + name.Go() + "()"
+			set := func(v string) {
+				w.P("	q.Set", name.Ent(), "(", v, ")")
+			}
+
+			t := p.Type()
 			switch t {
+			case ormpb.Type_TYPE_ENUM:
+				if p.IsList() {
+					set(u)
+				} else {
+					set(fmt.Sprintf("int32(%s)", u))
+				}
 			case ormpb.Type_TYPE_UUID:
-				w.P("if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(req.Get", name.Go(), "()); err != nil {")
+				w.P("if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(", u, "); err != nil {")
 				w.P("	return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")
 				w.P("} else {")
-				w.P("	q.Set", name.Ent(), "(v)")
+				set("v")
 				w.P("}")
 			case ormpb.Type_TYPE_TIME:
-				w.P("q.Set", name.Ent(), "(req.Get", name.Go(), "().AsTime())")
+				set(u + ".AsTime()")
 			default:
-				w.P("q.Set", name.Ent(), "(req.Get", name.Go(), "())")
+				set(u)
 			}
 
 		case graph.Edge:

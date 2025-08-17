@@ -10,6 +10,7 @@ var (
 	PkgField = protogen.GoImportPath("entgo.io/ent/schema/field")
 	PkgEdge  = protogen.GoImportPath("entgo.io/ent/schema/edge")
 	PkgIndex = protogen.GoImportPath("entgo.io/ent/schema/index")
+	PkgZ     = protogen.GoImportPath("github.com/lesomnus/z")
 
 	PkgGoogleUuid = protogen.GoImportPath("github.com/google/uuid")
 	PkgUuid       = PkgGoogleUuid

@@ -12,7 +12,9 @@ func entField(t ormpb.Type) protogen.GoIdent {
 	case ormpb.Type_TYPE_BOOL:
 		id = "Bool"
 	case ormpb.Type_TYPE_ENUM:
-		panic("not implemented")
+		// See https://protobuf.dev/programming-guides/editions/#enum
+		// Enumerator constants must be in the range of a 32-bit integer.
+		id = "Int32"
 	case ormpb.Type_TYPE_INT32,
 		ormpb.Type_TYPE_SINT32,
 		ormpb.Type_TYPE_SFIXED32:

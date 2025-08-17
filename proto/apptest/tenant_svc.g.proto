@@ -12,22 +12,20 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
 
 service TenantService {
+	// Add creates a new Tenant
 	rpc Add(TenantAddRequest) returns (Tenant);
+	// Get retrieves a Tenant
 	rpc Get(TenantGetRequest) returns (Tenant);
+	// Patch updates an existing Tenant
 	rpc Patch(TenantPatchRequest) returns (Tenant);
+	// Erase deletes a Tenant
 	rpc Erase(TenantRef) returns (google.protobuf.Empty);
 }
 
 message TenantAddRequest {
-	bytes id = 1 [
-		features.field_presence = EXPLICIT
-	];
-	string alias = 4 [
-		features.field_presence = EXPLICIT
-	];
-	string name = 5 [
-		features.field_presence = EXPLICIT
-	];
+	bytes id = 1;
+	string alias = 4;
+	string name = 5;
 	map<string,string> labels = 7;
 	google.protobuf.Timestamp date_created = 15;
 }

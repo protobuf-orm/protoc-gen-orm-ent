@@ -36,12 +36,10 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	} else {
 		q.SetID(uuid.New())
 	}
-	if req.HasTenant() {
-		if k, err := TenantGetKey(ctx, s.Db, req.GetTenant()); err != nil {
-			return nil, err
-		} else {
-			q.SetTenantID(k)
-		}
+	if k, err := TenantGetKey(ctx, s.Db, req.GetTenant()); err != nil {
+		return nil, err
+	} else {
+		q.SetTenantID(k)
 	}
 	if req.HasAlias() {
 		q.SetAlias(req.GetAlias())
@@ -53,7 +51,9 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	} else {
 		q.SetName("")
 	}
-	q.SetLabels(req.GetLabels())
+	if u := req.GetLabels(); len(u) > 0 {
+		q.SetLabels(u)
+	}
 	if req.HasLock() {
 		q.SetLock(req.GetLock())
 	}
@@ -110,7 +110,9 @@ func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequ
 	if req.HasName() {
 		q.SetName(req.GetName())
 	}
-	q.SetLabels(req.GetLabels())
+	if u := req.GetLabels(); len(u) > 0 {
+		q.SetLabels(req.GetLabels())
+	}
 	if req.GetLockNull() {
 		q.ClearLock()
 	} else if req.HasLock() {

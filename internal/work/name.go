@@ -1,18 +1,14 @@
 package work
 
 import (
-	"github.com/ettle/strcase"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/ent"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/strs"
 )
 
 type Name string
 
-func (v Name) Prop() string {
-	return strcase.ToSnake(string(v))
-}
-
 func (v Name) Go() string {
-	return strcase.ToPascal(string(v))
+	return strs.GoCamelCase(string(v))
 }
 
 func (v Name) Ent() string {

@@ -44,6 +44,7 @@ func (a *App) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error
 	w := work.NewWork()
 	for _, f := range p.Files {
 		for _, m := range f.Messages {
+			w.Imports[m.Desc.FullName()] = m.GoIdent.GoImportPath
 			entity, ok := g.Entities[m.Desc.FullName()]
 			if !ok {
 				continue

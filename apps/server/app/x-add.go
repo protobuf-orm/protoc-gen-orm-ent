@@ -17,27 +17,43 @@ func (w *fileWork) xAdd() {
 	w.P("	q := s.Db.", name, ".Create()")
 	for p := range w.Entity.Props() {
 		name := work.Name(p.Name())
+		u := "req.Get" + name.Go() + "()"
 
-		_, is_edge := p.(graph.Edge)
-		is_optional := p.IsOptional() || is_edge
-
-		if is_optional {
-			w.P("	if req.Has", name.Go(), "() {")
+		if p.IsOptional() {
+			if graph.IsCollection(p) {
+				w.P("	if u := ", u, "; len(u) > 0 {")
+				u = "u"
+			} else {
+				w.P("	if req.Has", name.Go(), "() {")
+			}
 		}
+
 		switch p := p.(type) {
 		case graph.Field:
+			set := func(v string) {
+				w.P("	q.Set", name.Ent(), "(", v, ")")
+			}
+
 			t := p.Type()
 			switch t {
+			case ormpb.Type_TYPE_ENUM:
+				if p.IsList() {
+					// Repeated field is stored as JSON in Ent
+					// so no type conversion is needed.
+					set(u)
+				} else {
+					set(fmt.Sprintf("int32(%s)", u))
+				}
 			case ormpb.Type_TYPE_UUID:
-				w.P("	if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(req.Get", name.Go(), "()); err != nil {")
+				w.P("	if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(", u, "); err != nil {")
 				w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")
 				w.P("	} else {")
-				w.P("		q.Set", name.Ent(), "(v)")
+				set("v")
 				w.P("	}")
 			case ormpb.Type_TYPE_TIME:
-				w.P("	q.Set", name.Ent(), "(req.Get", name.Go(), "().AsTime())")
+				set(u + ".AsTime()")
 			default:
-				w.P("	q.Set", name.Ent(), "(req.Get", name.Go(), "())")
+				set(u)
 			}
 
 		case graph.Edge:
@@ -58,12 +74,27 @@ func (w *fileWork) xAdd() {
 				switch t {
 				case ormpb.Type_TYPE_STRING:
 					w.Pf("%q", "")
+				case ormpb.Type_TYPE_BYTES:
+					w.Pf("[]byte{}")
+				case ormpb.Type_TYPE_ENUM:
+					w.Pf("0")
 				case ormpb.Type_TYPE_UUID:
 					w.Pf("%s()", work.PkgUuid.Ident("New"))
 				case ormpb.Type_TYPE_TIME:
 					w.Pf("%s().UTC()", work.PkgTime.Ident("Now"))
 				default:
-					panic(fmt.Errorf("default value for type %s is not implemented", t))
+					switch t.Decay() {
+					case ormpb.Type_TYPE_FLOAT,
+						ormpb.Type_TYPE_INT,
+						ormpb.Type_TYPE_UINT:
+						w.Pf("0")
+					case ormpb.Type_TYPE_BOOL:
+						w.Pf("false")
+					case ormpb.Type_TYPE_MESSAGE:
+						w.Pf("nil")
+					default:
+						panic(fmt.Errorf("default value for type %s is not implemented", t))
+					}
 				}
 
 			case graph.Edge:
@@ -73,7 +104,8 @@ func (w *fileWork) xAdd() {
 			}
 			w.P(")")
 		}
-		if is_optional {
+
+		if p.IsOptional() {
 			w.P("	}")
 		}
 	}

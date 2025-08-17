@@ -1,6 +1,8 @@
 /go.work
 /go.work.sum
 
-/protoc-gen-orm-ent
-/protoc-gen-orm-go
-/protoc-gen-orm-service
+/internal/apptest/*.pb.go
+/internal/apptest/ent/*.go
+/internal/apptest/ent/*/*.go
+!/internal/apptest/ent/*.g.go
+!/internal/apptest/ent/*/placeholder.go

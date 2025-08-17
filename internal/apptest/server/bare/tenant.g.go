@@ -46,7 +46,9 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	} else {
 		q.SetName("")
 	}
-	q.SetLabels(req.GetLabels())
+	if u := req.GetLabels(); len(u) > 0 {
+		q.SetLabels(u)
+	}
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
 	} else {
@@ -99,7 +101,9 @@ func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatch
 	if req.HasName() {
 		q.SetName(req.GetName())
 	}
-	q.SetLabels(req.GetLabels())
+	if u := req.GetLabels(); len(u) > 0 {
+		q.SetLabels(req.GetLabels())
+	}
 
 	if _, err := q.Save(ctx); err != nil {
 		return nil, err

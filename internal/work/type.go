@@ -3,9 +3,13 @@ package work
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 func (w *FileWork) goTypeScalar(t ormpb.Type) string {
@@ -57,14 +61,18 @@ func (w *FileWork) GoType(t ormpb.Type, s graph.Shape) string {
 		return w.goTypeScalar(t)
 	}
 
-	switch s_ := s.(type) {
+	switch s := s.(type) {
 	case graph.ScalarShape:
 		panic("it must not be a scalar")
 	case graph.MapShape:
-		t := w.GoType(s_.V, s_.S)
-		return fmt.Sprintf("map[%s]%s", w.goTypeScalar(s_.K), t)
+		t := w.GoType(s.V, s.S)
+		if _, ok := s.S.Descriptor.(protoreflect.MessageDescriptor); ok {
+			t = "*" + t
+		}
+		return fmt.Sprintf("map[%s]%s", w.goTypeScalar(s.K), t)
 	case graph.MessageShape:
-		panic("not implemented")
+		p := MustGetGoImportPath(s.Descriptor.ParentFile())
+		return w.QualifiedGoIdent(p.Ident(string(s.FullName.Name())))
 	default:
 		panic(fmt.Sprintf("unknown shape: %s", reflect.TypeOf(s).Name()))
 	}
@@ -111,4 +119,24 @@ func (w *FileWork) EntType(t ormpb.Type, s graph.Shape) string {
 
 func (w *FileWork) EntTypeOf(f graph.Field) string {
 	return w.EntType(f.Type(), f.Shape())
+}
+
+func GetGoImportPath(d protoreflect.FileDescriptor) (protogen.GoImportPath, bool) {
+	opts := d.Options().(*descriptorpb.FileOptions)
+	v := opts.GetGoPackage()
+	if v == "" {
+		return "", false
+	}
+
+	es := strings.SplitN(v, ";", 2)
+	return protogen.GoImportPath(es[0]), true
+}
+
+func MustGetGoImportPath(d protoreflect.FileDescriptor) protogen.GoImportPath {
+	v, ok := GetGoImportPath(d.ParentFile())
+	if !ok {
+		panic(fmt.Sprintf("Go import path for %s not found", d.FullName))
+	}
+
+	return v
 }
