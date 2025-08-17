@@ -20,6 +20,8 @@ func (e *User) Proto() *apptest.User {
 	if e.Lock != nil {
 		x.SetLock(*e.Lock)
 	}
-	x.SetDateCreated(timestamppb.New(e.DateCreated))
+	if e.DateCreated != nil {
+		x.SetDateCreated(timestamppb.New(*e.DateCreated))
+	}
 	return x
 }

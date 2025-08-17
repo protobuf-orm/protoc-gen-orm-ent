@@ -14,6 +14,8 @@ func (e *Tenant) Proto() *apptest.Tenant {
 	x.SetAlias(e.Alias)
 	x.SetName(e.Name)
 	x.SetLabels(e.Labels)
-	x.SetDateCreated(timestamppb.New(e.DateCreated))
+	if e.DateCreated != nil {
+		x.SetDateCreated(timestamppb.New(*e.DateCreated))
+	}
 	return x
 }
