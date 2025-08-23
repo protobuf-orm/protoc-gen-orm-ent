@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
@@ -23,23 +25,17 @@ func xProto(w *work.FileWork) {
 					v = "*" + v
 				}
 			}
-
-			t := p.Type()
 			if !p.IsList() {
-				// Note that repeated field is store in the DB with JSON type.
-				// So the type is already aligned with the proto type.
-				switch t {
+				// Some types of the field defined in Ent are not same with the proto type.
+				// However, repeated field is store in the DB with JSON type so the type of
+				// the repeated fields is already aligned with the proto type.
+				switch p.Type() {
 				case ormpb.Type_TYPE_ENUM:
-					if p.IsList() {
-
-					}
-					s := p.Shape().(graph.MessageShape)
-					p := work.MustGetGoImportPath(s.Descriptor.ParentFile())
-					v = w.QualifiedGoIdent(p.Ident(string(s.FullName.Name()))) + "(" + v + ")"
+					v = fmt.Sprintf("%s(%s)", graph.GoTypeOf(p, w.QualifiedGoIdent), v)
 				case ormpb.Type_TYPE_UUID:
 					v = v + "[:]"
 				case ormpb.Type_TYPE_TIME:
-					v = w.QualifiedGoIdent(work.PkgProtoTimestamp.Ident("New")) + "(" + v + ")"
+					v = fmt.Sprintf("%s(%s)", w.QualifiedGoIdent(work.PkgProtoTimestamp.Ident("New")), v)
 				}
 			}
 			w.P("	x.Set", name.Go(), "(", v, ")")

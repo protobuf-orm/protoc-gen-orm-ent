@@ -28,7 +28,7 @@ message UserAddRequest {
 	TenantRef tenant = 2;
 	string alias = 4;
 	string name = 5;
-	map<string,string> labels = 7;
+	map<string, string> labels = 7;
 	string lock = 8;
 	google.protobuf.Timestamp date_created = 15;
 }
@@ -65,7 +65,7 @@ message UserPatchRequest {
 	TenantRef tenant = 3;
 	string alias = 7;
 	string name = 9;
-	map<string,string> labels = 13;
+	map<string, string> labels = 13;
 	string lock = 15;
 	bool lock_null = 16;
 }

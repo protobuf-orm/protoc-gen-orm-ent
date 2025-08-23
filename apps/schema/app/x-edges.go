@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 
-	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
 
@@ -12,15 +11,10 @@ func xEdges(w *work.FileWork) {
 
 	w.P("func (", w.Ident.GoName, ") Edges() []", work.PkgEnt.Ident("Edge"), " {")
 	w.P("	return []", work.PkgEnt.Ident("Edge"), "{")
-	for p := range w.Entity.Props() {
-		p_, ok := p.(graph.Edge)
-		if !ok {
-			continue
-		}
-
-		name_edge := string(p.FullName().Name())
-		name_target := string(p_.Target().FullName().Name())
-		if inv := p_.Inverse(); inv == nil {
+	for p := range w.Entity.Edges() {
+		name_edge := p.Name()
+		name_target := p.Target().Name()
+		if inv := p.Inverse(); inv == nil {
 			w.Pf("		%s(%q, %s.Type)", edge.Ident("To"), name_edge, name_target)
 		} else {
 			name_inv := inv.FullName().Name()

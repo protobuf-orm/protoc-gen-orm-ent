@@ -7,7 +7,18 @@ import (
 )
 
 func (x *ValueField) Pick() *ValueFieldRef {
-	return ValueFieldById(x.GetId())
+	if v := x.GetId(); len(v) > 0 {
+		return ValueFieldById(v)
+	}
+
+	return nil
+}
+
+func (x *ValueField) PickUp() *ValueFieldGetRequest {
+	if p := x.Pick(); p != nil {
+		return ValueFieldGetRequest_builder{Ref: p}.Build()
+	}
+	return nil
 }
 
 func (x *ValueFieldRef) Picks(v *ValueField) bool {
@@ -25,8 +36,23 @@ func ValueFieldById(v string) *ValueFieldRef {
 	return x
 }
 
+func ValueFieldGetById(v string) *ValueFieldGetRequest {
+	return ValueFieldGetRequest_builder{Ref: ValueFieldById(v)}.Build()
+}
+
 func (x *MessageField) Pick() *MessageFieldRef {
-	return MessageFieldById(x.GetId())
+	if v := x.GetId(); len(v) > 0 {
+		return MessageFieldById(v)
+	}
+
+	return nil
+}
+
+func (x *MessageField) PickUp() *MessageFieldGetRequest {
+	if p := x.Pick(); p != nil {
+		return MessageFieldGetRequest_builder{Ref: p}.Build()
+	}
+	return nil
 }
 
 func (x *MessageFieldRef) Picks(v *MessageField) bool {
@@ -44,8 +70,23 @@ func MessageFieldById(v string) *MessageFieldRef {
 	return x
 }
 
+func MessageFieldGetById(v string) *MessageFieldGetRequest {
+	return MessageFieldGetRequest_builder{Ref: MessageFieldById(v)}.Build()
+}
+
 func (x *MapField) Pick() *MapFieldRef {
-	return MapFieldById(x.GetId())
+	if v := x.GetId(); len(v) > 0 {
+		return MapFieldById(v)
+	}
+
+	return nil
+}
+
+func (x *MapField) PickUp() *MapFieldGetRequest {
+	if p := x.Pick(); p != nil {
+		return MapFieldGetRequest_builder{Ref: p}.Build()
+	}
+	return nil
 }
 
 func (x *MapFieldRef) Picks(v *MapField) bool {
@@ -63,8 +104,23 @@ func MapFieldById(v string) *MapFieldRef {
 	return x
 }
 
+func MapFieldGetById(v string) *MapFieldGetRequest {
+	return MapFieldGetRequest_builder{Ref: MapFieldById(v)}.Build()
+}
+
 func (x *Tenant) Pick() *TenantRef {
-	return TenantById(x.GetId())
+	if v := x.GetId(); len(v) > 0 {
+		return TenantById(v)
+	}
+
+	return nil
+}
+
+func (x *Tenant) PickUp() *TenantGetRequest {
+	if p := x.Pick(); p != nil {
+		return TenantGetRequest_builder{Ref: p}.Build()
+	}
+	return nil
 }
 
 func (x *TenantRef) Picks(v *Tenant) bool {
@@ -82,8 +138,30 @@ func TenantById(v []byte) *TenantRef {
 	return x
 }
 
+func TenantGetById(v []byte) *TenantGetRequest {
+	return TenantGetRequest_builder{Ref: TenantById(v)}.Build()
+}
+
 func (x *User) Pick() *UserRef {
-	return UserById(x.GetId())
+	if v := x.GetId(); len(v) > 0 {
+		return UserById(v)
+	}
+	{
+		v1 := x.GetAlias()
+		v2 := x.GetTenant()
+		if len(v1) > 0 && v2 != nil {
+			return UserByAlias(v1, v2.Pick())
+		}
+	}
+
+	return nil
+}
+
+func (x *User) PickUp() *UserGetRequest {
+	if p := x.Pick(); p != nil {
+		return UserGetRequest_builder{Ref: p}.Build()
+	}
+	return nil
 }
 
 func (x *UserRef) Picks(v *User) bool {
@@ -99,15 +177,23 @@ func (x *UserRef) Picks(v *User) bool {
 	}
 }
 
-func UserByAlias(alias string, tenant *TenantRef) *UserRefByAlias {
-	x := &UserRefByAlias{}
-	x.SetAlias(alias)
-	x.SetTenant(tenant)
-	return x
-}
-
 func UserById(v []byte) *UserRef {
 	x := &UserRef{}
 	x.SetId(v)
 	return x
+}
+
+func UserGetById(v []byte) *UserGetRequest {
+	return UserGetRequest_builder{Ref: UserById(v)}.Build()
+}
+
+func UserByAlias(alias string, tenant *TenantRef) *UserRef {
+	x := &UserRefByAlias{}
+	x.SetAlias(alias)
+	x.SetTenant(tenant)
+	return UserRef_builder{Alias: x}.Build()
+}
+
+func UserGetByAlias(alias string, tenant *TenantRef) *UserGetRequest {
+	return UserGetRequest_builder{Ref: UserByAlias(alias, tenant)}.Build()
 }

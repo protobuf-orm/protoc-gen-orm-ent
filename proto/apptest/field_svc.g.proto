@@ -569,15 +569,15 @@ service MapFieldService {
 
 message MapFieldAddRequest {
 	string id = 1;
-	map<string,string> implicit_string = 16;
-	map<string,apptest.Level> implicit_enum = 17;
-	map<string,google.protobuf.Struct> implicit_json = 18;
-	map<string,string> implicit_string_with_default = 144;
-	map<string,apptest.Level> implicit_enum_with_default = 145;
-	map<string,google.protobuf.Struct> implicit_json_with_default = 146;
-	map<string,string> implicit_immutable_string = 208;
-	map<string,apptest.Level> implicit_immutable_enum = 209;
-	map<string,google.protobuf.Struct> implicit_immutable_json = 210;
+	map<string, string> implicit_string = 16;
+	map<string, apptest.Level> implicit_enum = 17;
+	map<string, google.protobuf.Struct> implicit_json = 18;
+	map<string, string> implicit_string_with_default = 144;
+	map<string, apptest.Level> implicit_enum_with_default = 145;
+	map<string, google.protobuf.Struct> implicit_json_with_default = 146;
+	map<string, string> implicit_immutable_string = 208;
+	map<string, apptest.Level> implicit_immutable_enum = 209;
+	map<string, google.protobuf.Struct> implicit_immutable_json = 210;
 }
 
 message MapFieldRef {
@@ -606,10 +606,10 @@ message MapFieldGetRequest {
 
 message MapFieldPatchRequest {
 	MapFieldRef target = 1;
-	map<string,string> implicit_string = 31;
-	map<string,apptest.Level> implicit_enum = 33;
-	map<string,google.protobuf.Struct> implicit_json = 35;
-	map<string,string> implicit_string_with_default = 287;
-	map<string,apptest.Level> implicit_enum_with_default = 289;
-	map<string,google.protobuf.Struct> implicit_json_with_default = 291;
+	map<string, string> implicit_string = 31;
+	map<string, apptest.Level> implicit_enum = 33;
+	map<string, google.protobuf.Struct> implicit_json = 35;
+	map<string, string> implicit_string_with_default = 287;
+	map<string, apptest.Level> implicit_enum_with_default = 289;
+	map<string, google.protobuf.Struct> implicit_json_with_default = 291;
 }

@@ -23,7 +23,7 @@ func xIndexes(w *work.FileWork) {
 		fields := []string{}
 		edges := []string{}
 		for _, p := range props {
-			name := fmt.Sprintf("%q", string(p.FullName().Name()))
+			name := fmt.Sprintf("%q", p.Name())
 			switch p.(type) {
 			case graph.Field:
 				fields = append(fields, name)
