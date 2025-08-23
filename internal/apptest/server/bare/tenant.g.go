@@ -55,12 +55,12 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 		q.SetDateCreated(time.Now().UTC())
 	}
 
-	v, err := q.Save(ctx)
+	u, err := q.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return v.Proto(), nil
+	return u.Proto(), nil
 }
 
 func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequest) (*apptest.Tenant, error) {

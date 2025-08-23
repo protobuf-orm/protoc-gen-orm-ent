@@ -26,6 +26,7 @@ func NewUserServiceServer(db *ent.Client) apptest.UserServiceServer {
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
+	ds := make([]func(v *apptest.User), 0, 1)
 	q := s.Db.User.Create()
 	if req.HasId() {
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
@@ -40,6 +41,9 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		return nil, err
 	} else {
 		q.SetTenantID(k)
+		ds = append(ds, func(v *apptest.User) {
+			v.SetTenant(apptest.Tenant_builder{Id: k[:]}.Build())
+		})
 	}
 	if req.HasAlias() {
 		q.SetAlias(req.GetAlias())
@@ -63,12 +67,16 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		q.SetDateCreated(time.Now().UTC())
 	}
 
-	v, err := q.Save(ctx)
+	u, err := q.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return v.Proto(), nil
+	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
+	return v, nil
 }
 
 func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest) (*apptest.User, error) {

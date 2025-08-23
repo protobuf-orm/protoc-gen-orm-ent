@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
@@ -14,6 +15,11 @@ func (w *fileWork) xAdd() {
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "req *", w.Src.GoImportPath.Ident(name+"AddRequest"),
 		") (*", w.Src.GoImportPath.Ident(name), ", error) {")
+
+	edges := slices.Collect(w.Entity.Edges())
+	if len(edges) > 0 {
+		w.P("	ds := make([]func(v *", w.Ident, "), 0, ", len(edges), ")")
+	}
 	w.P("	q := s.Db.", name, ".Create()")
 	for p := range w.Entity.Props() {
 		name := work.Name(p.Name())
@@ -57,10 +63,20 @@ func (w *fileWork) xAdd() {
 			}
 
 		case graph.Edge:
-			w.P("	if k, err := ", p.Target().Name(), "GetKey(ctx, s.Db, req.Get", name.Go(), "()); err != nil {")
+			m := p.Target()
+			k := "k"
+			switch m.Key().Type() {
+			case ormpb.Type_TYPE_UUID:
+				k += "[:]"
+			}
+
+			w.P("	if k, err := ", m.Name(), "GetKey(ctx, s.Db, req.Get", name.Go(), "()); err != nil {")
 			w.P("		return nil, err")
 			w.P("	} else {")
 			w.P("		q.Set", name.Ent(), "ID(k)")
+			w.P("		ds = append(ds, func(v *", w.Ident, "){")
+			w.P("			v.Set", m.Name(), "(", w.Src.GoImportPath.Ident(m.Name()+"_builder"), "{", work.Name(m.Key().Name()).Go(), ": ", k, "}.Build())")
+			w.P("		})")
 			w.P("	}")
 		default:
 			panic("unknown type of graph prop")
@@ -110,12 +126,21 @@ func (w *fileWork) xAdd() {
 		}
 	}
 	w.P("")
-	w.P("v, err := q.Save(ctx)")
-	w.P("if err != nil {")
-	w.P("	return nil, err")
-	w.P("}")
+	w.P("	u, err := q.Save(ctx)")
+	w.P("	if err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
 	w.P("")
-	w.P("return v.Proto(), nil")
+
+	if len(edges) > 0 {
+		w.P("	v := u.Proto()")
+		w.P("	for _, d := range ds {")
+		w.P("		d(v)")
+		w.P("	}")
+		w.P("	return v, nil")
+	} else {
+		w.P("	return u.Proto(), nil")
+	}
 	w.P("}")
 	w.P("")
 }

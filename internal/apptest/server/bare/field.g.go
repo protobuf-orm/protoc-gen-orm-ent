@@ -415,12 +415,12 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 		q.SetExplicitImmutableLevel(int32(req.GetExplicitImmutableLevel()))
 	}
 
-	v, err := q.Save(ctx)
+	u, err := q.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return v.Proto(), nil
+	return u.Proto(), nil
 }
 
 func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFieldGetRequest) (*apptest.ValueField, error) {
@@ -887,12 +887,12 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 		q.SetExplicitImmutable(req.GetExplicitImmutable())
 	}
 
-	v, err := q.Save(ctx)
+	u, err := q.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return v.Proto(), nil
+	return u.Proto(), nil
 }
 
 func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.MessageFieldGetRequest) (*apptest.MessageField, error) {
@@ -1041,12 +1041,12 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 		q.SetImplicitImmutableJSON(u)
 	}
 
-	v, err := q.Save(ctx)
+	u, err := q.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return v.Proto(), nil
+	return u.Proto(), nil
 }
 
 func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGetRequest) (*apptest.MapField, error) {
