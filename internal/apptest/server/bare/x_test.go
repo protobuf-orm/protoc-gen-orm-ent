@@ -35,6 +35,7 @@ func NewServer(t *testing.T) *Server {
 	driver.DB().SetMaxOpenConns(1)
 
 	db := ent.NewClient(ent.Driver(driver))
+	db = db.Debug()
 	err = db.Schema.Create(ctx)
 	require.NoError(t, err)
 

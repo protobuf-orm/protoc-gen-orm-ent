@@ -91,6 +91,9 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 	if rpcs.HasGet() {
 		w.xGet()
 		w.xSelectKey()
+		w.xSelectedFields()
+		w.xSelect()
+		w.xSelectInit()
 		need_pick = true
 	}
 	if rpcs.HasPatch() {

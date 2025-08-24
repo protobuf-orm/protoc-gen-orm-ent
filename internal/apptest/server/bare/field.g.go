@@ -5,6 +5,7 @@ package bare
 
 import (
 	context "context"
+	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	mapfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/mapfield"
@@ -417,6 +418,9 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 
 	u, err := q.Save(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
+			return nil, status.Errorf(codes.AlreadyExists, "ValueField already exists: %s", err.Unwrap())
+		}
 		return nil, err
 	}
 
@@ -431,14 +435,13 @@ func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFiel
 	} else {
 		q.Where(p)
 	}
-
-	if s := req.GetSelect(); s != nil {
-		// TODO
-	} else {
-	}
+	ValueFieldSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, "ValueField not found")
+		}
 		return nil, err
 	}
 	return v.Proto(), nil
@@ -446,6 +449,417 @@ func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFiel
 
 func selectValueFieldKey(q *ent.ValueFieldQuery) {
 	q.Select(valuefield.FieldID)
+}
+
+func ValueFieldSelectedFields(m *apptest.ValueFieldSelect) []string {
+	if m.GetAll() {
+		return valuefield.Columns
+	}
+
+	vs := make([]string, 0, len(valuefield.Columns))
+	{
+		vs = append(vs, valuefield.FieldID)
+	}
+	if m.GetImplicitF64() {
+		vs = append(vs, valuefield.FieldImplicitF64)
+	}
+	if m.GetImplicitF32() {
+		vs = append(vs, valuefield.FieldImplicitF32)
+	}
+	if m.GetImplicitI32() {
+		vs = append(vs, valuefield.FieldImplicitI32)
+	}
+	if m.GetImplicitI64() {
+		vs = append(vs, valuefield.FieldImplicitI64)
+	}
+	if m.GetImplicitU32() {
+		vs = append(vs, valuefield.FieldImplicitU32)
+	}
+	if m.GetImplicitU64() {
+		vs = append(vs, valuefield.FieldImplicitU64)
+	}
+	if m.GetImplicitSi32() {
+		vs = append(vs, valuefield.FieldImplicitSi32)
+	}
+	if m.GetImplicitSi64() {
+		vs = append(vs, valuefield.FieldImplicitSi64)
+	}
+	if m.GetImplicitFi32() {
+		vs = append(vs, valuefield.FieldImplicitFi32)
+	}
+	if m.GetImplicitFi64() {
+		vs = append(vs, valuefield.FieldImplicitFi64)
+	}
+	if m.GetImplicitSfi32() {
+		vs = append(vs, valuefield.FieldImplicitSfi32)
+	}
+	if m.GetImplicitSfi64() {
+		vs = append(vs, valuefield.FieldImplicitSfi64)
+	}
+	if m.GetImplicitBool() {
+		vs = append(vs, valuefield.FieldImplicitBool)
+	}
+	if m.GetImplicitString() {
+		vs = append(vs, valuefield.FieldImplicitString)
+	}
+	if m.GetImplicitBytes() {
+		vs = append(vs, valuefield.FieldImplicitBytes)
+	}
+	if m.GetImplicitEnum() {
+		vs = append(vs, valuefield.FieldImplicitEnum)
+	}
+	if m.GetExplicitF64() {
+		vs = append(vs, valuefield.FieldExplicitF64)
+	}
+	if m.GetExplicitF32() {
+		vs = append(vs, valuefield.FieldExplicitF32)
+	}
+	if m.GetExplicitI32() {
+		vs = append(vs, valuefield.FieldExplicitI32)
+	}
+	if m.GetExplicitI64() {
+		vs = append(vs, valuefield.FieldExplicitI64)
+	}
+	if m.GetExplicitU32() {
+		vs = append(vs, valuefield.FieldExplicitU32)
+	}
+	if m.GetExplicitU64() {
+		vs = append(vs, valuefield.FieldExplicitU64)
+	}
+	if m.GetExplicitSi32() {
+		vs = append(vs, valuefield.FieldExplicitSi32)
+	}
+	if m.GetExplicitSi64() {
+		vs = append(vs, valuefield.FieldExplicitSi64)
+	}
+	if m.GetExplicitFi32() {
+		vs = append(vs, valuefield.FieldExplicitFi32)
+	}
+	if m.GetExplicitFi64() {
+		vs = append(vs, valuefield.FieldExplicitFi64)
+	}
+	if m.GetExplicitSfi32() {
+		vs = append(vs, valuefield.FieldExplicitSfi32)
+	}
+	if m.GetExplicitSfi64() {
+		vs = append(vs, valuefield.FieldExplicitSfi64)
+	}
+	if m.GetExplicitBool() {
+		vs = append(vs, valuefield.FieldExplicitBool)
+	}
+	if m.GetExplicitString() {
+		vs = append(vs, valuefield.FieldExplicitString)
+	}
+	if m.GetExplicitBytes() {
+		vs = append(vs, valuefield.FieldExplicitBytes)
+	}
+	if m.GetExplicitEnum() {
+		vs = append(vs, valuefield.FieldExplicitEnum)
+	}
+	if m.GetImplicitF64S() {
+		vs = append(vs, valuefield.FieldImplicitF64s)
+	}
+	if m.GetImplicitF32S() {
+		vs = append(vs, valuefield.FieldImplicitF32s)
+	}
+	if m.GetImplicitI32S() {
+		vs = append(vs, valuefield.FieldImplicitI32s)
+	}
+	if m.GetImplicitI64S() {
+		vs = append(vs, valuefield.FieldImplicitI64s)
+	}
+	if m.GetImplicitU32S() {
+		vs = append(vs, valuefield.FieldImplicitU32s)
+	}
+	if m.GetImplicitU64S() {
+		vs = append(vs, valuefield.FieldImplicitU64s)
+	}
+	if m.GetImplicitSi32S() {
+		vs = append(vs, valuefield.FieldImplicitSi32s)
+	}
+	if m.GetImplicitSi64S() {
+		vs = append(vs, valuefield.FieldImplicitSi64s)
+	}
+	if m.GetImplicitFi32S() {
+		vs = append(vs, valuefield.FieldImplicitFi32s)
+	}
+	if m.GetImplicitFi64S() {
+		vs = append(vs, valuefield.FieldImplicitFi64s)
+	}
+	if m.GetImplicitSfi32S() {
+		vs = append(vs, valuefield.FieldImplicitSfi32s)
+	}
+	if m.GetImplicitSfi64S() {
+		vs = append(vs, valuefield.FieldImplicitSfi64s)
+	}
+	if m.GetImplicitBools() {
+		vs = append(vs, valuefield.FieldImplicitBools)
+	}
+	if m.GetImplicitStrings() {
+		vs = append(vs, valuefield.FieldImplicitStrings)
+	}
+	if m.GetImplicitBytess() {
+		vs = append(vs, valuefield.FieldImplicitBytess)
+	}
+	if m.GetImplicitLevels() {
+		vs = append(vs, valuefield.FieldImplicitLevels)
+	}
+	if m.GetNullableF64() {
+		vs = append(vs, valuefield.FieldNullableF64)
+	}
+	if m.GetNullableF32() {
+		vs = append(vs, valuefield.FieldNullableF32)
+	}
+	if m.GetNullableI32() {
+		vs = append(vs, valuefield.FieldNullableI32)
+	}
+	if m.GetNullableI64() {
+		vs = append(vs, valuefield.FieldNullableI64)
+	}
+	if m.GetNullableU32() {
+		vs = append(vs, valuefield.FieldNullableU32)
+	}
+	if m.GetNullableU64() {
+		vs = append(vs, valuefield.FieldNullableU64)
+	}
+	if m.GetNullableSi32() {
+		vs = append(vs, valuefield.FieldNullableSi32)
+	}
+	if m.GetNullableSi64() {
+		vs = append(vs, valuefield.FieldNullableSi64)
+	}
+	if m.GetNullableFi32() {
+		vs = append(vs, valuefield.FieldNullableFi32)
+	}
+	if m.GetNullableFi64() {
+		vs = append(vs, valuefield.FieldNullableFi64)
+	}
+	if m.GetNullableSfi32() {
+		vs = append(vs, valuefield.FieldNullableSfi32)
+	}
+	if m.GetNullableSfi64() {
+		vs = append(vs, valuefield.FieldNullableSfi64)
+	}
+	if m.GetNullableBool() {
+		vs = append(vs, valuefield.FieldNullableBool)
+	}
+	if m.GetNullableString() {
+		vs = append(vs, valuefield.FieldNullableString)
+	}
+	if m.GetNullableBytes() {
+		vs = append(vs, valuefield.FieldNullableBytes)
+	}
+	if m.GetNullableLevel() {
+		vs = append(vs, valuefield.FieldNullableLevel)
+	}
+	if m.GetImplicitF64WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitF64WithDefault)
+	}
+	if m.GetImplicitF32WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitF32WithDefault)
+	}
+	if m.GetImplicitI32WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitI32WithDefault)
+	}
+	if m.GetImplicitI64WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitI64WithDefault)
+	}
+	if m.GetImplicitU32WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitU32WithDefault)
+	}
+	if m.GetImplicitU64WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitU64WithDefault)
+	}
+	if m.GetImplicitSi32WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitSi32WithDefault)
+	}
+	if m.GetImplicitSi64WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitSi64WithDefault)
+	}
+	if m.GetImplicitFi32WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitFi32WithDefault)
+	}
+	if m.GetImplicitFi64WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitFi64WithDefault)
+	}
+	if m.GetImplicitSfi32WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitSfi32WithDefault)
+	}
+	if m.GetImplicitSfi64WithDefault() {
+		vs = append(vs, valuefield.FieldImplicitSfi64WithDefault)
+	}
+	if m.GetImplicitBoolWithDefault() {
+		vs = append(vs, valuefield.FieldImplicitBoolWithDefault)
+	}
+	if m.GetImplicitStringWithDefault() {
+		vs = append(vs, valuefield.FieldImplicitStringWithDefault)
+	}
+	if m.GetImplicitBytesWithDefault() {
+		vs = append(vs, valuefield.FieldImplicitBytesWithDefault)
+	}
+	if m.GetImplicitLevelWithDefault() {
+		vs = append(vs, valuefield.FieldImplicitLevelWithDefault)
+	}
+	if m.GetExplicitF64WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitF64WithDefault)
+	}
+	if m.GetExplicitF32WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitF32WithDefault)
+	}
+	if m.GetExplicitI32WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitI32WithDefault)
+	}
+	if m.GetExplicitI64WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitI64WithDefault)
+	}
+	if m.GetExplicitU32WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitU32WithDefault)
+	}
+	if m.GetExplicitU64WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitU64WithDefault)
+	}
+	if m.GetExplicitSi32WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitSi32WithDefault)
+	}
+	if m.GetExplicitSi64WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitSi64WithDefault)
+	}
+	if m.GetExplicitFi32WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitFi32WithDefault)
+	}
+	if m.GetExplicitFi64WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitFi64WithDefault)
+	}
+	if m.GetExplicitSfi32WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitSfi32WithDefault)
+	}
+	if m.GetExplicitSfi64WithDefault() {
+		vs = append(vs, valuefield.FieldExplicitSfi64WithDefault)
+	}
+	if m.GetExplicitBoolWithDefault() {
+		vs = append(vs, valuefield.FieldExplicitBoolWithDefault)
+	}
+	if m.GetExplicitStringWithDefault() {
+		vs = append(vs, valuefield.FieldExplicitStringWithDefault)
+	}
+	if m.GetExplicitBytesWithDefault() {
+		vs = append(vs, valuefield.FieldExplicitBytesWithDefault)
+	}
+	if m.GetExplicitLevelWithDefault() {
+		vs = append(vs, valuefield.FieldExplicitLevelWithDefault)
+	}
+	if m.GetImplicitImmutableF64() {
+		vs = append(vs, valuefield.FieldImplicitImmutableF64)
+	}
+	if m.GetImplicitImmutableF32() {
+		vs = append(vs, valuefield.FieldImplicitImmutableF32)
+	}
+	if m.GetImplicitImmutableI32() {
+		vs = append(vs, valuefield.FieldImplicitImmutableI32)
+	}
+	if m.GetImplicitImmutableI64() {
+		vs = append(vs, valuefield.FieldImplicitImmutableI64)
+	}
+	if m.GetImplicitImmutableU32() {
+		vs = append(vs, valuefield.FieldImplicitImmutableU32)
+	}
+	if m.GetImplicitImmutableU64() {
+		vs = append(vs, valuefield.FieldImplicitImmutableU64)
+	}
+	if m.GetImplicitImmutableSi32() {
+		vs = append(vs, valuefield.FieldImplicitImmutableSi32)
+	}
+	if m.GetImplicitImmutableSi64() {
+		vs = append(vs, valuefield.FieldImplicitImmutableSi64)
+	}
+	if m.GetImplicitImmutableFi32() {
+		vs = append(vs, valuefield.FieldImplicitImmutableFi32)
+	}
+	if m.GetImplicitImmutableFi64() {
+		vs = append(vs, valuefield.FieldImplicitImmutableFi64)
+	}
+	if m.GetImplicitImmutableSfi32() {
+		vs = append(vs, valuefield.FieldImplicitImmutableSfi32)
+	}
+	if m.GetImplicitImmutableSfi64() {
+		vs = append(vs, valuefield.FieldImplicitImmutableSfi64)
+	}
+	if m.GetImplicitImmutableBool() {
+		vs = append(vs, valuefield.FieldImplicitImmutableBool)
+	}
+	if m.GetImplicitImmutableString() {
+		vs = append(vs, valuefield.FieldImplicitImmutableString)
+	}
+	if m.GetImplicitImmutableBytes() {
+		vs = append(vs, valuefield.FieldImplicitImmutableBytes)
+	}
+	if m.GetImplicitImmutableLevel() {
+		vs = append(vs, valuefield.FieldImplicitImmutableLevel)
+	}
+	if m.GetExplicitImmutableF64() {
+		vs = append(vs, valuefield.FieldExplicitImmutableF64)
+	}
+	if m.GetExplicitImmutableF32() {
+		vs = append(vs, valuefield.FieldExplicitImmutableF32)
+	}
+	if m.GetExplicitImmutableI32() {
+		vs = append(vs, valuefield.FieldExplicitImmutableI32)
+	}
+	if m.GetExplicitImmutableI64() {
+		vs = append(vs, valuefield.FieldExplicitImmutableI64)
+	}
+	if m.GetExplicitImmutableU32() {
+		vs = append(vs, valuefield.FieldExplicitImmutableU32)
+	}
+	if m.GetExplicitImmutableU64() {
+		vs = append(vs, valuefield.FieldExplicitImmutableU64)
+	}
+	if m.GetExplicitImmutableSi32() {
+		vs = append(vs, valuefield.FieldExplicitImmutableSi32)
+	}
+	if m.GetExplicitImmutableSi64() {
+		vs = append(vs, valuefield.FieldExplicitImmutableSi64)
+	}
+	if m.GetExplicitImmutableFi32() {
+		vs = append(vs, valuefield.FieldExplicitImmutableFi32)
+	}
+	if m.GetExplicitImmutableFi64() {
+		vs = append(vs, valuefield.FieldExplicitImmutableFi64)
+	}
+	if m.GetExplicitImmutableSfi32() {
+		vs = append(vs, valuefield.FieldExplicitImmutableSfi32)
+	}
+	if m.GetExplicitImmutableSfi64() {
+		vs = append(vs, valuefield.FieldExplicitImmutableSfi64)
+	}
+	if m.GetExplicitImmutableBool() {
+		vs = append(vs, valuefield.FieldExplicitImmutableBool)
+	}
+	if m.GetExplicitImmutableString() {
+		vs = append(vs, valuefield.FieldExplicitImmutableString)
+	}
+	if m.GetExplicitImmutableBytes() {
+		vs = append(vs, valuefield.FieldExplicitImmutableBytes)
+	}
+	if m.GetExplicitImmutableLevel() {
+		vs = append(vs, valuefield.FieldExplicitImmutableLevel)
+	}
+
+	return vs
+}
+
+func ValueFieldSelect(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
+	if !m.GetAll() {
+		fields := ValueFieldSelectedFields(m)
+		q.Select(fields...)
+	}
+}
+
+func ValueFieldSelectInit(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
+	if m != nil {
+		ValueFieldSelect(q, m)
+	} else {
+	}
 }
 
 func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFieldPatchRequest) (*apptest.ValueField, error) {
@@ -823,11 +1237,14 @@ func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFie
 
 	p, err := ValueFieldPick(ref)
 	if err != nil {
-		return z, nil
+		return z, err
 	}
 
 	v, err := db.ValueField.Query().Where(p).OnlyID(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return z, status.Error(codes.NotFound, "ValueField not found")
+		}
 		return z, err
 	}
 
@@ -850,8 +1267,10 @@ func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
 	switch req.WhichKey() {
 	case apptest.ValueFieldRef_Id_case:
 		return valuefield.IDEQ(req.GetId()), nil
+	case apptest.ValueFieldRef_Key_not_set_case:
+		return nil, status.Errorf(codes.InvalidArgument, "key not set")
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unknown type of key: %s", req.WhichKey())
+		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
 }
 
@@ -889,6 +1308,9 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 
 	u, err := q.Save(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
+			return nil, status.Errorf(codes.AlreadyExists, "MessageField already exists: %s", err.Unwrap())
+		}
 		return nil, err
 	}
 
@@ -903,14 +1325,13 @@ func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.Message
 	} else {
 		q.Where(p)
 	}
-
-	if s := req.GetSelect(); s != nil {
-		// TODO
-	} else {
-	}
+	MessageFieldSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, "MessageField not found")
+		}
 		return nil, err
 	}
 	return v.Proto(), nil
@@ -918,6 +1339,48 @@ func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.Message
 
 func selectMessageFieldKey(q *ent.MessageFieldQuery) {
 	q.Select(messagefield.FieldID)
+}
+
+func MessageFieldSelectedFields(m *apptest.MessageFieldSelect) []string {
+	if m.GetAll() {
+		return messagefield.Columns
+	}
+
+	vs := make([]string, 0, len(messagefield.Columns))
+	{
+		vs = append(vs, messagefield.FieldID)
+	}
+	if m.GetExplicit() {
+		vs = append(vs, messagefield.FieldExplicit)
+	}
+	if m.GetRepeated() {
+		vs = append(vs, messagefield.FieldRepeated)
+	}
+	if m.GetNullable() {
+		vs = append(vs, messagefield.FieldNullable)
+	}
+	if m.GetExplicitWithDefault() {
+		vs = append(vs, messagefield.FieldExplicitWithDefault)
+	}
+	if m.GetExplicitImmutable() {
+		vs = append(vs, messagefield.FieldExplicitImmutable)
+	}
+
+	return vs
+}
+
+func MessageFieldSelect(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) {
+	if !m.GetAll() {
+		fields := MessageFieldSelectedFields(m)
+		q.Select(fields...)
+	}
+}
+
+func MessageFieldSelectInit(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) {
+	if m != nil {
+		MessageFieldSelect(q, m)
+	} else {
+	}
 }
 
 func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.MessageFieldPatchRequest) (*apptest.MessageField, error) {
@@ -961,11 +1424,14 @@ func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.Messag
 
 	p, err := MessageFieldPick(ref)
 	if err != nil {
-		return z, nil
+		return z, err
 	}
 
 	v, err := db.MessageField.Query().Where(p).OnlyID(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return z, status.Error(codes.NotFound, "MessageField not found")
+		}
 		return z, err
 	}
 
@@ -988,8 +1454,10 @@ func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, err
 	switch req.WhichKey() {
 	case apptest.MessageFieldRef_Id_case:
 		return messagefield.IDEQ(req.GetId()), nil
+	case apptest.MessageFieldRef_Key_not_set_case:
+		return nil, status.Errorf(codes.InvalidArgument, "key not set")
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unknown type of key: %s", req.WhichKey())
+		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
 }
 
@@ -1043,6 +1511,9 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 
 	u, err := q.Save(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
+			return nil, status.Errorf(codes.AlreadyExists, "MapField already exists: %s", err.Unwrap())
+		}
 		return nil, err
 	}
 
@@ -1057,14 +1528,13 @@ func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGet
 	} else {
 		q.Where(p)
 	}
-
-	if s := req.GetSelect(); s != nil {
-		// TODO
-	} else {
-	}
+	MapFieldSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, "MapField not found")
+		}
 		return nil, err
 	}
 	return v.Proto(), nil
@@ -1072,6 +1542,60 @@ func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGet
 
 func selectMapFieldKey(q *ent.MapFieldQuery) {
 	q.Select(mapfield.FieldID)
+}
+
+func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
+	if m.GetAll() {
+		return mapfield.Columns
+	}
+
+	vs := make([]string, 0, len(mapfield.Columns))
+	{
+		vs = append(vs, mapfield.FieldID)
+	}
+	if m.GetImplicitString() {
+		vs = append(vs, mapfield.FieldImplicitString)
+	}
+	if m.GetImplicitEnum() {
+		vs = append(vs, mapfield.FieldImplicitEnum)
+	}
+	if m.GetImplicitJson() {
+		vs = append(vs, mapfield.FieldImplicitJSON)
+	}
+	if m.GetImplicitStringWithDefault() {
+		vs = append(vs, mapfield.FieldImplicitStringWithDefault)
+	}
+	if m.GetImplicitEnumWithDefault() {
+		vs = append(vs, mapfield.FieldImplicitEnumWithDefault)
+	}
+	if m.GetImplicitJsonWithDefault() {
+		vs = append(vs, mapfield.FieldImplicitJSONWithDefault)
+	}
+	if m.GetImplicitImmutableString() {
+		vs = append(vs, mapfield.FieldImplicitImmutableString)
+	}
+	if m.GetImplicitImmutableEnum() {
+		vs = append(vs, mapfield.FieldImplicitImmutableEnum)
+	}
+	if m.GetImplicitImmutableJson() {
+		vs = append(vs, mapfield.FieldImplicitImmutableJSON)
+	}
+
+	return vs
+}
+
+func MapFieldSelect(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
+	if !m.GetAll() {
+		fields := MapFieldSelectedFields(m)
+		q.Select(fields...)
+	}
+}
+
+func MapFieldSelectInit(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
+	if m != nil {
+		MapFieldSelect(q, m)
+	} else {
+	}
 }
 
 func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldPatchRequest) (*apptest.MapField, error) {
@@ -1115,11 +1639,14 @@ func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRe
 
 	p, err := MapFieldPick(ref)
 	if err != nil {
-		return z, nil
+		return z, err
 	}
 
 	v, err := db.MapField.Query().Where(p).OnlyID(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return z, status.Error(codes.NotFound, "MapField not found")
+		}
 		return z, err
 	}
 
@@ -1142,7 +1669,9 @@ func MapFieldPick(req *apptest.MapFieldRef) (predicate.MapField, error) {
 	switch req.WhichKey() {
 	case apptest.MapFieldRef_Id_case:
 		return mapfield.IDEQ(req.GetId()), nil
+	case apptest.MapFieldRef_Key_not_set_case:
+		return nil, status.Errorf(codes.InvalidArgument, "key not set")
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unknown type of key: %s", req.WhichKey())
+		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
 }

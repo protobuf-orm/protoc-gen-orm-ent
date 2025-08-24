@@ -34,6 +34,8 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
+github.com/lesomnus/z v0.0.0-20250814060026-a765c3214286 h1:Eab8So2gyu4zJLGMHZ3Xq5Zt0osSo6Mntgb4hg7JEz0=
+github.com/lesomnus/z v0.0.0-20250814060026-a765c3214286/go.mod h1:v3+tOhGZhT6JQ/ZYncEQryo23ApoN03Ez4G2BHp2SWM=
 github.com/mattn/go-sqlite3 v1.14.17 h1:mCRHCLDUBXgpKAqIKsaAaAsrAlbkeomtRFKXh2L6YIM=
 github.com/mattn/go-sqlite3 v1.14.17/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
 github.com/mitchellh/go-wordwrap v1.0.1 h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQflz0v0=
@@ -42,8 +44,6 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWb
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/protobuf-orm/protobuf-orm v0.0.0-20250817180310-b79c36a5c9da h1:KY/fKsQvRNzJCy//LNpPjbGI6chkv/VRmZqpPo5sftk=
-github.com/protobuf-orm/protobuf-orm v0.0.0-20250817180310-b79c36a5c9da/go.mod h1:fUP/BHz3hZQQ/7gKHi9x1y60CLUguZ03SOKScQVWl98=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20250823135318-4d3deece5f2e h1:hrVtnw5FsSLOPVZLN4A483pl1aiduTZBCWyNk6BFrDs=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20250823135318-4d3deece5f2e/go.mod h1:fUP/BHz3hZQQ/7gKHi9x1y60CLUguZ03SOKScQVWl98=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=

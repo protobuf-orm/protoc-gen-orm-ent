@@ -5,6 +5,7 @@ package bare
 
 import (
 	context "context"
+	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
 	uuid "github.com/google/uuid"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
@@ -57,6 +58,9 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 
 	u, err := q.Save(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
+			return nil, status.Errorf(codes.AlreadyExists, "Tenant already exists: %s", err.Unwrap())
+		}
 		return nil, err
 	}
 
@@ -71,14 +75,13 @@ func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequ
 	} else {
 		q.Where(p)
 	}
-
-	if s := req.GetSelect(); s != nil {
-		// TODO
-	} else {
-	}
+	TenantSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, "Tenant not found")
+		}
 		return nil, err
 	}
 	return v.Proto(), nil
@@ -86,6 +89,45 @@ func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequ
 
 func selectTenantKey(q *ent.TenantQuery) {
 	q.Select(tenant.FieldID)
+}
+
+func TenantSelectedFields(m *apptest.TenantSelect) []string {
+	if m.GetAll() {
+		return tenant.Columns
+	}
+
+	vs := make([]string, 0, len(tenant.Columns))
+	{
+		vs = append(vs, tenant.FieldID)
+	}
+	if m.GetAlias() {
+		vs = append(vs, tenant.FieldAlias)
+	}
+	if m.GetName() {
+		vs = append(vs, tenant.FieldName)
+	}
+	if m.GetLabels() {
+		vs = append(vs, tenant.FieldLabels)
+	}
+	if m.GetDateCreated() {
+		vs = append(vs, tenant.FieldDateCreated)
+	}
+
+	return vs
+}
+
+func TenantSelect(q *ent.TenantQuery, m *apptest.TenantSelect) {
+	if !m.GetAll() {
+		fields := TenantSelectedFields(m)
+		q.Select(fields...)
+	}
+}
+
+func TenantSelectInit(q *ent.TenantQuery, m *apptest.TenantSelect) {
+	if m != nil {
+		TenantSelect(q, m)
+	} else {
+	}
 }
 
 func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*apptest.Tenant, error) {
@@ -124,11 +166,14 @@ func TenantGetKey(ctx context.Context, db *ent.Client, ref *apptest.TenantRef) (
 
 	p, err := TenantPick(ref)
 	if err != nil {
-		return z, nil
+		return z, err
 	}
 
 	v, err := db.Tenant.Query().Where(p).OnlyID(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return z, status.Error(codes.NotFound, "Tenant not found")
+		}
 		return z, err
 	}
 
@@ -155,7 +200,9 @@ func TenantPick(req *apptest.TenantRef) (predicate.Tenant, error) {
 		} else {
 			return tenant.IDEQ(v), nil
 		}
+	case apptest.TenantRef_Key_not_set_case:
+		return nil, status.Errorf(codes.InvalidArgument, "key not set")
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unknown type of key: %s", req.WhichKey())
+		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
 }

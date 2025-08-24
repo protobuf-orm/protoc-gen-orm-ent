@@ -6,6 +6,7 @@ require (
 	entgo.io/ent v0.14.5
 	github.com/go-openapi/inflect v0.21.2
 	github.com/google/uuid v1.6.0
+	github.com/lesomnus/z v0.0.0-20250814060026-a765c3214286
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20250823135318-4d3deece5f2e
 	github.com/stretchr/testify v1.10.0

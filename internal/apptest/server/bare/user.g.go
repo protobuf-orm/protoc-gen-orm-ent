@@ -5,6 +5,7 @@ package bare
 
 import (
 	context "context"
+	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
 	uuid "github.com/google/uuid"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
@@ -69,6 +70,9 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 
 	u, err := q.Save(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
+			return nil, status.Errorf(codes.AlreadyExists, "User already exists: %s", err.Unwrap())
+		}
 		return nil, err
 	}
 
@@ -87,15 +91,13 @@ func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest)
 	} else {
 		q.Where(p)
 	}
-
-	if s := req.GetSelect(); s != nil {
-		// TODO
-	} else {
-		q.WithTenant(selectTenantKey)
-	}
+	UserSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, "User not found")
+		}
 		return nil, err
 	}
 	return v.Proto(), nil
@@ -103,6 +105,54 @@ func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest)
 
 func selectUserKey(q *ent.UserQuery) {
 	q.Select(user.FieldID)
+}
+
+func UserSelectedFields(m *apptest.UserSelect) []string {
+	if m.GetAll() {
+		return user.Columns
+	}
+
+	vs := make([]string, 0, len(user.Columns))
+	{
+		vs = append(vs, user.FieldID)
+	}
+	if m.GetAlias() {
+		vs = append(vs, user.FieldAlias)
+	}
+	if m.GetName() {
+		vs = append(vs, user.FieldName)
+	}
+	if m.GetLabels() {
+		vs = append(vs, user.FieldLabels)
+	}
+	if m.GetLock() {
+		vs = append(vs, user.FieldLock)
+	}
+	if m.GetDateCreated() {
+		vs = append(vs, user.FieldDateCreated)
+	}
+
+	return vs
+}
+
+func UserSelect(q *ent.UserQuery, m *apptest.UserSelect) {
+	if !m.GetAll() {
+		fields := UserSelectedFields(m)
+		q.Select(fields...)
+	}
+	if m.HasTenant() {
+		q.WithTenant(func(q *ent.TenantQuery) {
+			TenantSelect(q, m.GetTenant())
+		})
+	}
+}
+
+func UserSelectInit(q *ent.UserQuery, m *apptest.UserSelect) {
+	if m != nil {
+		UserSelect(q, m)
+	} else {
+		q.WithTenant(selectTenantKey)
+	}
 }
 
 func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*apptest.User, error) {
@@ -146,11 +196,14 @@ func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid
 
 	p, err := UserPick(ref)
 	if err != nil {
-		return z, nil
+		return z, err
 	}
 
 	v, err := db.User.Query().Where(p).OnlyID(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return z, status.Error(codes.NotFound, "User not found")
+		}
 		return z, err
 	}
 
@@ -187,7 +240,9 @@ func UserPick(req *apptest.UserRef) (predicate.User, error) {
 			ps = append(ps, user.HasTenantWith(p))
 		}
 		return user.And(ps...), nil
+	case apptest.UserRef_Key_not_set_case:
+		return nil, status.Errorf(codes.InvalidArgument, "key not set")
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unknown type of key: %s", req.WhichKey())
+		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
 }
