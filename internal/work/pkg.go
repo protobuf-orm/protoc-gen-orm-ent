@@ -6,11 +6,12 @@ var (
 	PkgContext = protogen.GoImportPath("context")
 	PkgTime    = protogen.GoImportPath("time")
 
-	PkgEnt   = protogen.GoImportPath("entgo.io/ent")
-	PkgField = protogen.GoImportPath("entgo.io/ent/schema/field")
-	PkgEdge  = protogen.GoImportPath("entgo.io/ent/schema/edge")
-	PkgIndex = protogen.GoImportPath("entgo.io/ent/schema/index")
-	PkgZ     = protogen.GoImportPath("github.com/lesomnus/z")
+	PkgEnt         = protogen.GoImportPath("entgo.io/ent")
+	PkgEntSqlGraph = protogen.GoImportPath("entgo.io/ent/dialect/sql/sqlgraph")
+	PkgField       = protogen.GoImportPath("entgo.io/ent/schema/field")
+	PkgEdge        = protogen.GoImportPath("entgo.io/ent/schema/edge")
+	PkgIndex       = protogen.GoImportPath("entgo.io/ent/schema/index")
+	PkgZ           = protogen.GoImportPath("github.com/lesomnus/z")
 
 	PkgGoogleUuid = protogen.GoImportPath("github.com/google/uuid")
 	PkgUuid       = PkgGoogleUuid
