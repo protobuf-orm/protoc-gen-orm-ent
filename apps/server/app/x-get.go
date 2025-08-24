@@ -70,12 +70,15 @@ func (w *fileWork) xGetKey() {
 
 	w.P("	p, err := ", name, "Pick(ref)")
 	w.P("	if err != nil {")
-	w.P("		return z, nil")
+	w.P("		return z, err")
 	w.P("	}")
 	w.P("")
 
 	w.P("	v, err := db.", name, ".Query().Where(p).OnlyID(ctx)")
 	w.P("	if err != nil {")
+	w.P("		if ", w.ent.Ident("IsNotFound"), "(err) {")
+	w.P("			return z, ", work.PkgGrpcStatus.Ident("Error"), "(", work.PkgGrpcCodes.Ident("NotFound"), ", \"", name, " not found\")")
+	w.P("		}")
 	w.P("		return z, err")
 	w.P("	}")
 	w.P("")
