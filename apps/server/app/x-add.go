@@ -75,7 +75,7 @@ func (w *fileWork) xAdd() {
 			w.P("	} else {")
 			w.P("		q.Set", name.Ent(), "ID(k)")
 			w.P("		ds = append(ds, func(v *", w.Ident, "){")
-			w.P("			v.Set", m.Name(), "(", w.Src.GoImportPath.Ident(m.Name()+"_builder"), "{", work.Name(m.Key().Name()).Go(), ": ", k, "}.Build())")
+			w.P("			v.Set", name.Ent(), "(", w.Src.GoImportPath.Ident(m.Name()+"_builder"), "{", work.Name(m.Key().Name()).Go(), ": ", k, "}.Build())")
 			w.P("		})")
 			w.P("	}")
 		default:
