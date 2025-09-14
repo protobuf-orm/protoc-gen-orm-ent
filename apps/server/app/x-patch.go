@@ -37,18 +37,15 @@ func (w *fileWork) xPatch() {
 		}
 
 		u := "req.Get" + name.Go() + "()"
-		if p.IsOptional() {
-			if graph.IsCollection(p) {
-				w.P("	if u := ", u, "; len(u) > 0 {")
-				u = "u"
-			} else {
-				w.P("	if req.Has", name.Go(), "() {")
-			}
+		if graph.IsCollection(p) {
+			w.P("	if u := ", u, "; len(u) > 0 {")
+			u = "u"
+		} else {
+			w.P("	if req.Has", name.Go(), "() {")
 		}
 
 		switch p := p.(type) {
 		case graph.Field:
-			u := "req.Get" + name.Go() + "()"
 			set := func(v string) {
 				w.P("	q.Set", name.Ent(), "(", v, ")")
 			}
@@ -74,13 +71,16 @@ func (w *fileWork) xPatch() {
 			}
 
 		case graph.Edge:
-			// edges = append(edges, name)
+			w.P("if id, err := ", work.Name(p.Target().Name()).Go(), "GetKey(ctx, s.Db, ", u, ")", "; err != nil {")
+			w.P("	return nil, err")
+			w.P("} else {")
+			w.P("	q.Set", name.Ent(), "ID(id)")
+			w.P("}")
+
 		default:
 			panic("unknown type of graph prop")
 		}
-		if p.IsOptional() {
-			w.P("}")
-		}
+		w.P("}")
 	}
 	w.P("")
 	w.P("if _, err := q.Save(ctx); err != nil {")

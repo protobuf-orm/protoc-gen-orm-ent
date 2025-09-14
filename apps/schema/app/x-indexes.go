@@ -41,7 +41,7 @@ func xIndexes(w *work.FileWork) {
 				w.P(".")
 				w.Pf("			Edges(%s)", strings.Join(edges, ","))
 			} else {
-				w.Pf("		%s(%s)", index.Ident("Edges"), strings.Join(fields, ", "))
+				w.Pf("		%s(%s)", index.Ident("Edges"), strings.Join(edges, ", "))
 			}
 		}
 		if v.IsUnique() {
