@@ -22,6 +22,26 @@ func RegisterServer(g *grpc.Server, s Server) {
 	RegisterUserServiceServer(g, s.User())
 }
 
+type UnimplementedServer struct {
+	ValueFieldServer   ValueFieldServiceServer
+	MessageFieldServer MessageFieldServiceServer
+	MapFieldServer     MapFieldServiceServer
+	TenantServer       TenantServiceServer
+	UserServer         UserServiceServer
+}
+
+func (UnimplementedServer) ValueField() ValueFieldServiceServer {
+	return UnimplementedValueFieldServiceServer{}
+}
+func (UnimplementedServer) MessageField() MessageFieldServiceServer {
+	return UnimplementedMessageFieldServiceServer{}
+}
+func (UnimplementedServer) MapField() MapFieldServiceServer {
+	return UnimplementedMapFieldServiceServer{}
+}
+func (UnimplementedServer) Tenant() TenantServiceServer { return UnimplementedTenantServiceServer{} }
+func (UnimplementedServer) User() UserServiceServer     { return UnimplementedUserServiceServer{} }
+
 type StaticServer struct {
 	ValueFieldServer   ValueFieldServiceServer
 	MessageFieldServer MessageFieldServiceServer

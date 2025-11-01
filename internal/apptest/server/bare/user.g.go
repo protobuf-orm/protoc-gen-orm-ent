@@ -62,6 +62,7 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	if req.HasLock() {
 		q.SetLock(req.GetLock())
 	}
+	q.SetDateUpdated(time.Now().UTC())
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
 	} else {
@@ -128,6 +129,9 @@ func UserSelectedFields(m *apptest.UserSelect) []string {
 	if m.GetLock() {
 		vs = append(vs, user.FieldLock)
 	}
+	if m.GetDateUpdated() {
+		vs = append(vs, user.FieldDateUpdated)
+	}
 	if m.GetDateCreated() {
 		vs = append(vs, user.FieldDateCreated)
 	}
@@ -156,12 +160,27 @@ func UserSelectInit(q *ent.UserQuery, m *apptest.UserSelect) {
 }
 
 func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*apptest.User, error) {
+	is_force := req.GetDateUpdatedForce()
+	if !req.HasDateUpdated() && !is_force {
+		return nil, status.Errorf(codes.InvalidArgument, "version not given: %s", "date_updated")
+	}
+
 	p, err := UserPick(req.GetTarget())
 	if err != nil {
 		return nil, err
 	}
 
 	q := s.Db.User.Update().Where(p)
+	if !is_force {
+		q.Where(user.DateUpdatedEQ(req.GetDateUpdated().AsTime()))
+	}
+	if req.HasTenant() {
+		if id, err := TenantGetKey(ctx, s.Db, req.GetTenant()); err != nil {
+			return nil, err
+		} else {
+			q.SetTenantID(id)
+		}
+	}
 	if req.HasAlias() {
 		q.SetAlias(req.GetAlias())
 	}
@@ -169,19 +188,30 @@ func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequ
 		q.SetName(req.GetName())
 	}
 	if u := req.GetLabels(); len(u) > 0 {
-		q.SetLabels(req.GetLabels())
+		q.SetLabels(u)
 	}
 	if req.GetLockNull() {
 		q.ClearLock()
 	} else if req.HasLock() {
 		q.SetLock(req.GetLock())
 	}
-
-	if _, err := q.Save(ctx); err != nil {
-		return nil, err
+	if is_force && req.HasDateUpdated() {
+		q.SetDateUpdated(req.GetDateUpdated().AsTime())
+	} else {
+		q.SetDateUpdated(time.Now().UTC())
 	}
 
-	return nil, nil
+	if n, err := q.Save(ctx); err != nil {
+		return nil, err
+	} else if n == 0 {
+		if is_force {
+			return nil, status.Errorf(codes.NotFound, "not found")
+		} else {
+			return nil, status.Errorf(codes.FailedPrecondition, "version not matched: %s", "date_updated")
+		}
+	}
+
+	return s.Get(ctx, req.GetTarget().Pick())
 }
 
 func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid.UUID, error) {
@@ -241,7 +271,7 @@ func UserPick(req *apptest.UserRef) (predicate.User, error) {
 		}
 		return user.And(ps...), nil
 	case apptest.UserRef_Key_not_set_case:
-		return nil, status.Errorf(codes.InvalidArgument, "key not set")
+		return nil, status.Errorf(codes.InvalidArgument, "key not set: User")
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}

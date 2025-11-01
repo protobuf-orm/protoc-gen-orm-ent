@@ -21,7 +21,12 @@ func xProto(w *work.FileWork) {
 			is_nillable := p.IsNullable() && p != w.Entity.Key()
 			if is_nillable {
 				w.P("	if ", v, " != nil {")
-				if p.Type() != ormpb.Type_TYPE_JSON {
+				switch p.Type() {
+				case ormpb.Type_TYPE_UUID:
+					// uuid.UUID is an array not a slice so `v[:]` just work without deref.
+				case ormpb.Type_TYPE_JSON:
+
+				default:
 					v = "*" + v
 				}
 			}

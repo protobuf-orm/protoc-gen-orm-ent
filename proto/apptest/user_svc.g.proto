@@ -52,6 +52,7 @@ message UserSelect {
 	bool name = 5;
 	bool labels = 7;
 	bool lock = 8;
+	bool date_updated = 14;
 	bool date_created = 15;
 }
 
@@ -68,4 +69,6 @@ message UserPatchRequest {
 	map<string, string> labels = 13;
 	string lock = 15;
 	bool lock_null = 16;
+	google.protobuf.Timestamp date_updated = 27;
+	bool date_updated_force = 28;
 }

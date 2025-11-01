@@ -144,14 +144,16 @@ func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatch
 		q.SetName(req.GetName())
 	}
 	if u := req.GetLabels(); len(u) > 0 {
-		q.SetLabels(req.GetLabels())
+		q.SetLabels(u)
 	}
 
-	if _, err := q.Save(ctx); err != nil {
+	if n, err := q.Save(ctx); err != nil {
 		return nil, err
+	} else if n == 0 {
+		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return nil, nil
+	return s.Get(ctx, req.GetTarget().Pick())
 }
 
 func TenantGetKey(ctx context.Context, db *ent.Client, ref *apptest.TenantRef) (uuid.UUID, error) {
@@ -201,7 +203,7 @@ func TenantPick(req *apptest.TenantRef) (predicate.Tenant, error) {
 			return tenant.IDEQ(v), nil
 		}
 	case apptest.TenantRef_Key_not_set_case:
-		return nil, status.Errorf(codes.InvalidArgument, "key not set")
+		return nil, status.Errorf(codes.InvalidArgument, "key not set: Tenant")
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}

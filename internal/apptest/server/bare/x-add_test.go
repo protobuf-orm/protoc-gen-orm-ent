@@ -22,7 +22,7 @@ func TestAdd(t *testing.T) {
 		x.NoError(err)
 
 		_, err = c.User().Add(ctx, pb.UserAddRequest_builder{
-			Tenant: tenant.Pick(),
+			Tenant: tenant.Ref(),
 		}.Build())
 		x.NoError(err)
 	}))

@@ -41,6 +41,18 @@ func (w *fileWork) xAdd() {
 			}
 
 			t := p.Type()
+			if p.IsVersion() {
+				switch t {
+				case ormpb.Type_TYPE_TIME:
+					now := work.PkgTime.Ident("Now")
+					set(fmt.Sprintf("%s().UTC()", w.QualifiedGoIdent(now)))
+
+				default:
+					panic("version with type other than time not supported yet")
+				}
+				continue
+			}
+
 			switch t {
 			case ormpb.Type_TYPE_ENUM:
 				if p.IsList() {

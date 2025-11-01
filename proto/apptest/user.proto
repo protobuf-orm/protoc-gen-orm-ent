@@ -25,6 +25,9 @@ message User {
     (orm.field) = {nullable: true}
   ];
 
+  google.protobuf.Timestamp date_updated = 14 [(orm.field) = {
+    version: {}
+  }];
   google.protobuf.Timestamp date_created = 15 [(orm.field) = {
     immutable: true
     default: ""

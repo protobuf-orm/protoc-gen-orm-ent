@@ -14,10 +14,10 @@ func TestGet(t *testing.T) {
 		tenant, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
 		x.NoError(err)
 
-		v, err := c.User().Add(ctx, pb.UserAddRequest_builder{Tenant: tenant.Pick()}.Build())
+		v, err := c.User().Add(ctx, pb.UserAddRequest_builder{Tenant: tenant.Ref()}.Build())
 		x.NoError(err)
 
-		w, err := c.User().Get(ctx, v.PickUp())
+		w, err := c.User().Get(ctx, v.Pick())
 		x.NoError(err)
 		x.NotEmpty(w.GetTenant().GetId())
 		x.Equal(tenant.GetId(), w.GetTenant().GetId())
@@ -29,14 +29,14 @@ func TestGet(t *testing.T) {
 		}.Build())
 		x.NoError(err)
 
-		v, err := c.User().Add(ctx, pb.UserAddRequest_builder{Tenant: tenant.Pick()}.Build())
+		v, err := c.User().Add(ctx, pb.UserAddRequest_builder{Tenant: tenant.Ref()}.Build())
 		x.NoError(err)
 
-		w, err := c.User().Get(ctx, v.PickUp())
+		w, err := c.User().Get(ctx, v.Pick())
 		x.NoError(err)
 		x.Empty(w.GetTenant().GetAlias())
 
-		w, err = c.User().Get(ctx, v.PickUp().WithSelect(func(s *pb.UserSelect) {
+		w, err = c.User().Get(ctx, v.Pick().WithSelect(func(s *pb.UserSelect) {
 			s.SetTenant(pb.TenantSelect_builder{
 				Alias: z.Ptr(true),
 			}.Build())

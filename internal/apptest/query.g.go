@@ -7,7 +7,11 @@ import (
 	protojson "google.golang.org/protobuf/encoding/protojson"
 )
 
-func (x *ValueField) Pick() *ValueFieldRef {
+func (x *ValueFieldRef) Pick() *ValueFieldGetRequest {
+	return ValueFieldGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *ValueField) Ref() *ValueFieldRef {
 	if v := x.GetId(); len(v) > 0 {
 		return ValueFieldById(v)
 	}
@@ -15,11 +19,8 @@ func (x *ValueField) Pick() *ValueFieldRef {
 	return nil
 }
 
-func (x *ValueField) PickUp() *ValueFieldGetRequest {
-	if p := x.Pick(); p != nil {
-		return ValueFieldGetRequest_builder{Ref: p}.Build()
-	}
-	return nil
+func (x *ValueField) Pick() *ValueFieldGetRequest {
+	return x.Ref().Pick()
 }
 
 func (x *ValueFieldRef) Picks(v *ValueField) bool {
@@ -52,7 +53,11 @@ func ValueFieldGetById(v string) *ValueFieldGetRequest {
 	return ValueFieldGetRequest_builder{Ref: ValueFieldById(v)}.Build()
 }
 
-func (x *MessageField) Pick() *MessageFieldRef {
+func (x *MessageFieldRef) Pick() *MessageFieldGetRequest {
+	return MessageFieldGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *MessageField) Ref() *MessageFieldRef {
 	if v := x.GetId(); len(v) > 0 {
 		return MessageFieldById(v)
 	}
@@ -60,11 +65,8 @@ func (x *MessageField) Pick() *MessageFieldRef {
 	return nil
 }
 
-func (x *MessageField) PickUp() *MessageFieldGetRequest {
-	if p := x.Pick(); p != nil {
-		return MessageFieldGetRequest_builder{Ref: p}.Build()
-	}
-	return nil
+func (x *MessageField) Pick() *MessageFieldGetRequest {
+	return x.Ref().Pick()
 }
 
 func (x *MessageFieldRef) Picks(v *MessageField) bool {
@@ -97,7 +99,11 @@ func MessageFieldGetById(v string) *MessageFieldGetRequest {
 	return MessageFieldGetRequest_builder{Ref: MessageFieldById(v)}.Build()
 }
 
-func (x *MapField) Pick() *MapFieldRef {
+func (x *MapFieldRef) Pick() *MapFieldGetRequest {
+	return MapFieldGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *MapField) Ref() *MapFieldRef {
 	if v := x.GetId(); len(v) > 0 {
 		return MapFieldById(v)
 	}
@@ -105,11 +111,8 @@ func (x *MapField) Pick() *MapFieldRef {
 	return nil
 }
 
-func (x *MapField) PickUp() *MapFieldGetRequest {
-	if p := x.Pick(); p != nil {
-		return MapFieldGetRequest_builder{Ref: p}.Build()
-	}
-	return nil
+func (x *MapField) Pick() *MapFieldGetRequest {
+	return x.Ref().Pick()
 }
 
 func (x *MapFieldRef) Picks(v *MapField) bool {
@@ -142,7 +145,11 @@ func MapFieldGetById(v string) *MapFieldGetRequest {
 	return MapFieldGetRequest_builder{Ref: MapFieldById(v)}.Build()
 }
 
-func (x *Tenant) Pick() *TenantRef {
+func (x *TenantRef) Pick() *TenantGetRequest {
+	return TenantGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *Tenant) Ref() *TenantRef {
 	if v := x.GetId(); len(v) > 0 {
 		return TenantById(v)
 	}
@@ -150,11 +157,8 @@ func (x *Tenant) Pick() *TenantRef {
 	return nil
 }
 
-func (x *Tenant) PickUp() *TenantGetRequest {
-	if p := x.Pick(); p != nil {
-		return TenantGetRequest_builder{Ref: p}.Build()
-	}
-	return nil
+func (x *Tenant) Pick() *TenantGetRequest {
+	return x.Ref().Pick()
 }
 
 func (x *TenantRef) Picks(v *Tenant) bool {
@@ -187,7 +191,11 @@ func TenantGetById(v []byte) *TenantGetRequest {
 	return TenantGetRequest_builder{Ref: TenantById(v)}.Build()
 }
 
-func (x *User) Pick() *UserRef {
+func (x *UserRef) Pick() *UserGetRequest {
+	return UserGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *User) Ref() *UserRef {
 	if v := x.GetId(); len(v) > 0 {
 		return UserById(v)
 	}
@@ -195,18 +203,15 @@ func (x *User) Pick() *UserRef {
 		v1 := x.GetAlias()
 		v2 := x.GetTenant()
 		if len(v1) > 0 && v2 != nil {
-			return UserByAlias(v1, v2.Pick())
+			return UserByAlias(v1, v2.Ref())
 		}
 	}
 
 	return nil
 }
 
-func (x *User) PickUp() *UserGetRequest {
-	if p := x.Pick(); p != nil {
-		return UserGetRequest_builder{Ref: p}.Build()
-	}
-	return nil
+func (x *User) Pick() *UserGetRequest {
+	return x.Ref().Pick()
 }
 
 func (x *UserRef) Picks(v *User) bool {

@@ -29,8 +29,8 @@ func (User) Fields() []ent.Field {
 		field.String("lock").
 			Nillable().
 			Optional(),
+		field.Time("date_updated"),
 		field.Time("date_created").
-			Nillable().
 			Immutable().
 			Optional(),
 	}

@@ -92,7 +92,7 @@ func (w *fileWork) xPick() {
 		w.P("		return ", x.Ident("And"), "(ps...) , nil")
 	}
 	w.P("	case ", pkg.Ident(fmt.Sprintf("%sRef_Key_not_set_case", name_x)), ":")
-	w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"key not set\")")
+	w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"key not set: ", name_x, "\")")
 	w.P("	default:")
 	w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("Unimplemented"), ", \"unknown type of key: %s\", req.WhichKey())")
 	w.P("	}")

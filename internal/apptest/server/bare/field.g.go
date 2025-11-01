@@ -869,22 +869,54 @@ func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFi
 	}
 
 	q := s.Db.ValueField.Update().Where(p)
-	q.SetImplicitF64(req.GetImplicitF64())
-	q.SetImplicitF32(req.GetImplicitF32())
-	q.SetImplicitI32(req.GetImplicitI32())
-	q.SetImplicitI64(req.GetImplicitI64())
-	q.SetImplicitU32(req.GetImplicitU32())
-	q.SetImplicitU64(req.GetImplicitU64())
-	q.SetImplicitSi32(req.GetImplicitSi32())
-	q.SetImplicitSi64(req.GetImplicitSi64())
-	q.SetImplicitFi32(req.GetImplicitFi32())
-	q.SetImplicitFi64(req.GetImplicitFi64())
-	q.SetImplicitSfi32(req.GetImplicitSfi32())
-	q.SetImplicitSfi64(req.GetImplicitSfi64())
-	q.SetImplicitBool(req.GetImplicitBool())
-	q.SetImplicitString(req.GetImplicitString())
-	q.SetImplicitBytes(req.GetImplicitBytes())
-	q.SetImplicitEnum(int32(req.GetImplicitEnum()))
+	if req.HasImplicitF64() {
+		q.SetImplicitF64(req.GetImplicitF64())
+	}
+	if req.HasImplicitF32() {
+		q.SetImplicitF32(req.GetImplicitF32())
+	}
+	if req.HasImplicitI32() {
+		q.SetImplicitI32(req.GetImplicitI32())
+	}
+	if req.HasImplicitI64() {
+		q.SetImplicitI64(req.GetImplicitI64())
+	}
+	if req.HasImplicitU32() {
+		q.SetImplicitU32(req.GetImplicitU32())
+	}
+	if req.HasImplicitU64() {
+		q.SetImplicitU64(req.GetImplicitU64())
+	}
+	if req.HasImplicitSi32() {
+		q.SetImplicitSi32(req.GetImplicitSi32())
+	}
+	if req.HasImplicitSi64() {
+		q.SetImplicitSi64(req.GetImplicitSi64())
+	}
+	if req.HasImplicitFi32() {
+		q.SetImplicitFi32(req.GetImplicitFi32())
+	}
+	if req.HasImplicitFi64() {
+		q.SetImplicitFi64(req.GetImplicitFi64())
+	}
+	if req.HasImplicitSfi32() {
+		q.SetImplicitSfi32(req.GetImplicitSfi32())
+	}
+	if req.HasImplicitSfi64() {
+		q.SetImplicitSfi64(req.GetImplicitSfi64())
+	}
+	if req.HasImplicitBool() {
+		q.SetImplicitBool(req.GetImplicitBool())
+	}
+	if req.HasImplicitString() {
+		q.SetImplicitString(req.GetImplicitString())
+	}
+	if req.HasImplicitBytes() {
+		q.SetImplicitBytes(req.GetImplicitBytes())
+	}
+	if req.HasImplicitEnum() {
+		q.SetImplicitEnum(int32(req.GetImplicitEnum()))
+	}
 	if req.GetExplicitF64Null() {
 		q.ClearExplicitF64()
 	} else if req.HasExplicitF64() {
@@ -966,52 +998,52 @@ func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFi
 		q.SetExplicitEnum(int32(req.GetExplicitEnum()))
 	}
 	if u := req.GetImplicitF64S(); len(u) > 0 {
-		q.SetImplicitF64s(req.GetImplicitF64S())
+		q.SetImplicitF64s(u)
 	}
 	if u := req.GetImplicitF32S(); len(u) > 0 {
-		q.SetImplicitF32s(req.GetImplicitF32S())
+		q.SetImplicitF32s(u)
 	}
 	if u := req.GetImplicitI32S(); len(u) > 0 {
-		q.SetImplicitI32s(req.GetImplicitI32S())
+		q.SetImplicitI32s(u)
 	}
 	if u := req.GetImplicitI64S(); len(u) > 0 {
-		q.SetImplicitI64s(req.GetImplicitI64S())
+		q.SetImplicitI64s(u)
 	}
 	if u := req.GetImplicitU32S(); len(u) > 0 {
-		q.SetImplicitU32s(req.GetImplicitU32S())
+		q.SetImplicitU32s(u)
 	}
 	if u := req.GetImplicitU64S(); len(u) > 0 {
-		q.SetImplicitU64s(req.GetImplicitU64S())
+		q.SetImplicitU64s(u)
 	}
 	if u := req.GetImplicitSi32S(); len(u) > 0 {
-		q.SetImplicitSi32s(req.GetImplicitSi32S())
+		q.SetImplicitSi32s(u)
 	}
 	if u := req.GetImplicitSi64S(); len(u) > 0 {
-		q.SetImplicitSi64s(req.GetImplicitSi64S())
+		q.SetImplicitSi64s(u)
 	}
 	if u := req.GetImplicitFi32S(); len(u) > 0 {
-		q.SetImplicitFi32s(req.GetImplicitFi32S())
+		q.SetImplicitFi32s(u)
 	}
 	if u := req.GetImplicitFi64S(); len(u) > 0 {
-		q.SetImplicitFi64s(req.GetImplicitFi64S())
+		q.SetImplicitFi64s(u)
 	}
 	if u := req.GetImplicitSfi32S(); len(u) > 0 {
-		q.SetImplicitSfi32s(req.GetImplicitSfi32S())
+		q.SetImplicitSfi32s(u)
 	}
 	if u := req.GetImplicitSfi64S(); len(u) > 0 {
-		q.SetImplicitSfi64s(req.GetImplicitSfi64S())
+		q.SetImplicitSfi64s(u)
 	}
 	if u := req.GetImplicitBools(); len(u) > 0 {
-		q.SetImplicitBools(req.GetImplicitBools())
+		q.SetImplicitBools(u)
 	}
 	if u := req.GetImplicitStrings(); len(u) > 0 {
-		q.SetImplicitStrings(req.GetImplicitStrings())
+		q.SetImplicitStrings(u)
 	}
 	if u := req.GetImplicitBytess(); len(u) > 0 {
-		q.SetImplicitBytess(req.GetImplicitBytess())
+		q.SetImplicitBytess(u)
 	}
 	if u := req.GetImplicitLevels(); len(u) > 0 {
-		q.SetImplicitLevels(req.GetImplicitLevels())
+		q.SetImplicitLevels(u)
 	}
 	if req.GetNullableF64Null() {
 		q.ClearNullableF64()
@@ -1222,11 +1254,13 @@ func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFi
 		q.SetExplicitLevelWithDefault(int32(req.GetExplicitLevelWithDefault()))
 	}
 
-	if _, err := q.Save(ctx); err != nil {
+	if n, err := q.Save(ctx); err != nil {
 		return nil, err
+	} else if n == 0 {
+		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return nil, nil
+	return s.Get(ctx, req.GetTarget().Pick())
 }
 
 func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFieldRef) (string, error) {
@@ -1268,7 +1302,7 @@ func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
 	case apptest.ValueFieldRef_Id_case:
 		return valuefield.IDEQ(req.GetId()), nil
 	case apptest.ValueFieldRef_Key_not_set_case:
-		return nil, status.Errorf(codes.InvalidArgument, "key not set")
+		return nil, status.Errorf(codes.InvalidArgument, "key not set: ValueField")
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
@@ -1396,7 +1430,7 @@ func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.Messa
 		q.SetExplicit(req.GetExplicit())
 	}
 	if u := req.GetRepeated(); len(u) > 0 {
-		q.SetRepeated(req.GetRepeated())
+		q.SetRepeated(u)
 	}
 	if req.GetNullableNull() {
 		q.ClearNullable()
@@ -1409,11 +1443,13 @@ func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.Messa
 		q.SetExplicitWithDefault(req.GetExplicitWithDefault())
 	}
 
-	if _, err := q.Save(ctx); err != nil {
+	if n, err := q.Save(ctx); err != nil {
 		return nil, err
+	} else if n == 0 {
+		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return nil, nil
+	return s.Get(ctx, req.GetTarget().Pick())
 }
 
 func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MessageFieldRef) (string, error) {
@@ -1455,7 +1491,7 @@ func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, err
 	case apptest.MessageFieldRef_Id_case:
 		return messagefield.IDEQ(req.GetId()), nil
 	case apptest.MessageFieldRef_Key_not_set_case:
-		return nil, status.Errorf(codes.InvalidArgument, "key not set")
+		return nil, status.Errorf(codes.InvalidArgument, "key not set: MessageField")
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
@@ -1606,29 +1642,31 @@ func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldP
 
 	q := s.Db.MapField.Update().Where(p)
 	if u := req.GetImplicitString(); len(u) > 0 {
-		q.SetImplicitString(req.GetImplicitString())
+		q.SetImplicitString(u)
 	}
 	if u := req.GetImplicitEnum(); len(u) > 0 {
-		q.SetImplicitEnum(req.GetImplicitEnum())
+		q.SetImplicitEnum(u)
 	}
 	if u := req.GetImplicitJson(); len(u) > 0 {
-		q.SetImplicitJSON(req.GetImplicitJson())
+		q.SetImplicitJSON(u)
 	}
 	if u := req.GetImplicitStringWithDefault(); len(u) > 0 {
-		q.SetImplicitStringWithDefault(req.GetImplicitStringWithDefault())
+		q.SetImplicitStringWithDefault(u)
 	}
 	if u := req.GetImplicitEnumWithDefault(); len(u) > 0 {
-		q.SetImplicitEnumWithDefault(req.GetImplicitEnumWithDefault())
+		q.SetImplicitEnumWithDefault(u)
 	}
 	if u := req.GetImplicitJsonWithDefault(); len(u) > 0 {
-		q.SetImplicitJSONWithDefault(req.GetImplicitJsonWithDefault())
+		q.SetImplicitJSONWithDefault(u)
 	}
 
-	if _, err := q.Save(ctx); err != nil {
+	if n, err := q.Save(ctx); err != nil {
 		return nil, err
+	} else if n == 0 {
+		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return nil, nil
+	return s.Get(ctx, req.GetTarget().Pick())
 }
 
 func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRef) (string, error) {
@@ -1670,7 +1708,7 @@ func MapFieldPick(req *apptest.MapFieldRef) (predicate.MapField, error) {
 	case apptest.MapFieldRef_Id_case:
 		return mapfield.IDEQ(req.GetId()), nil
 	case apptest.MapFieldRef_Key_not_set_case:
-		return nil, status.Errorf(codes.InvalidArgument, "key not set")
+		return nil, status.Errorf(codes.InvalidArgument, "key not set: MapField")
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}

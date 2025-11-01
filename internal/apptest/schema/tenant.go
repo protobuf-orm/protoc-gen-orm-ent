@@ -25,7 +25,6 @@ func (Tenant) Fields() []ent.Field {
 		field.JSON("labels", map[string]string{}).
 			Optional(),
 		field.Time("date_created").
-			Nillable().
 			Immutable().
 			Optional(),
 	}
