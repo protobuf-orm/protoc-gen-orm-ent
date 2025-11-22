@@ -83,6 +83,7 @@ func (a *App) doWork(ctx context.Context, w *work.FileWork) error {
 	if w.Entity.HasIndexes() {
 		xIndexes(w)
 	}
+	xAnnotations(w)
 	return nil
 }
 

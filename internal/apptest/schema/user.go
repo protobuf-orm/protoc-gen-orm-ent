@@ -5,6 +5,8 @@ package schema
 
 import (
 	ent "entgo.io/ent"
+	entsql "entgo.io/ent/dialect/entsql"
+	schema "entgo.io/ent/schema"
 	edge "entgo.io/ent/schema/edge"
 	field "entgo.io/ent/schema/field"
 	index "entgo.io/ent/schema/index"
@@ -49,5 +51,11 @@ func (User) Indexes() []ent.Index {
 		index.Fields("alias").
 			Edges("tenant").
 			Unique(),
+	}
+}
+
+func (User) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{Table: "user"},
 	}
 }

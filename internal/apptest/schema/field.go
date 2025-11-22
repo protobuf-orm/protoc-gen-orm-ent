@@ -5,6 +5,8 @@ package schema
 
 import (
 	ent "entgo.io/ent"
+	entsql "entgo.io/ent/dialect/entsql"
+	schema "entgo.io/ent/schema"
 	field "entgo.io/ent/schema/field"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -342,6 +344,12 @@ func (ValueField) Fields() []ent.Field {
 	}
 }
 
+func (ValueField) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{Table: "valuefield"},
+	}
+}
+
 type MessageField struct {
 	ent.Schema
 }
@@ -362,6 +370,12 @@ func (MessageField) Fields() []ent.Field {
 		field.JSON("explicit_immutable", &structpb.Struct{}).
 			Immutable().
 			Optional(),
+	}
+}
+
+func (MessageField) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{Table: "messagefield"},
 	}
 }
 
@@ -395,5 +409,11 @@ func (MapField) Fields() []ent.Field {
 		field.JSON("implicit_immutable_json", map[string]*structpb.Struct{}).
 			Immutable().
 			Optional(),
+	}
+}
+
+func (MapField) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{Table: "mapfield"},
 	}
 }

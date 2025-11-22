@@ -7,7 +7,9 @@ var (
 	PkgTime    = protogen.GoImportPath("time")
 
 	PkgEnt         = protogen.GoImportPath("entgo.io/ent")
+	PkgEntSql      = protogen.GoImportPath("entgo.io/ent/dialect/entsql")
 	PkgEntSqlGraph = protogen.GoImportPath("entgo.io/ent/dialect/sql/sqlgraph")
+	PkgSchema      = protogen.GoImportPath("entgo.io/ent/schema")
 	PkgField       = protogen.GoImportPath("entgo.io/ent/schema/field")
 	PkgEdge        = protogen.GoImportPath("entgo.io/ent/schema/edge")
 	PkgIndex       = protogen.GoImportPath("entgo.io/ent/schema/index")

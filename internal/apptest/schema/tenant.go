@@ -5,6 +5,8 @@ package schema
 
 import (
 	ent "entgo.io/ent"
+	entsql "entgo.io/ent/dialect/entsql"
+	schema "entgo.io/ent/schema"
 	field "entgo.io/ent/schema/field"
 	uuid "github.com/google/uuid"
 )
@@ -27,5 +29,11 @@ func (Tenant) Fields() []ent.Field {
 		field.Time("date_created").
 			Immutable().
 			Optional(),
+	}
+}
+
+func (Tenant) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{Table: "tenant"},
 	}
 }
