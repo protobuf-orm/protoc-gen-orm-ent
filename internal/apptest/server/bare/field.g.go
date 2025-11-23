@@ -863,7 +863,7 @@ func ValueFieldSelectInit(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
 }
 
 func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFieldPatchRequest) (*apptest.ValueField, error) {
-	p, err := ValueFieldPick(req.GetTarget())
+	p, err := ValueFieldPick(req.GetRef())
 	if err != nil {
 		return nil, err
 	}
@@ -1260,7 +1260,7 @@ func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFi
 		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return s.Get(ctx, req.GetTarget().Pick())
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFieldRef) (string, error) {
@@ -1418,7 +1418,7 @@ func MessageFieldSelectInit(q *ent.MessageFieldQuery, m *apptest.MessageFieldSel
 }
 
 func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.MessageFieldPatchRequest) (*apptest.MessageField, error) {
-	p, err := MessageFieldPick(req.GetTarget())
+	p, err := MessageFieldPick(req.GetRef())
 	if err != nil {
 		return nil, err
 	}
@@ -1449,7 +1449,7 @@ func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.Messa
 		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return s.Get(ctx, req.GetTarget().Pick())
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MessageFieldRef) (string, error) {
@@ -1635,7 +1635,7 @@ func MapFieldSelectInit(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
 }
 
 func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldPatchRequest) (*apptest.MapField, error) {
-	p, err := MapFieldPick(req.GetTarget())
+	p, err := MapFieldPick(req.GetRef())
 	if err != nil {
 		return nil, err
 	}
@@ -1666,7 +1666,7 @@ func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldP
 		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return s.Get(ctx, req.GetTarget().Pick())
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRef) (string, error) {

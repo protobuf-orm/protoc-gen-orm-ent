@@ -131,7 +131,7 @@ func TenantSelectInit(q *ent.TenantQuery, m *apptest.TenantSelect) {
 }
 
 func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*apptest.Tenant, error) {
-	p, err := TenantPick(req.GetTarget())
+	p, err := TenantPick(req.GetRef())
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatch
 		return nil, status.Errorf(codes.NotFound, "not found")
 	}
 
-	return s.Get(ctx, req.GetTarget().Pick())
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func TenantGetKey(ctx context.Context, db *ent.Client, ref *apptest.TenantRef) (uuid.UUID, error) {

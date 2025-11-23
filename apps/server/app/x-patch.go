@@ -28,7 +28,7 @@ func (w *fileWork) xPatch() {
 		w.P(``)
 	}
 
-	w.P("	p, err := ", name_x, "Pick(req.GetTarget())")
+	w.P("	p, err := ", name_x, "Pick(req.GetRef())")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
@@ -130,7 +130,7 @@ func (w *fileWork) xPatch() {
 	w.P("}")
 	w.P("")
 	// https://github.com/ent/ent/issues/2600
-	w.P("return s.Get(ctx, req.GetTarget().Pick())")
+	w.P("return s.Get(ctx, req.GetRef().Pick())")
 	w.P("}")
 	w.P("")
 }

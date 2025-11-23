@@ -165,7 +165,7 @@ func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequ
 		return nil, status.Errorf(codes.InvalidArgument, "version not given: %s", "date_updated")
 	}
 
-	p, err := UserPick(req.GetTarget())
+	p, err := UserPick(req.GetRef())
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequ
 		}
 	}
 
-	return s.Get(ctx, req.GetTarget().Pick())
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid.UUID, error) {

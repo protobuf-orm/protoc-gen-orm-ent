@@ -50,7 +50,7 @@ message TenantGetRequest {
 }
 
 message TenantPatchRequest {
-	TenantRef target = 1;
+	TenantRef ref = 1;
 	string alias = 7;
 	string name = 9;
 	map<string, string> labels = 13;

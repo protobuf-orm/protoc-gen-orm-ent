@@ -358,7 +358,7 @@ message ValueFieldGetRequest {
 }
 
 message ValueFieldPatchRequest {
-	ValueFieldRef target = 1;
+	ValueFieldRef ref = 1;
 	double implicit_f64 = 31;
 	float implicit_f32 = 33;
 	int32 implicit_i32 = 35;
@@ -546,7 +546,7 @@ message MessageFieldGetRequest {
 }
 
 message MessageFieldPatchRequest {
-	MessageFieldRef target = 1;
+	MessageFieldRef ref = 1;
 	google.protobuf.Struct explicit = 95;
 	bool explicit_null = 96;
 	repeated google.protobuf.Struct repeated = 159;
@@ -605,7 +605,7 @@ message MapFieldGetRequest {
 }
 
 message MapFieldPatchRequest {
-	MapFieldRef target = 1;
+	MapFieldRef ref = 1;
 	map<string, string> implicit_string = 31;
 	map<string, apptest.Level> implicit_enum = 33;
 	map<string, google.protobuf.Struct> implicit_json = 35;
