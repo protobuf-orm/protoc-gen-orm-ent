@@ -47,6 +47,10 @@ func (h *Handler) Run(p *protogen.Plugin) error {
 
 	g := graph.NewGraph()
 	for _, f := range p.Files {
+		if !f.Generate {
+			continue
+		}
+
 		if err := graph.Parse(ctx, g, f.Desc); err != nil {
 			return fmt.Errorf("parse entity at %s: %w", *f.Proto.Name, err)
 		}
