@@ -17,6 +17,9 @@ func xProto(w *work.FileWork) {
 		switch p := p.(type) {
 		case graph.Field:
 			v := "e." + name.Ent()
+			if work.IsDefaultIdField(p) {
+				v = "int64(" + v + ")"
+			}
 
 			is_nillable := p.IsNullable() && p != w.Entity.Key()
 			if is_nillable {

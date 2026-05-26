@@ -14,6 +14,10 @@ func xFields(w *work.FileWork) {
 	w.P("func (", w.Ident.GoName, ") Fields() []", work.PkgEnt.Ident("Field"), " {")
 	w.P("	return []", work.PkgEnt.Ident("Field"), "{")
 	for p := range w.Entity.Fields() {
+		if work.IsDefaultIdField(p) {
+			continue
+		}
+
 		id := "" // Name of builder
 		ctor := ""
 

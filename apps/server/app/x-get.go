@@ -74,7 +74,11 @@ func (w *fileWork) xGetKey() {
 	w.P("		return z, err")
 	w.P("	}")
 	w.P("")
-	w.P("	return v, nil")
+	if work.IsDefaultIdField(w.Entity.Key()) {
+		w.P("	return int64(v), nil")
+	} else {
+		w.P("	return v, nil")
+	}
 	w.P("}")
 	w.P("")
 }

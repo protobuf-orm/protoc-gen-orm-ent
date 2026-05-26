@@ -43,7 +43,11 @@ func (w *fileWork) xPick() {
 			case ormpb.Type_TYPE_TIME:
 				w.P("		return ", eq, "(req.Get", name_p.Go(), "().AsTime()), nil")
 			default:
-				w.P("		return ", eq, "(req.Get", name_p.Go(), "()), nil")
+				if work.IsDefaultIdField(p) {
+					w.P("		return ", eq, "(int(req.GetId())), nil")
+				} else {
+					w.P("		return ", eq, "(req.Get", name_p.Go(), "()), nil")
+				}
 			}
 		case graph.Edge:
 			panic("not implemented: pick unique edge")

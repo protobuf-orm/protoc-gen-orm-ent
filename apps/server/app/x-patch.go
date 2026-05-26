@@ -103,10 +103,15 @@ func (w *fileWork) xPatch() {
 			}
 
 		case graph.Edge:
+			m := p.Target()
 			w.P("if id, err := ", work.Name(p.Target().Name()).Go(), "GetKey(ctx, s.Db, ", u, ")", "; err != nil {")
 			w.P("	return nil, err")
 			w.P("} else {")
-			w.P("	q.Set", name.Ent(), "ID(id)")
+			if work.IsDefaultIdField(m.Key()) {
+				w.P("	q.Set", name.Ent(), "ID(int(id))")
+			} else {
+				w.P("	q.Set", name.Ent(), "ID(id)")
+			}
 			w.P("}")
 
 		default:

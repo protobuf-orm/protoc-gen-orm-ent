@@ -22,6 +22,10 @@ func (w *fileWork) xAdd() {
 	}
 	w.P("	q := s.Db.", name, ".Create()")
 	for p := range w.Entity.Props() {
+		if work.IsDefaultIdField(p) {
+			continue
+		}
+
 		name := work.Name(p.Name())
 		u := "req.Get" + name.Go() + "()"
 
@@ -85,7 +89,11 @@ func (w *fileWork) xAdd() {
 			w.P("	if k, err := ", m.Name(), "GetKey(ctx, s.Db, req.Get", name.Go(), "()); err != nil {")
 			w.P("		return nil, err")
 			w.P("	} else {")
-			w.P("		q.Set", name.Ent(), "ID(k)")
+			if work.IsDefaultIdField(m.Key()) {
+				w.P("		q.Set", name.Ent(), "ID(int(k))")
+			} else {
+				w.P("		q.Set", name.Ent(), "ID(k)")
+			}
 			w.P("		ds = append(ds, func(v *", w.Ident, "){")
 			w.P("			v.Set", name.Ent(), "(", w.Src.GoImportPath.Ident(m.Name()+"_builder"), "{", work.Name(m.Key().Name()).Go(), ": ", k, "}.Build())")
 			w.P("		})")
