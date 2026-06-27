@@ -71,8 +71,13 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 
 	u, err := q.Save(ctx)
 	if err != nil {
-		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
-			return nil, status.Errorf(codes.AlreadyExists, "User already exists: %s", err.Unwrap())
+		if err, ok := err.(*ent.ConstraintError); ok {
+			if sqlgraph.IsUniqueConstraintError(err) {
+				return nil, status.Errorf(codes.AlreadyExists, "User already exists: %s", err.Unwrap())
+			}
+			if sqlgraph.IsForeignKeyConstraintError(err) {
+				return nil, status.Errorf(codes.NotFound, "User: referenced entity not found: %s", err.Unwrap())
+			}
 		}
 		return nil, err
 	}
@@ -249,7 +254,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*em
 	if _, err := s.Db.User.Delete().Where(p).Exec(ctx); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
 func UserPick(req *apptest.UserRef) (predicate.User, error) {

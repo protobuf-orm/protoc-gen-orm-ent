@@ -418,8 +418,13 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 
 	u, err := q.Save(ctx)
 	if err != nil {
-		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
-			return nil, status.Errorf(codes.AlreadyExists, "ValueField already exists: %s", err.Unwrap())
+		if err, ok := err.(*ent.ConstraintError); ok {
+			if sqlgraph.IsUniqueConstraintError(err) {
+				return nil, status.Errorf(codes.AlreadyExists, "ValueField already exists: %s", err.Unwrap())
+			}
+			if sqlgraph.IsForeignKeyConstraintError(err) {
+				return nil, status.Errorf(codes.NotFound, "ValueField: referenced entity not found: %s", err.Unwrap())
+			}
 		}
 		return nil, err
 	}
@@ -1294,7 +1299,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 	if _, err := s.Db.ValueField.Delete().Where(p).Exec(ctx); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
 func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
@@ -1342,8 +1347,13 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 
 	u, err := q.Save(ctx)
 	if err != nil {
-		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
-			return nil, status.Errorf(codes.AlreadyExists, "MessageField already exists: %s", err.Unwrap())
+		if err, ok := err.(*ent.ConstraintError); ok {
+			if sqlgraph.IsUniqueConstraintError(err) {
+				return nil, status.Errorf(codes.AlreadyExists, "MessageField already exists: %s", err.Unwrap())
+			}
+			if sqlgraph.IsForeignKeyConstraintError(err) {
+				return nil, status.Errorf(codes.NotFound, "MessageField: referenced entity not found: %s", err.Unwrap())
+			}
 		}
 		return nil, err
 	}
@@ -1483,7 +1493,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 	if _, err := s.Db.MessageField.Delete().Where(p).Exec(ctx); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
 func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, error) {
@@ -1547,8 +1557,13 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 
 	u, err := q.Save(ctx)
 	if err != nil {
-		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
-			return nil, status.Errorf(codes.AlreadyExists, "MapField already exists: %s", err.Unwrap())
+		if err, ok := err.(*ent.ConstraintError); ok {
+			if sqlgraph.IsUniqueConstraintError(err) {
+				return nil, status.Errorf(codes.AlreadyExists, "MapField already exists: %s", err.Unwrap())
+			}
+			if sqlgraph.IsForeignKeyConstraintError(err) {
+				return nil, status.Errorf(codes.NotFound, "MapField: referenced entity not found: %s", err.Unwrap())
+			}
 		}
 		return nil, err
 	}
@@ -1700,7 +1715,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 	if _, err := s.Db.MapField.Delete().Where(p).Exec(ctx); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
 func MapFieldPick(req *apptest.MapFieldRef) (predicate.MapField, error) {

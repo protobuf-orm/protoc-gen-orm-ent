@@ -18,7 +18,7 @@ func (w *fileWork) xErase() {
 	w.P("	if _, err := s.Db.", name, ".Delete().Where(p).Exec(ctx); err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
-	w.P("	return nil, nil")
+	w.P("	return &", work.IdentEmpty, "{}, nil")
 	w.P("}")
 	w.P("")
 }

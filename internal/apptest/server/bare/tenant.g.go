@@ -58,8 +58,13 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 
 	u, err := q.Save(ctx)
 	if err != nil {
-		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsUniqueConstraintError(err) {
-			return nil, status.Errorf(codes.AlreadyExists, "Tenant already exists: %s", err.Unwrap())
+		if err, ok := err.(*ent.ConstraintError); ok {
+			if sqlgraph.IsUniqueConstraintError(err) {
+				return nil, status.Errorf(codes.AlreadyExists, "Tenant already exists: %s", err.Unwrap())
+			}
+			if sqlgraph.IsForeignKeyConstraintError(err) {
+				return nil, status.Errorf(codes.NotFound, "Tenant: referenced entity not found: %s", err.Unwrap())
+			}
 		}
 		return nil, err
 	}
@@ -191,7 +196,7 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 	if _, err := s.Db.Tenant.Delete().Where(p).Exec(ctx); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
 func TenantPick(req *apptest.TenantRef) (predicate.Tenant, error) {
