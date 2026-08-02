@@ -13,9 +13,11 @@ go 1.26.2
 require (
 	entgo.io/ent v0.14.5
 	github.com/google/uuid v1.6.0
+	github.com/lesomnus/protobuf-patch v0.0.0-20260802160440-fd311bd9388b
 	github.com/lesomnus/z v0.0.0-20250923111312-437bd8f8f4cf
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260802191303-9fc21749e515
+	github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260802191503-a7ac1c053320
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
@@ -27,6 +29,7 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/go-openapi/inflect v0.19.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
