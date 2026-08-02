@@ -34,4 +34,11 @@ var (
 	PkgErrors   = protogen.GoImportPath("errors")
 	PkgOrmPatch = protogen.GoImportPath("github.com/protobuf-orm/protobuf-orm/ormpatch")
 	PkgEntPatch = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/entpatch")
+
+	// Patch converts its request into a document and hands it to the same
+	// path Apply uses. That needs the document type, the schema graph the
+	// converter names edges with, and protoreflect to read the request.
+	PkgPatchPb      = protogen.GoImportPath("github.com/lesomnus/protobuf-patch/patchpb")
+	PkgOrmGraph     = protogen.GoImportPath("github.com/protobuf-orm/protobuf-orm/graph")
+	PkgProtoReflect = protogen.GoImportPath("google.golang.org/protobuf/reflect/protoreflect")
 )

@@ -3,6 +3,7 @@ package bare_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/lesomnus/protobuf-patch/patch"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -234,5 +235,38 @@ func TestApply(t *testing.T) {
 		x.NoError(err)
 
 		x.True(get(ctx, x, c, u).GetDateUpdated().AsTime().After(before))
+	}))
+
+	// Unless the document stamped it. Replaying a recorded change has to
+	// reproduce the version it recorded rather than the time of the replay, and
+	// asking first is also what keeps the column assigned exactly once.
+	t.Run("a document that writes the version keeps its own", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		u := seed(ctx, x, c, nil)
+		want := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+
+		req := doc(x,
+			patch.Target(patch.Name("name")).Assign(patch.Str("Ada")),
+			patch.Target(patch.Name("date_updated")).Assign(
+				patch.Msg(patch.F(patch.Name("seconds"), patch.Int64(want.Unix())))),
+		)
+		req.SetRef(u.Ref())
+
+		_, err := c.User().Apply(ctx, req)
+		x.NoError(err)
+
+		got := get(ctx, x, c, u)
+		x.Equal("Ada", got.GetName())
+		x.Equal(want, got.GetDateUpdated().AsTime().UTC())
+	}))
+
+	// Apply requires the document. Patch is the one that may have nothing to
+	// say, and both run the same path underneath, so the difference has to be
+	// stated at the RPC.
+	t.Run("a request with no patch is refused", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		u := seed(ctx, x, c, nil)
+
+		_, err := c.User().Apply(ctx, pb.UserApplyRequest_builder{Ref: u.Ref()}.Build())
+		x.Equal(codes.InvalidArgument, status.Code(err))
+		x.Contains(status.Convert(err).Message(), "no patch")
 	}))
 }

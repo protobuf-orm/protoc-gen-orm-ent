@@ -8,6 +8,8 @@ import (
 	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
 	errors "errors"
 	uuid "github.com/google/uuid"
+	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
+	graph "github.com/protobuf-orm/protobuf-orm/graph"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -16,6 +18,7 @@ import (
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	time "time"
 )
@@ -168,58 +171,31 @@ func UserSelectInit(q *ent.UserQuery, m *apptest.UserSelect) {
 }
 
 func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*apptest.User, error) {
-	is_force := req.GetDateUpdatedForce()
-	if !req.HasDateUpdated() && !is_force {
-		return nil, status.Errorf(codes.InvalidArgument, "version not given: %s", "date_updated")
-	}
-
-	p, err := UserPick(req.GetRef())
+	doc, err := ormpatch.FromPatchRequest(userOrmEntity, req.ProtoReflect(), func(ed graph.Edge, ref protoreflect.Message) (protoreflect.Value, error) {
+		switch ed.Number() {
+		case 2:
+			k, err := TenantGetKey(ctx, s.Db, ref.Interface().(*apptest.TenantRef))
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfBytes(k[:]), nil
+		}
+		return protoreflect.Value{}, status.Errorf(codes.Internal, "no key resolver for edge: %s", ed.Name())
+	})
 	if err != nil {
-		return nil, err
-	}
-
-	q := s.Db.User.Update().Where(p)
-	if !is_force {
-		q.Where(user.DateUpdatedEQ(req.GetDateUpdated().AsTime()))
-	}
-	if req.HasTenant() {
-		if id, err := TenantGetKey(ctx, s.Db, req.GetTenant()); err != nil {
+		if _, ok := status.FromError(err); ok {
 			return nil, err
-		} else {
-			q.SetTenantID(id)
 		}
-	}
-	if req.HasAlias() {
-		q.SetAlias(req.GetAlias())
-	}
-	if req.HasName() {
-		q.SetName(req.GetName())
-	}
-	if u := req.GetLabels(); len(u) > 0 {
-		q.SetLabels(u)
-	}
-	if req.GetLockNull() {
-		q.ClearLock()
-	} else if req.HasLock() {
-		q.SetLock(req.GetLock())
-	}
-	if is_force && req.HasDateUpdated() {
-		q.SetDateUpdated(req.GetDateUpdated().AsTime())
-	} else {
-		q.SetDateUpdated(time.Now().UTC())
+		if errors.Is(err, ormpatch.ErrRequestLayout) {
+			return nil, status.Errorf(codes.Internal, "%s", err)
+		}
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		if is_force {
-			return nil, status.Errorf(codes.NotFound, "not found")
-		} else {
-			return nil, status.Errorf(codes.FailedPrecondition, "version not matched: %s", "date_updated")
-		}
-	}
-
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.apply(ctx, req.GetRef(), doc)
 }
 
 func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid.UUID, error) {
@@ -254,12 +230,23 @@ var userPatchColumns = entpatch.Columns{
 	1: user.FieldID, 2: user.TenantColumn, 4: user.FieldAlias, 5: user.FieldName, 7: user.FieldLabels, 8: user.FieldLock, 14: user.FieldDateUpdated, 15: user.FieldDateCreated}
 
 func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequest) (*apptest.User, error) {
-	plan, err := ormpatch.Compile(userOrmEntity, req.GetPatch())
-	if err != nil {
-		if errors.Is(err, ormpatch.ErrUnsupported) {
-			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+	if !req.HasPatch() {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
+	}
+	return s.apply(ctx, req.GetRef(), req.GetPatch())
+}
+
+func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc *patchpb.Patch) (*apptest.User, error) {
+	plan := &ormpatch.Plan{Entity: userOrmEntity}
+	if doc != nil {
+		v, err := ormpatch.Compile(userOrmEntity, doc)
+		if err != nil {
+			if errors.Is(err, ormpatch.ErrUnsupported) {
+				return nil, status.Errorf(codes.Unimplemented, "%s", err)
+			}
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 		}
-		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		plan = v
 	}
 
 	pred, mod, err := entpatch.Build(plan, userPatchColumns)
@@ -267,7 +254,7 @@ func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequ
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := UserPick(req.GetRef())
+	p, err := UserPick(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -279,18 +266,20 @@ func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequ
 	if mod != nil {
 		q.Modify(mod)
 	}
-	q.SetDateUpdated(time.Now().UTC())
+	if !plan.WritesTo(14) {
+		q.SetDateUpdated(time.Now().UTC())
+	}
 
 	if n, err := q.Save(ctx); err != nil {
 		return nil, err
 	} else if n == 0 {
-		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+		if _, err := s.Get(ctx, ref.Pick()); err != nil {
 			return nil, err
 		}
 		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.Get(ctx, ref.Pick())
 }
 
 func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*emptypb.Empty, error) {

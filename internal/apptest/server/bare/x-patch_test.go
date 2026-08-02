@@ -121,16 +121,17 @@ func TestPatchVersion(t *testing.T) {
 		x.Equal(codes.NotFound, status.Code(err))
 	}))
 
-	// Today a missing row and a stale version are indistinguishable when not
-	// forced: both are zero rows and the code reports the version. This is
-	// recorded as-is, not endorsed.
-	t.Run("a missing row without force reports the version, not NotFound", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+	// A missing row and a stale version both write zero rows, and one statement
+	// cannot say which happened. Patch used to answer with the version either
+	// way; now the row is looked up before answering, so the two are told
+	// apart. This is the one status code the delegation changed.
+	t.Run("a missing row without force is NotFound, not a version mismatch", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		_, err := c.User().Patch(ctx, pb.UserPatchRequest_builder{
 			Ref:         pb.UserById(make([]byte, 16)),
 			Name:        z.Ptr("Ada"),
 			DateUpdated: timestamppb.Now(),
 		}.Build())
-		x.Equal(codes.FailedPrecondition, status.Code(err))
+		x.Equal(codes.NotFound, status.Code(err))
 	}))
 }
 
@@ -318,6 +319,45 @@ func TestPatchWithoutVersion(t *testing.T) {
 		_, err := c.Tenant().Patch(ctx, pb.TenantPatchRequest_builder{
 			Ref:  pb.TenantById(make([]byte, 16)),
 			Name: z.Ptr("Acme"),
+		}.Build())
+		x.Equal(codes.NotFound, status.Code(err))
+	}))
+
+	// A request that sets nothing writes nothing, which used to issue no SQL
+	// and report zero rows -- indistinguishable from a row that is not there,
+	// so an existing entity came back NotFound. Asking whether the row exists
+	// is what tells the two apart.
+	t.Run("a request that asks for nothing finds the row", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{Name: z.Ptr("Acme")}.Build())
+		x.NoError(err)
+
+		got, err := c.Tenant().Patch(ctx, pb.TenantPatchRequest_builder{Ref: v.Ref()}.Build())
+		x.NoError(err)
+		x.Equal(v.GetId(), got.GetId())
+	}))
+
+	t.Run("an empty map alone still asks for nothing", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{
+			Labels: map[string]string{"env": "prod"},
+		}.Build())
+		x.NoError(err)
+
+		_, err = c.Tenant().Patch(ctx, pb.TenantPatchRequest_builder{
+			Ref:    v.Ref(),
+			Labels: map[string]string{},
+		}.Build())
+		x.NoError(err)
+
+		got, err := c.Tenant().Get(ctx, v.Ref().Pick().WithSelect(func(s *pb.TenantSelect) {
+			s.SetAll(true)
+		}))
+		x.NoError(err)
+		x.Equal(map[string]string{"env": "prod"}, got.GetLabels())
+	}))
+
+	t.Run("a request that asks for nothing on a missing row is NotFound", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		_, err := c.Tenant().Patch(ctx, pb.TenantPatchRequest_builder{
+			Ref: pb.TenantById(make([]byte, 16)),
 		}.Build())
 		x.Equal(codes.NotFound, status.Code(err))
 	}))

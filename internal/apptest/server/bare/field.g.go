@@ -7,6 +7,7 @@ import (
 	context "context"
 	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
 	errors "errors"
+	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -871,404 +872,21 @@ func ValueFieldSelectInit(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
 }
 
 func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFieldPatchRequest) (*apptest.ValueField, error) {
-	p, err := ValueFieldPick(req.GetRef())
+	doc, err := ormpatch.FromPatchRequest(valueFieldOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
-		return nil, err
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
+		if errors.Is(err, ormpatch.ErrRequestLayout) {
+			return nil, status.Errorf(codes.Internal, "%s", err)
+		}
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	q := s.Db.ValueField.Update().Where(p)
-	if req.HasImplicitF64() {
-		q.SetImplicitF64(req.GetImplicitF64())
-	}
-	if req.HasImplicitF32() {
-		q.SetImplicitF32(req.GetImplicitF32())
-	}
-	if req.HasImplicitI32() {
-		q.SetImplicitI32(req.GetImplicitI32())
-	}
-	if req.HasImplicitI64() {
-		q.SetImplicitI64(req.GetImplicitI64())
-	}
-	if req.HasImplicitU32() {
-		q.SetImplicitU32(req.GetImplicitU32())
-	}
-	if req.HasImplicitU64() {
-		q.SetImplicitU64(req.GetImplicitU64())
-	}
-	if req.HasImplicitSi32() {
-		q.SetImplicitSi32(req.GetImplicitSi32())
-	}
-	if req.HasImplicitSi64() {
-		q.SetImplicitSi64(req.GetImplicitSi64())
-	}
-	if req.HasImplicitFi32() {
-		q.SetImplicitFi32(req.GetImplicitFi32())
-	}
-	if req.HasImplicitFi64() {
-		q.SetImplicitFi64(req.GetImplicitFi64())
-	}
-	if req.HasImplicitSfi32() {
-		q.SetImplicitSfi32(req.GetImplicitSfi32())
-	}
-	if req.HasImplicitSfi64() {
-		q.SetImplicitSfi64(req.GetImplicitSfi64())
-	}
-	if req.HasImplicitBool() {
-		q.SetImplicitBool(req.GetImplicitBool())
-	}
-	if req.HasImplicitString() {
-		q.SetImplicitString(req.GetImplicitString())
-	}
-	if req.HasImplicitBytes() {
-		q.SetImplicitBytes(req.GetImplicitBytes())
-	}
-	if req.HasImplicitEnum() {
-		q.SetImplicitEnum(int32(req.GetImplicitEnum()))
-	}
-	if req.GetExplicitF64Null() {
-		q.ClearExplicitF64()
-	} else if req.HasExplicitF64() {
-		q.SetExplicitF64(req.GetExplicitF64())
-	}
-	if req.GetExplicitF32Null() {
-		q.ClearExplicitF32()
-	} else if req.HasExplicitF32() {
-		q.SetExplicitF32(req.GetExplicitF32())
-	}
-	if req.GetExplicitI32Null() {
-		q.ClearExplicitI32()
-	} else if req.HasExplicitI32() {
-		q.SetExplicitI32(req.GetExplicitI32())
-	}
-	if req.GetExplicitI64Null() {
-		q.ClearExplicitI64()
-	} else if req.HasExplicitI64() {
-		q.SetExplicitI64(req.GetExplicitI64())
-	}
-	if req.GetExplicitU32Null() {
-		q.ClearExplicitU32()
-	} else if req.HasExplicitU32() {
-		q.SetExplicitU32(req.GetExplicitU32())
-	}
-	if req.GetExplicitU64Null() {
-		q.ClearExplicitU64()
-	} else if req.HasExplicitU64() {
-		q.SetExplicitU64(req.GetExplicitU64())
-	}
-	if req.GetExplicitSi32Null() {
-		q.ClearExplicitSi32()
-	} else if req.HasExplicitSi32() {
-		q.SetExplicitSi32(req.GetExplicitSi32())
-	}
-	if req.GetExplicitSi64Null() {
-		q.ClearExplicitSi64()
-	} else if req.HasExplicitSi64() {
-		q.SetExplicitSi64(req.GetExplicitSi64())
-	}
-	if req.GetExplicitFi32Null() {
-		q.ClearExplicitFi32()
-	} else if req.HasExplicitFi32() {
-		q.SetExplicitFi32(req.GetExplicitFi32())
-	}
-	if req.GetExplicitFi64Null() {
-		q.ClearExplicitFi64()
-	} else if req.HasExplicitFi64() {
-		q.SetExplicitFi64(req.GetExplicitFi64())
-	}
-	if req.GetExplicitSfi32Null() {
-		q.ClearExplicitSfi32()
-	} else if req.HasExplicitSfi32() {
-		q.SetExplicitSfi32(req.GetExplicitSfi32())
-	}
-	if req.GetExplicitSfi64Null() {
-		q.ClearExplicitSfi64()
-	} else if req.HasExplicitSfi64() {
-		q.SetExplicitSfi64(req.GetExplicitSfi64())
-	}
-	if req.GetExplicitBoolNull() {
-		q.ClearExplicitBool()
-	} else if req.HasExplicitBool() {
-		q.SetExplicitBool(req.GetExplicitBool())
-	}
-	if req.GetExplicitStringNull() {
-		q.ClearExplicitString()
-	} else if req.HasExplicitString() {
-		q.SetExplicitString(req.GetExplicitString())
-	}
-	if req.GetExplicitBytesNull() {
-		q.ClearExplicitBytes()
-	} else if req.HasExplicitBytes() {
-		q.SetExplicitBytes(req.GetExplicitBytes())
-	}
-	if req.GetExplicitEnumNull() {
-		q.ClearExplicitEnum()
-	} else if req.HasExplicitEnum() {
-		q.SetExplicitEnum(int32(req.GetExplicitEnum()))
-	}
-	if u := req.GetImplicitF64S(); len(u) > 0 {
-		q.SetImplicitF64s(u)
-	}
-	if u := req.GetImplicitF32S(); len(u) > 0 {
-		q.SetImplicitF32s(u)
-	}
-	if u := req.GetImplicitI32S(); len(u) > 0 {
-		q.SetImplicitI32s(u)
-	}
-	if u := req.GetImplicitI64S(); len(u) > 0 {
-		q.SetImplicitI64s(u)
-	}
-	if u := req.GetImplicitU32S(); len(u) > 0 {
-		q.SetImplicitU32s(u)
-	}
-	if u := req.GetImplicitU64S(); len(u) > 0 {
-		q.SetImplicitU64s(u)
-	}
-	if u := req.GetImplicitSi32S(); len(u) > 0 {
-		q.SetImplicitSi32s(u)
-	}
-	if u := req.GetImplicitSi64S(); len(u) > 0 {
-		q.SetImplicitSi64s(u)
-	}
-	if u := req.GetImplicitFi32S(); len(u) > 0 {
-		q.SetImplicitFi32s(u)
-	}
-	if u := req.GetImplicitFi64S(); len(u) > 0 {
-		q.SetImplicitFi64s(u)
-	}
-	if u := req.GetImplicitSfi32S(); len(u) > 0 {
-		q.SetImplicitSfi32s(u)
-	}
-	if u := req.GetImplicitSfi64S(); len(u) > 0 {
-		q.SetImplicitSfi64s(u)
-	}
-	if u := req.GetImplicitBools(); len(u) > 0 {
-		q.SetImplicitBools(u)
-	}
-	if u := req.GetImplicitStrings(); len(u) > 0 {
-		q.SetImplicitStrings(u)
-	}
-	if u := req.GetImplicitBytess(); len(u) > 0 {
-		q.SetImplicitBytess(u)
-	}
-	if u := req.GetImplicitLevels(); len(u) > 0 {
-		q.SetImplicitLevels(u)
-	}
-	if req.GetNullableF64Null() {
-		q.ClearNullableF64()
-	} else if req.HasNullableF64() {
-		q.SetNullableF64(req.GetNullableF64())
-	}
-	if req.GetNullableF32Null() {
-		q.ClearNullableF32()
-	} else if req.HasNullableF32() {
-		q.SetNullableF32(req.GetNullableF32())
-	}
-	if req.GetNullableI32Null() {
-		q.ClearNullableI32()
-	} else if req.HasNullableI32() {
-		q.SetNullableI32(req.GetNullableI32())
-	}
-	if req.GetNullableI64Null() {
-		q.ClearNullableI64()
-	} else if req.HasNullableI64() {
-		q.SetNullableI64(req.GetNullableI64())
-	}
-	if req.GetNullableU32Null() {
-		q.ClearNullableU32()
-	} else if req.HasNullableU32() {
-		q.SetNullableU32(req.GetNullableU32())
-	}
-	if req.GetNullableU64Null() {
-		q.ClearNullableU64()
-	} else if req.HasNullableU64() {
-		q.SetNullableU64(req.GetNullableU64())
-	}
-	if req.GetNullableSi32Null() {
-		q.ClearNullableSi32()
-	} else if req.HasNullableSi32() {
-		q.SetNullableSi32(req.GetNullableSi32())
-	}
-	if req.GetNullableSi64Null() {
-		q.ClearNullableSi64()
-	} else if req.HasNullableSi64() {
-		q.SetNullableSi64(req.GetNullableSi64())
-	}
-	if req.GetNullableFi32Null() {
-		q.ClearNullableFi32()
-	} else if req.HasNullableFi32() {
-		q.SetNullableFi32(req.GetNullableFi32())
-	}
-	if req.GetNullableFi64Null() {
-		q.ClearNullableFi64()
-	} else if req.HasNullableFi64() {
-		q.SetNullableFi64(req.GetNullableFi64())
-	}
-	if req.GetNullableSfi32Null() {
-		q.ClearNullableSfi32()
-	} else if req.HasNullableSfi32() {
-		q.SetNullableSfi32(req.GetNullableSfi32())
-	}
-	if req.GetNullableSfi64Null() {
-		q.ClearNullableSfi64()
-	} else if req.HasNullableSfi64() {
-		q.SetNullableSfi64(req.GetNullableSfi64())
-	}
-	if req.GetNullableBoolNull() {
-		q.ClearNullableBool()
-	} else if req.HasNullableBool() {
-		q.SetNullableBool(req.GetNullableBool())
-	}
-	if req.GetNullableStringNull() {
-		q.ClearNullableString()
-	} else if req.HasNullableString() {
-		q.SetNullableString(req.GetNullableString())
-	}
-	if req.GetNullableBytesNull() {
-		q.ClearNullableBytes()
-	} else if req.HasNullableBytes() {
-		q.SetNullableBytes(req.GetNullableBytes())
-	}
-	if req.GetNullableLevelNull() {
-		q.ClearNullableLevel()
-	} else if req.HasNullableLevel() {
-		q.SetNullableLevel(int32(req.GetNullableLevel()))
-	}
-	if req.HasImplicitF64WithDefault() {
-		q.SetImplicitF64WithDefault(req.GetImplicitF64WithDefault())
-	}
-	if req.HasImplicitF32WithDefault() {
-		q.SetImplicitF32WithDefault(req.GetImplicitF32WithDefault())
-	}
-	if req.HasImplicitI32WithDefault() {
-		q.SetImplicitI32WithDefault(req.GetImplicitI32WithDefault())
-	}
-	if req.HasImplicitI64WithDefault() {
-		q.SetImplicitI64WithDefault(req.GetImplicitI64WithDefault())
-	}
-	if req.HasImplicitU32WithDefault() {
-		q.SetImplicitU32WithDefault(req.GetImplicitU32WithDefault())
-	}
-	if req.HasImplicitU64WithDefault() {
-		q.SetImplicitU64WithDefault(req.GetImplicitU64WithDefault())
-	}
-	if req.HasImplicitSi32WithDefault() {
-		q.SetImplicitSi32WithDefault(req.GetImplicitSi32WithDefault())
-	}
-	if req.HasImplicitSi64WithDefault() {
-		q.SetImplicitSi64WithDefault(req.GetImplicitSi64WithDefault())
-	}
-	if req.HasImplicitFi32WithDefault() {
-		q.SetImplicitFi32WithDefault(req.GetImplicitFi32WithDefault())
-	}
-	if req.HasImplicitFi64WithDefault() {
-		q.SetImplicitFi64WithDefault(req.GetImplicitFi64WithDefault())
-	}
-	if req.HasImplicitSfi32WithDefault() {
-		q.SetImplicitSfi32WithDefault(req.GetImplicitSfi32WithDefault())
-	}
-	if req.HasImplicitSfi64WithDefault() {
-		q.SetImplicitSfi64WithDefault(req.GetImplicitSfi64WithDefault())
-	}
-	if req.HasImplicitBoolWithDefault() {
-		q.SetImplicitBoolWithDefault(req.GetImplicitBoolWithDefault())
-	}
-	if req.HasImplicitStringWithDefault() {
-		q.SetImplicitStringWithDefault(req.GetImplicitStringWithDefault())
-	}
-	if req.HasImplicitBytesWithDefault() {
-		q.SetImplicitBytesWithDefault(req.GetImplicitBytesWithDefault())
-	}
-	if req.HasImplicitLevelWithDefault() {
-		q.SetImplicitLevelWithDefault(int32(req.GetImplicitLevelWithDefault()))
-	}
-	if req.GetExplicitF64WithDefaultNull() {
-		q.ClearExplicitF64WithDefault()
-	} else if req.HasExplicitF64WithDefault() {
-		q.SetExplicitF64WithDefault(req.GetExplicitF64WithDefault())
-	}
-	if req.GetExplicitF32WithDefaultNull() {
-		q.ClearExplicitF32WithDefault()
-	} else if req.HasExplicitF32WithDefault() {
-		q.SetExplicitF32WithDefault(req.GetExplicitF32WithDefault())
-	}
-	if req.GetExplicitI32WithDefaultNull() {
-		q.ClearExplicitI32WithDefault()
-	} else if req.HasExplicitI32WithDefault() {
-		q.SetExplicitI32WithDefault(req.GetExplicitI32WithDefault())
-	}
-	if req.GetExplicitI64WithDefaultNull() {
-		q.ClearExplicitI64WithDefault()
-	} else if req.HasExplicitI64WithDefault() {
-		q.SetExplicitI64WithDefault(req.GetExplicitI64WithDefault())
-	}
-	if req.GetExplicitU32WithDefaultNull() {
-		q.ClearExplicitU32WithDefault()
-	} else if req.HasExplicitU32WithDefault() {
-		q.SetExplicitU32WithDefault(req.GetExplicitU32WithDefault())
-	}
-	if req.GetExplicitU64WithDefaultNull() {
-		q.ClearExplicitU64WithDefault()
-	} else if req.HasExplicitU64WithDefault() {
-		q.SetExplicitU64WithDefault(req.GetExplicitU64WithDefault())
-	}
-	if req.GetExplicitSi32WithDefaultNull() {
-		q.ClearExplicitSi32WithDefault()
-	} else if req.HasExplicitSi32WithDefault() {
-		q.SetExplicitSi32WithDefault(req.GetExplicitSi32WithDefault())
-	}
-	if req.GetExplicitSi64WithDefaultNull() {
-		q.ClearExplicitSi64WithDefault()
-	} else if req.HasExplicitSi64WithDefault() {
-		q.SetExplicitSi64WithDefault(req.GetExplicitSi64WithDefault())
-	}
-	if req.GetExplicitFi32WithDefaultNull() {
-		q.ClearExplicitFi32WithDefault()
-	} else if req.HasExplicitFi32WithDefault() {
-		q.SetExplicitFi32WithDefault(req.GetExplicitFi32WithDefault())
-	}
-	if req.GetExplicitFi64WithDefaultNull() {
-		q.ClearExplicitFi64WithDefault()
-	} else if req.HasExplicitFi64WithDefault() {
-		q.SetExplicitFi64WithDefault(req.GetExplicitFi64WithDefault())
-	}
-	if req.GetExplicitSfi32WithDefaultNull() {
-		q.ClearExplicitSfi32WithDefault()
-	} else if req.HasExplicitSfi32WithDefault() {
-		q.SetExplicitSfi32WithDefault(req.GetExplicitSfi32WithDefault())
-	}
-	if req.GetExplicitSfi64WithDefaultNull() {
-		q.ClearExplicitSfi64WithDefault()
-	} else if req.HasExplicitSfi64WithDefault() {
-		q.SetExplicitSfi64WithDefault(req.GetExplicitSfi64WithDefault())
-	}
-	if req.GetExplicitBoolWithDefaultNull() {
-		q.ClearExplicitBoolWithDefault()
-	} else if req.HasExplicitBoolWithDefault() {
-		q.SetExplicitBoolWithDefault(req.GetExplicitBoolWithDefault())
-	}
-	if req.GetExplicitStringWithDefaultNull() {
-		q.ClearExplicitStringWithDefault()
-	} else if req.HasExplicitStringWithDefault() {
-		q.SetExplicitStringWithDefault(req.GetExplicitStringWithDefault())
-	}
-	if req.GetExplicitBytesWithDefaultNull() {
-		q.ClearExplicitBytesWithDefault()
-	} else if req.HasExplicitBytesWithDefault() {
-		q.SetExplicitBytesWithDefault(req.GetExplicitBytesWithDefault())
-	}
-	if req.GetExplicitLevelWithDefaultNull() {
-		q.ClearExplicitLevelWithDefault()
-	} else if req.HasExplicitLevelWithDefault() {
-		q.SetExplicitLevelWithDefault(int32(req.GetExplicitLevelWithDefault()))
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		return nil, status.Errorf(codes.NotFound, "not found")
-	}
-
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.apply(ctx, req.GetRef(), doc)
 }
 
 func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFieldRef) (string, error) {
@@ -1299,12 +917,23 @@ var valueFieldPatchColumns = entpatch.Columns{
 	1: valuefield.FieldID, 16: valuefield.FieldImplicitF64, 17: valuefield.FieldImplicitF32, 18: valuefield.FieldImplicitI32, 19: valuefield.FieldImplicitI64, 20: valuefield.FieldImplicitU32, 21: valuefield.FieldImplicitU64, 22: valuefield.FieldImplicitSi32, 23: valuefield.FieldImplicitSi64, 24: valuefield.FieldImplicitFi32, 25: valuefield.FieldImplicitFi64, 26: valuefield.FieldImplicitSfi32, 27: valuefield.FieldImplicitSfi64, 28: valuefield.FieldImplicitBool, 29: valuefield.FieldImplicitString, 30: valuefield.FieldImplicitBytes, 31: valuefield.FieldImplicitEnum, 48: valuefield.FieldExplicitF64, 49: valuefield.FieldExplicitF32, 50: valuefield.FieldExplicitI32, 51: valuefield.FieldExplicitI64, 52: valuefield.FieldExplicitU32, 53: valuefield.FieldExplicitU64, 54: valuefield.FieldExplicitSi32, 55: valuefield.FieldExplicitSi64, 56: valuefield.FieldExplicitFi32, 57: valuefield.FieldExplicitFi64, 58: valuefield.FieldExplicitSfi32, 59: valuefield.FieldExplicitSfi64, 60: valuefield.FieldExplicitBool, 61: valuefield.FieldExplicitString, 62: valuefield.FieldExplicitBytes, 63: valuefield.FieldExplicitEnum, 80: valuefield.FieldImplicitF64s, 81: valuefield.FieldImplicitF32s, 82: valuefield.FieldImplicitI32s, 83: valuefield.FieldImplicitI64s, 84: valuefield.FieldImplicitU32s, 85: valuefield.FieldImplicitU64s, 86: valuefield.FieldImplicitSi32s, 87: valuefield.FieldImplicitSi64s, 88: valuefield.FieldImplicitFi32s, 89: valuefield.FieldImplicitFi64s, 90: valuefield.FieldImplicitSfi32s, 91: valuefield.FieldImplicitSfi64s, 92: valuefield.FieldImplicitBools, 93: valuefield.FieldImplicitStrings, 94: valuefield.FieldImplicitBytess, 95: valuefield.FieldImplicitLevels, 112: valuefield.FieldNullableF64, 113: valuefield.FieldNullableF32, 114: valuefield.FieldNullableI32, 115: valuefield.FieldNullableI64, 116: valuefield.FieldNullableU32, 117: valuefield.FieldNullableU64, 118: valuefield.FieldNullableSi32, 119: valuefield.FieldNullableSi64, 120: valuefield.FieldNullableFi32, 121: valuefield.FieldNullableFi64, 122: valuefield.FieldNullableSfi32, 123: valuefield.FieldNullableSfi64, 124: valuefield.FieldNullableBool, 125: valuefield.FieldNullableString, 126: valuefield.FieldNullableBytes, 127: valuefield.FieldNullableLevel, 144: valuefield.FieldImplicitF64WithDefault, 145: valuefield.FieldImplicitF32WithDefault, 146: valuefield.FieldImplicitI32WithDefault, 147: valuefield.FieldImplicitI64WithDefault, 148: valuefield.FieldImplicitU32WithDefault, 149: valuefield.FieldImplicitU64WithDefault, 150: valuefield.FieldImplicitSi32WithDefault, 151: valuefield.FieldImplicitSi64WithDefault, 152: valuefield.FieldImplicitFi32WithDefault, 153: valuefield.FieldImplicitFi64WithDefault, 154: valuefield.FieldImplicitSfi32WithDefault, 155: valuefield.FieldImplicitSfi64WithDefault, 156: valuefield.FieldImplicitBoolWithDefault, 157: valuefield.FieldImplicitStringWithDefault, 158: valuefield.FieldImplicitBytesWithDefault, 159: valuefield.FieldImplicitLevelWithDefault, 176: valuefield.FieldExplicitF64WithDefault, 177: valuefield.FieldExplicitF32WithDefault, 178: valuefield.FieldExplicitI32WithDefault, 179: valuefield.FieldExplicitI64WithDefault, 180: valuefield.FieldExplicitU32WithDefault, 181: valuefield.FieldExplicitU64WithDefault, 182: valuefield.FieldExplicitSi32WithDefault, 183: valuefield.FieldExplicitSi64WithDefault, 184: valuefield.FieldExplicitFi32WithDefault, 185: valuefield.FieldExplicitFi64WithDefault, 186: valuefield.FieldExplicitSfi32WithDefault, 187: valuefield.FieldExplicitSfi64WithDefault, 188: valuefield.FieldExplicitBoolWithDefault, 189: valuefield.FieldExplicitStringWithDefault, 190: valuefield.FieldExplicitBytesWithDefault, 191: valuefield.FieldExplicitLevelWithDefault, 208: valuefield.FieldImplicitImmutableF64, 209: valuefield.FieldImplicitImmutableF32, 210: valuefield.FieldImplicitImmutableI32, 211: valuefield.FieldImplicitImmutableI64, 212: valuefield.FieldImplicitImmutableU32, 213: valuefield.FieldImplicitImmutableU64, 214: valuefield.FieldImplicitImmutableSi32, 215: valuefield.FieldImplicitImmutableSi64, 216: valuefield.FieldImplicitImmutableFi32, 217: valuefield.FieldImplicitImmutableFi64, 218: valuefield.FieldImplicitImmutableSfi32, 219: valuefield.FieldImplicitImmutableSfi64, 220: valuefield.FieldImplicitImmutableBool, 221: valuefield.FieldImplicitImmutableString, 222: valuefield.FieldImplicitImmutableBytes, 223: valuefield.FieldImplicitImmutableLevel, 240: valuefield.FieldExplicitImmutableF64, 241: valuefield.FieldExplicitImmutableF32, 242: valuefield.FieldExplicitImmutableI32, 243: valuefield.FieldExplicitImmutableI64, 244: valuefield.FieldExplicitImmutableU32, 245: valuefield.FieldExplicitImmutableU64, 246: valuefield.FieldExplicitImmutableSi32, 247: valuefield.FieldExplicitImmutableSi64, 248: valuefield.FieldExplicitImmutableFi32, 249: valuefield.FieldExplicitImmutableFi64, 250: valuefield.FieldExplicitImmutableSfi32, 251: valuefield.FieldExplicitImmutableSfi64, 252: valuefield.FieldExplicitImmutableBool, 253: valuefield.FieldExplicitImmutableString, 254: valuefield.FieldExplicitImmutableBytes, 255: valuefield.FieldExplicitImmutableLevel}
 
 func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFieldApplyRequest) (*apptest.ValueField, error) {
-	plan, err := ormpatch.Compile(valueFieldOrmEntity, req.GetPatch())
-	if err != nil {
-		if errors.Is(err, ormpatch.ErrUnsupported) {
-			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+	if !req.HasPatch() {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
+	}
+	return s.apply(ctx, req.GetRef(), req.GetPatch())
+}
+
+func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFieldRef, doc *patchpb.Patch) (*apptest.ValueField, error) {
+	plan := &ormpatch.Plan{Entity: valueFieldOrmEntity}
+	if doc != nil {
+		v, err := ormpatch.Compile(valueFieldOrmEntity, doc)
+		if err != nil {
+			if errors.Is(err, ormpatch.ErrUnsupported) {
+				return nil, status.Errorf(codes.Unimplemented, "%s", err)
+			}
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 		}
-		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		plan = v
 	}
 
 	pred, mod, err := entpatch.Build(plan, valueFieldPatchColumns)
@@ -1312,7 +941,7 @@ func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFi
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := ValueFieldPick(req.GetRef())
+	p, err := ValueFieldPick(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -1333,24 +962,24 @@ func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFi
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			if _, err := s.Get(ctx, ref.Pick()); err != nil {
 				return nil, err
 			}
 			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 		}
-		return s.Get(ctx, req.GetRef().Pick())
+		return s.Get(ctx, ref.Pick())
 	}
 
 	if n, err := q.Save(ctx); err != nil {
 		return nil, err
 	} else if n == 0 {
-		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+		if _, err := s.Get(ctx, ref.Pick()); err != nil {
 			return nil, err
 		}
 		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.Get(ctx, ref.Pick())
 }
 
 func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFieldRef) (*emptypb.Empty, error) {
@@ -1491,38 +1120,21 @@ func MessageFieldSelectInit(q *ent.MessageFieldQuery, m *apptest.MessageFieldSel
 }
 
 func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.MessageFieldPatchRequest) (*apptest.MessageField, error) {
-	p, err := MessageFieldPick(req.GetRef())
+	doc, err := ormpatch.FromPatchRequest(messageFieldOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
-		return nil, err
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
+		if errors.Is(err, ormpatch.ErrRequestLayout) {
+			return nil, status.Errorf(codes.Internal, "%s", err)
+		}
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	q := s.Db.MessageField.Update().Where(p)
-	if req.GetExplicitNull() {
-		q.ClearExplicit()
-	} else if req.HasExplicit() {
-		q.SetExplicit(req.GetExplicit())
-	}
-	if u := req.GetRepeated(); len(u) > 0 {
-		q.SetRepeated(u)
-	}
-	if req.GetNullableNull() {
-		q.ClearNullable()
-	} else if req.HasNullable() {
-		q.SetNullable(req.GetNullable())
-	}
-	if req.GetExplicitWithDefaultNull() {
-		q.ClearExplicitWithDefault()
-	} else if req.HasExplicitWithDefault() {
-		q.SetExplicitWithDefault(req.GetExplicitWithDefault())
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		return nil, status.Errorf(codes.NotFound, "not found")
-	}
-
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.apply(ctx, req.GetRef(), doc)
 }
 
 func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MessageFieldRef) (string, error) {
@@ -1553,12 +1165,23 @@ var messageFieldPatchColumns = entpatch.Columns{
 	1: messagefield.FieldID, 48: messagefield.FieldExplicit, 80: messagefield.FieldRepeated, 112: messagefield.FieldNullable, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
 
 func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.MessageFieldApplyRequest) (*apptest.MessageField, error) {
-	plan, err := ormpatch.Compile(messageFieldOrmEntity, req.GetPatch())
-	if err != nil {
-		if errors.Is(err, ormpatch.ErrUnsupported) {
-			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+	if !req.HasPatch() {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
+	}
+	return s.apply(ctx, req.GetRef(), req.GetPatch())
+}
+
+func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.MessageFieldRef, doc *patchpb.Patch) (*apptest.MessageField, error) {
+	plan := &ormpatch.Plan{Entity: messageFieldOrmEntity}
+	if doc != nil {
+		v, err := ormpatch.Compile(messageFieldOrmEntity, doc)
+		if err != nil {
+			if errors.Is(err, ormpatch.ErrUnsupported) {
+				return nil, status.Errorf(codes.Unimplemented, "%s", err)
+			}
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 		}
-		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		plan = v
 	}
 
 	pred, mod, err := entpatch.Build(plan, messageFieldPatchColumns)
@@ -1566,7 +1189,7 @@ func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.Messa
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := MessageFieldPick(req.GetRef())
+	p, err := MessageFieldPick(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -1587,24 +1210,24 @@ func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.Messa
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			if _, err := s.Get(ctx, ref.Pick()); err != nil {
 				return nil, err
 			}
 			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 		}
-		return s.Get(ctx, req.GetRef().Pick())
+		return s.Get(ctx, ref.Pick())
 	}
 
 	if n, err := q.Save(ctx); err != nil {
 		return nil, err
 	} else if n == 0 {
-		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+		if _, err := s.Get(ctx, ref.Pick()); err != nil {
 			return nil, err
 		}
 		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.Get(ctx, ref.Pick())
 }
 
 func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.MessageFieldRef) (*emptypb.Empty, error) {
@@ -1773,38 +1396,21 @@ func MapFieldSelectInit(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
 }
 
 func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldPatchRequest) (*apptest.MapField, error) {
-	p, err := MapFieldPick(req.GetRef())
+	doc, err := ormpatch.FromPatchRequest(mapFieldOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
-		return nil, err
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
+		if errors.Is(err, ormpatch.ErrRequestLayout) {
+			return nil, status.Errorf(codes.Internal, "%s", err)
+		}
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	q := s.Db.MapField.Update().Where(p)
-	if u := req.GetImplicitString(); len(u) > 0 {
-		q.SetImplicitString(u)
-	}
-	if u := req.GetImplicitEnum(); len(u) > 0 {
-		q.SetImplicitEnum(u)
-	}
-	if u := req.GetImplicitJson(); len(u) > 0 {
-		q.SetImplicitJSON(u)
-	}
-	if u := req.GetImplicitStringWithDefault(); len(u) > 0 {
-		q.SetImplicitStringWithDefault(u)
-	}
-	if u := req.GetImplicitEnumWithDefault(); len(u) > 0 {
-		q.SetImplicitEnumWithDefault(u)
-	}
-	if u := req.GetImplicitJsonWithDefault(); len(u) > 0 {
-		q.SetImplicitJSONWithDefault(u)
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		return nil, status.Errorf(codes.NotFound, "not found")
-	}
-
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.apply(ctx, req.GetRef(), doc)
 }
 
 func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRef) (string, error) {
@@ -1835,12 +1441,23 @@ var mapFieldPatchColumns = entpatch.Columns{
 	1: mapfield.FieldID, 16: mapfield.FieldImplicitString, 17: mapfield.FieldImplicitEnum, 18: mapfield.FieldImplicitJSON, 144: mapfield.FieldImplicitStringWithDefault, 145: mapfield.FieldImplicitEnumWithDefault, 146: mapfield.FieldImplicitJSONWithDefault, 208: mapfield.FieldImplicitImmutableString, 209: mapfield.FieldImplicitImmutableEnum, 210: mapfield.FieldImplicitImmutableJSON}
 
 func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldApplyRequest) (*apptest.MapField, error) {
-	plan, err := ormpatch.Compile(mapFieldOrmEntity, req.GetPatch())
-	if err != nil {
-		if errors.Is(err, ormpatch.ErrUnsupported) {
-			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+	if !req.HasPatch() {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
+	}
+	return s.apply(ctx, req.GetRef(), req.GetPatch())
+}
+
+func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldRef, doc *patchpb.Patch) (*apptest.MapField, error) {
+	plan := &ormpatch.Plan{Entity: mapFieldOrmEntity}
+	if doc != nil {
+		v, err := ormpatch.Compile(mapFieldOrmEntity, doc)
+		if err != nil {
+			if errors.Is(err, ormpatch.ErrUnsupported) {
+				return nil, status.Errorf(codes.Unimplemented, "%s", err)
+			}
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 		}
-		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		plan = v
 	}
 
 	pred, mod, err := entpatch.Build(plan, mapFieldPatchColumns)
@@ -1848,7 +1465,7 @@ func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldA
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := MapFieldPick(req.GetRef())
+	p, err := MapFieldPick(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -1869,24 +1486,24 @@ func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldA
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			if _, err := s.Get(ctx, ref.Pick()); err != nil {
 				return nil, err
 			}
 			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 		}
-		return s.Get(ctx, req.GetRef().Pick())
+		return s.Get(ctx, ref.Pick())
 	}
 
 	if n, err := q.Save(ctx); err != nil {
 		return nil, err
 	} else if n == 0 {
-		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+		if _, err := s.Get(ctx, ref.Pick()); err != nil {
 			return nil, err
 		}
 		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.Get(ctx, ref.Pick())
 }
 
 func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldRef) (*emptypb.Empty, error) {

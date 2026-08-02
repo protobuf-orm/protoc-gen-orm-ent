@@ -8,6 +8,7 @@ import (
 	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
 	errors "errors"
 	uuid "github.com/google/uuid"
+	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -139,29 +140,21 @@ func TenantSelectInit(q *ent.TenantQuery, m *apptest.TenantSelect) {
 }
 
 func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*apptest.Tenant, error) {
-	p, err := TenantPick(req.GetRef())
+	doc, err := ormpatch.FromPatchRequest(tenantOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
-		return nil, err
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
+		if errors.Is(err, ormpatch.ErrRequestLayout) {
+			return nil, status.Errorf(codes.Internal, "%s", err)
+		}
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	q := s.Db.Tenant.Update().Where(p)
-	if req.HasAlias() {
-		q.SetAlias(req.GetAlias())
-	}
-	if req.HasName() {
-		q.SetName(req.GetName())
-	}
-	if u := req.GetLabels(); len(u) > 0 {
-		q.SetLabels(u)
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		return nil, status.Errorf(codes.NotFound, "not found")
-	}
-
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.apply(ctx, req.GetRef(), doc)
 }
 
 func TenantGetKey(ctx context.Context, db *ent.Client, ref *apptest.TenantRef) (uuid.UUID, error) {
@@ -196,12 +189,23 @@ var tenantPatchColumns = entpatch.Columns{
 	1: tenant.FieldID, 4: tenant.FieldAlias, 5: tenant.FieldName, 7: tenant.FieldLabels, 15: tenant.FieldDateCreated}
 
 func (s TenantServiceServer) Apply(ctx context.Context, req *apptest.TenantApplyRequest) (*apptest.Tenant, error) {
-	plan, err := ormpatch.Compile(tenantOrmEntity, req.GetPatch())
-	if err != nil {
-		if errors.Is(err, ormpatch.ErrUnsupported) {
-			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+	if !req.HasPatch() {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
+	}
+	return s.apply(ctx, req.GetRef(), req.GetPatch())
+}
+
+func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, doc *patchpb.Patch) (*apptest.Tenant, error) {
+	plan := &ormpatch.Plan{Entity: tenantOrmEntity}
+	if doc != nil {
+		v, err := ormpatch.Compile(tenantOrmEntity, doc)
+		if err != nil {
+			if errors.Is(err, ormpatch.ErrUnsupported) {
+				return nil, status.Errorf(codes.Unimplemented, "%s", err)
+			}
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 		}
-		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		plan = v
 	}
 
 	pred, mod, err := entpatch.Build(plan, tenantPatchColumns)
@@ -209,7 +213,7 @@ func (s TenantServiceServer) Apply(ctx context.Context, req *apptest.TenantApply
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := TenantPick(req.GetRef())
+	p, err := TenantPick(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -230,24 +234,24 @@ func (s TenantServiceServer) Apply(ctx context.Context, req *apptest.TenantApply
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			if _, err := s.Get(ctx, ref.Pick()); err != nil {
 				return nil, err
 			}
 			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 		}
-		return s.Get(ctx, req.GetRef().Pick())
+		return s.Get(ctx, ref.Pick())
 	}
 
 	if n, err := q.Save(ctx); err != nil {
 		return nil, err
 	} else if n == 0 {
-		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+		if _, err := s.Get(ctx, ref.Pick()); err != nil {
 			return nil, err
 		}
 		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, req.GetRef().Pick())
+	return s.Get(ctx, ref.Pick())
 }
 
 func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) (*emptypb.Empty, error) {

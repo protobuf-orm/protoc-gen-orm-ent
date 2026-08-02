@@ -1,136 +1,144 @@
 package app
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
-	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+// xPatch emits Patch, which converts its request into a patch document and
+// hands it to the same path Apply uses.
+//
+// Patch used to be a ladder: one `if req.HasX()` and one q.SetX per prop, a
+// second implementation of everything Apply already does, and for an entity
+// with two hundred columns it was hundreds of lines that no test covered. The
+// request is not a second update language though -- it is a fixed document,
+// one assign per field the caller set -- so it converts, and what is left here
+// is the part a document genuinely cannot carry: resolving an edge's Ref to a
+// key, which is a query, and the refusal when the version is missing, which is
+// the absence of a precondition rather than a document at all.
 func (w *fileWork) xPatch() {
 	name_x := w.Ident.GoName
-	x := w.ent + "/" + protogen.GoImportPath(strings.ToLower(name_x))
+	v := lowerFirst(name_x)
 
 	w.P("func (s ", name_x, "ServiceServer) Patch(",
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "req *", w.Src.GoImportPath.Ident(name_x+"PatchRequest"),
 		") (*", w.Ident, ", error) {")
 
-	ver := w.Entity.GetVersionField()
-	if ver != nil {
-		w.P(`	is_force := req.GetDateUpdatedForce()`)
-		w.P(`	if !req.HasDateUpdated() && !is_force {`)
-		w.Pf(`		return nil, status.Errorf(codes.InvalidArgument, "version not given: %%s", %q)`, ver.Name())
-		w.P(`	}`)
-		w.P(``)
-	}
-
-	w.P("	p, err := ", name_x, "Pick(req.GetRef())")
+	w.Pf("	doc, err := %s(%sOrmEntity, req.ProtoReflect(), ",
+		w.QualifiedGoIdent(work.PkgOrmPatch.Ident("FromPatchRequest")), v)
+	w.xPatchResolver()
+	w.P(")")
 	w.P("	if err != nil {")
-	w.P("		return nil, err")
+	// A resolver's error is already a status -- usually NotFound for a Ref
+	// that names nothing -- and saying it again in other words would lose the
+	// code. Everything else is the request's fault except a layout mismatch,
+	// which is this generator's.
+	w.P("		if _, ok := ", work.PkgGrpcStatus.Ident("FromError"), "(err); ok {")
+	w.P("			return nil, err")
+	w.P("		}")
+	w.Pf("		if %s(err, %s) {",
+		w.QualifiedGoIdent(work.PkgErrors.Ident("Is")),
+		w.QualifiedGoIdent(work.PkgOrmPatch.Ident("ErrRequestLayout")))
+	w.Pf("			return nil, %s(%s, \"%%s\", err)",
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("Internal")))
+	w.P("		}")
+	w.Pf("		if %s(err, %s) {",
+		w.QualifiedGoIdent(work.PkgErrors.Ident("Is")),
+		w.QualifiedGoIdent(work.PkgOrmPatch.Ident("ErrUnsupported")))
+	w.Pf("			return nil, %s(%s, \"%%s\", err)",
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("Unimplemented")))
+	w.P("		}")
+	w.Pf("		return nil, %s(%s, \"%%s\", err)",
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("InvalidArgument")))
 	w.P("	}")
 	w.P("")
-	w.P("	q := s.Db.", name_x, ".Update().Where(p)")
-	if ver != nil {
-		ver_name := work.Name(ver.Name())
-		w.P("	if !is_force {")
-		w.Pf("		q.Where(%s(req.Get%s().AsTime()))", x.Ident(ver_name.Ent()+"EQ"), ver_name.Ent())
-		w.P("	}")
-	}
-	for p := range w.Entity.Props() {
-		if p.IsImmutable() {
+
+	// A request that asks for nothing converts to no document, which is not the
+	// same as an empty one. apply takes it: for a versioned entity it is still
+	// the version stamp, which is what `_force` alone has always meant.
+	w.P("	return s.apply(ctx, req.GetRef(), doc)")
+	w.P("}")
+	w.P("")
+}
+
+// xPatchResolver emits the EdgeResolver literal, or `nil` when the entity has
+// no edge a request can repoint.
+//
+// A document carries an edge as the target's key, and the request carries a
+// Ref, which may name the target by any unique field. Closing that gap is a
+// query, so it cannot happen inside the converter -- ormpatch never reads
+// storage -- and it lands here, where the client is.
+func (w *fileWork) xPatchResolver() {
+	eds := []graph.Edge{}
+	for p := range graph.PatchProps(w.Entity) {
+		ed, ok := p.(graph.Edge)
+		if !ok || ed.IsList() {
+			// A repeated edge has no column, and the converter refuses it
+			// before it would ask for a key.
 			continue
 		}
-
-		name := work.Name(p.Name())
-		if p.IsNullable() {
-			w.P("	if req.Get", name.Go(), "Null() {")
-			w.P("		q.Clear", name.Ent(), "()")
-			if p.IsOptional() {
-				w.Pf("	} else")
-			} else {
-				w.P("	}")
-			}
-		}
-
-		u := "req.Get" + name.Go() + "()"
-		if p == ver {
-			// Do nothing.
-		} else if graph.IsCollection(p) {
-			w.P("	if u := ", u, "; len(u) > 0 {")
-			u = "u"
-		} else {
-			w.P("	if req.Has", name.Go(), "() {")
-		}
-
-		switch p := p.(type) {
-		case graph.Field:
-			set := func(v string) {
-				w.P("	q.Set", name.Ent(), "(", v, ")")
-			}
-
-			t := p.Type()
-			if p.IsVersion() {
-				now := work.PkgTime.Ident("Now")
-				w.Pf("	if is_force && req.Has%s() {", name.Ent())
-				set(fmt.Sprintf("req.Get%s().AsTime()", name.Ent()))
-				w.P("	} else {")
-				set(fmt.Sprintf("%s().UTC()", w.QualifiedGoIdent(now)))
-				w.P("	}")
-				continue
-			}
-
-			switch t {
-			case ormpb.Type_TYPE_ENUM:
-				if p.IsList() {
-					set(u)
-				} else {
-					set(fmt.Sprintf("int32(%s)", u))
-				}
-			case ormpb.Type_TYPE_UUID:
-				w.P("if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(", u, "); err != nil {")
-				w.P("	return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")
-				w.P("} else {")
-				set("v")
-				w.P("}")
-			case ormpb.Type_TYPE_TIME:
-				set(u + ".AsTime()")
-			default:
-				set(u)
-			}
-
-		case graph.Edge:
-			w.P("if id, err := ", work.Name(p.Target().Name()).Go(), "GetKey(ctx, s.Db, ", u, ")", "; err != nil {")
-			w.P("	return nil, err")
-			w.P("} else {")
-			w.P("	q.Set", name.Ent(), "ID(id)")
-			w.P("}")
-
-		default:
-			panic("unknown type of graph prop")
-		}
-		w.P("}")
+		eds = append(eds, ed)
 	}
-	w.P("")
-	w.P("if n, err := q.Save(ctx); err != nil {")
-	w.P("	return nil, err")
-	w.P("} else if n == 0 {")
-	if ver == nil {
-		w.P(`	return nil, status.Errorf(codes.NotFound, "not found")`)
-	} else {
-		w.P(`	if is_force {`)
-		w.P(`		return nil, status.Errorf(codes.NotFound, "not found")`)
-		w.P(`	} else {`)
-		w.Pf(`		return nil, status.Errorf(codes.FailedPrecondition, "version not matched: %%s", %q)`, ver.Name())
-		w.P(`	}`)
+	if len(eds) == 0 {
+		w.Pf("nil")
+		return
 	}
-	w.P("}")
-	w.P("")
-	// https://github.com/ent/ent/issues/2600
-	w.P("return s.Get(ctx, req.GetRef().Pick())")
-	w.P("}")
-	w.P("")
+
+	ident_v := w.QualifiedGoIdent(work.PkgProtoReflect.Ident("Value"))
+	w.Pf("func(ed %s, ref %s) (%s, error) {\n",
+		w.QualifiedGoIdent(work.PkgOrmGraph.Ident("Edge")),
+		w.QualifiedGoIdent(work.PkgProtoReflect.Ident("Message")),
+		ident_v)
+	w.P("		switch ed.Number() {")
+	for _, ed := range eds {
+		t := ed.Target()
+		w.Pf("		case %d:", ed.Number())
+		w.P("			k, err := ", t.Name(), "GetKey(ctx, s.Db, ref.Interface().(*",
+			w.Src.GoImportPath.Ident(t.Name()+"Ref"), "))")
+		w.P("			if err != nil {")
+		w.P("				return ", ident_v, "{}, err")
+		w.P("			}")
+		w.P("			return ", w.xKeyValueOf("k", t.Key()), ", nil")
+	}
+	w.P("		}")
+	// Unreachable: the converter only asks about edges the entity declares.
+	w.Pf("		return %s{}, %s(%s, \"no key resolver for edge: %%s\", ed.Name())\n",
+		ident_v,
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("Internal")))
+	w.Pf("	}")
+}
+
+// xKeyValueOf renders a Go key value as the protoreflect.Value the converter
+// encodes against the target key's own descriptor -- raw bytes for a UUID, not
+// its text.
+func (w *fileWork) xKeyValueOf(v string, k graph.Field) string {
+	of := func(name string, arg string) string {
+		return w.QualifiedGoIdent(work.PkgProtoReflect.Ident(name)) + "(" + arg + ")"
+	}
+	if k.Type() == ormpb.Type_TYPE_UUID {
+		return of("ValueOfBytes", v+"[:]")
+	}
+	switch k.Descriptor().Kind() {
+	case protoreflect.BytesKind:
+		return of("ValueOfBytes", v)
+	case protoreflect.StringKind:
+		return of("ValueOfString", v)
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return of("ValueOfInt32", v)
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return of("ValueOfInt64", v)
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return of("ValueOfUint32", v)
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return of("ValueOfUint64", v)
+	default:
+		panic("not implemented: key of kind " + k.Descriptor().Kind().String())
+	}
 }

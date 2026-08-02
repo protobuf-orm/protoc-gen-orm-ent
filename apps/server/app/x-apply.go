@@ -22,6 +22,7 @@ import (
 // either: this emits the wiring, the column table, and the error mapping.
 func (w *fileWork) xApply() {
 	name_x := w.Ident.GoName
+	v := lowerFirst(name_x)
 
 	w.xApplyColumns()
 
@@ -29,26 +30,53 @@ func (w *fileWork) xApply() {
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "req *", w.Src.GoImportPath.Ident(name_x+"ApplyRequest"),
 		") (*", w.Ident, ", error) {")
+	// Apply requires the document; Patch is what may have nothing to say.
+	// Saying so here keeps that difference at the RPC boundary rather than
+	// inside the one path both of them run.
+	w.P("	if !req.HasPatch() {")
+	w.Pf("		return nil, %s(%s, \"%%s\", %s)",
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("InvalidArgument")),
+		w.QualifiedGoIdent(work.PkgOrmPatch.Ident("ErrNoPatch")))
+	w.P("	}")
+	w.P("	return s.apply(ctx, req.GetRef(), req.GetPatch())")
+	w.P("}")
+	w.P("")
 
+	// apply is the whole write path, and the only one: Patch converts its
+	// request into a document and arrives here too.
+	w.P("func (s ", name_x, "ServiceServer) apply(",
+		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
+		/* */ "ref *", w.Src.GoImportPath.Ident(name_x+"Ref"), ",",
+		/* */ "doc *", work.PkgPatchPb.Ident("Patch"),
+		") (*", w.Ident, ", error) {")
+
+	// No document means no delta -- a request that asked for nothing. It is
+	// not an empty one: a Delta must carry an entry, so "change nothing" has to
+	// be absence, and an empty plan is what it compiles to.
+	w.P("	plan := &", work.PkgOrmPatch.Ident("Plan"), "{Entity: ", v, "OrmEntity}")
+	w.P("	if doc != nil {")
 	// Compiling refuses a document it cannot honor. Which refusal it is decides
 	// what the client should do, so the codes stay apart: a format violation is
 	// the producer's to fix, an engine limit is not.
-	w.P("	plan, err := ", work.PkgOrmPatch.Ident("Compile"), "(", lowerFirst(name_x), "OrmEntity, req.GetPatch())")
-	w.P("	if err != nil {")
-	w.Pf("		if %s(err, %s) {",
+	w.P("		v, err := ", work.PkgOrmPatch.Ident("Compile"), "(", v, "OrmEntity, doc)")
+	w.P("		if err != nil {")
+	w.Pf("			if %s(err, %s) {",
 		w.QualifiedGoIdent(work.PkgErrors.Ident("Is")),
 		w.QualifiedGoIdent(work.PkgOrmPatch.Ident("ErrUnsupported")))
-	w.Pf("			return nil, %s(%s, \"%%s\", err)",
+	w.Pf("				return nil, %s(%s, \"%%s\", err)",
 		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
 		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("Unimplemented")))
-	w.P("		}")
-	w.Pf("		return nil, %s(%s, \"%%s\", err)",
+	w.P("			}")
+	w.Pf("			return nil, %s(%s, \"%%s\", err)",
 		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
 		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("InvalidArgument")))
+	w.P("		}")
+	w.P("		plan = v")
 	w.P("	}")
 	w.P("")
 
-	w.P("	pred, mod, err := ", work.PkgEntPatch.Ident("Build"), "(plan, ", lowerFirst(name_x), "PatchColumns)")
+	w.P("	pred, mod, err := ", work.PkgEntPatch.Ident("Build"), "(plan, ", v, "PatchColumns)")
 	w.P("	if err != nil {")
 	w.Pf("		return nil, %s(%s, \"%%s\", err)",
 		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
@@ -56,7 +84,7 @@ func (w *fileWork) xApply() {
 	w.P("	}")
 	w.P("")
 
-	w.P("	p, err := ", name_x, "Pick(req.GetRef())")
+	w.P("	p, err := ", name_x, "Pick(ref)")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
@@ -72,11 +100,26 @@ func (w *fileWork) xApply() {
 
 	ver := w.Entity.GetVersionField()
 	if ver != nil {
-		// The document never carries the new version -- it is the server's to
-		// stamp. A `test` on the version field is what makes the update a
-		// compare-and-swap, and its absence is exactly what Patch spells as
-		// `_force`.
-		w.P("	q.Set", work.Name(ver.Name()).Ent(), "(", w.QualifiedGoIdent(work.PkgTime.Ident("Now")), "().UTC())")
+		// The version is the server's to stamp, unless the document stamped it:
+		// a client that supplies the version is what Patch spells as `_force`,
+		// and replaying a stored delta must reproduce the version it recorded
+		// rather than the time of the replay.
+		//
+		// Asking first is also what keeps the column assigned once. The
+		// document's write arrives through Modify and the stamp through the
+		// builder, so both reach the same statement: a `remove` lands in the
+		// builder's NULL list and the stamp in its value list, and it emits
+		// both -- `SET v = NULL, v = ?` -- which PostgreSQL rejects as a
+		// duplicate assignment and SQLite resolves by taking the last one. An
+		// assign collapses into one only because the builder overwrites a
+		// column it already holds, and then it is the stamp that silently
+		// disappears.
+		//
+		// Either way the update still has at least one SET, so the "wrote
+		// nothing" branch below stays unreachable while a version field exists.
+		w.Pf("	if !plan.WritesTo(%d) {", ver.Number())
+		w.P("		q.Set", work.Name(ver.Name()).Ent(), "(", w.QualifiedGoIdent(work.PkgTime.Ident("Now")), "().UTC())")
+		w.P("	}")
 	}
 	w.P("")
 
@@ -93,14 +136,14 @@ func (w *fileWork) xApply() {
 		w.P("		if ok, err := q.Exist(ctx); err != nil {")
 		w.P("			return nil, err")
 		w.P("		} else if !ok {")
-		w.P("			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {")
+		w.P("			if _, err := s.Get(ctx, ref.Pick()); err != nil {")
 		w.P("				return nil, err")
 		w.P("			}")
 		w.Pf("			return nil, %s(%s, \"a test in the patch did not hold\")",
 			w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Error")),
 			w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("FailedPrecondition")))
 		w.P("		}")
-		w.P("		return s.Get(ctx, req.GetRef().Pick())")
+		w.P("		return s.Get(ctx, ref.Pick())")
 		w.P("	}")
 		w.P("")
 	}
@@ -110,7 +153,7 @@ func (w *fileWork) xApply() {
 	w.P("	} else if n == 0 {")
 	// The row may be absent, or present with a test that did not hold. One
 	// statement cannot say which, so ask only when the answer is needed.
-	w.P("		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {")
+	w.P("		if _, err := s.Get(ctx, ref.Pick()); err != nil {")
 	w.P("			return nil, err")
 	w.P("		}")
 	w.Pf("		return nil, %s(%s, \"a test in the patch did not hold\")",
@@ -118,7 +161,7 @@ func (w *fileWork) xApply() {
 		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("FailedPrecondition")))
 	w.P("	}")
 	w.P("")
-	w.P("	return s.Get(ctx, req.GetRef().Pick())")
+	w.P("	return s.Get(ctx, ref.Pick())")
 	w.P("}")
 	w.P("")
 }
