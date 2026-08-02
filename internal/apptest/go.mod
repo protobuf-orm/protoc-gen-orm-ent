@@ -8,17 +8,17 @@
 // resolves once that generated code is present.
 module github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest
 
-go 1.24.6
+go 1.26.2
 
 require (
 	entgo.io/ent v0.14.5
 	github.com/google/uuid v1.6.0
 	github.com/lesomnus/z v0.0.0-20250923111312-437bd8f8f4cf
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20260627113410-c97ccf1e9419
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20260802191303-9fc21749e515
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.77.0
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/protobuf v1.36.11
 )
 
 require (

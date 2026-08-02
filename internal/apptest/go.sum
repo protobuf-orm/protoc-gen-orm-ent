@@ -44,6 +44,8 @@ github.com/protobuf-orm/protobuf-orm v0.0.0-20251121161902-8996ac97b16c h1:cuQKd
 github.com/protobuf-orm/protobuf-orm v0.0.0-20251121161902-8996ac97b16c/go.mod h1:mfmqPMxPZ1Q0IAg0HwKeRPmh95gJlZ2DY4bF6qAyc84=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260627113410-c97ccf1e9419 h1:nrykpJ/KTMUAyOYpqAuk9bN6VHEMlTl4vIxz+LpQSS4=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260627113410-c97ccf1e9419/go.mod h1:mfmqPMxPZ1Q0IAg0HwKeRPmh95gJlZ2DY4bF6qAyc84=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20260802191303-9fc21749e515 h1:l9oaBL+kEnuKhdrOQyzZwVt527AbYWEV6tGXwsOUwAA=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20260802191303-9fc21749e515/go.mod h1:756UERJEwxtY2ztk1xN0C6DlWNwIMRGMX2RK9n4lh+0=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/zclconf/go-cty v1.17.0 h1:seZvECve6XX4tmnvRzWtJNHdscMtYEx5R7bnnVyd/d0=
@@ -86,6 +88,8 @@ google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1 h1:F29+wU6Ee6qgu9TddPgooOda
 google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1/go.mod h1:5KF+wpkbTSbGcR9zteSqZV6fqFOWBl4Yde8En8MryZA=
 google.golang.org/protobuf v1.36.10 h1:AYd7cD/uASjIL6Q9LiTjz8JLcrh/88q5UObnmY3aOOE=
 google.golang.org/protobuf v1.36.10/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
+google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=
+google.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f h1:BLraFXnmrev5lT+xlilqcH8XK9/i0At2xKjWk4p6zsU=
 gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
