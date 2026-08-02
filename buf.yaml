@@ -3,6 +3,8 @@ modules:
   - path: ./proto
 deps:
   - buf.build/orm/orm
+  # The generated Apply RPC carries a patch.Patch.
+  - buf.build/patch/patch
 lint:
   use:
     - BASIC

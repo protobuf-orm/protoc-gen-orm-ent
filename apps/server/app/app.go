@@ -99,6 +99,9 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 	if rpcs.HasPatch() {
 		w.xPatch()
 		w.xGetKey()
+		// protobuf-orm has no `apply` option, so Apply rides on `patch` --
+		// the same gate protoc-gen-orm-service uses to emit the RPC.
+		w.xApply()
 		need_pick = true
 	}
 	if rpcs.HasErase() {

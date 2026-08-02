@@ -9,6 +9,7 @@ import "apptest/tenant_svc.g.proto";
 import "apptest/user.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "patch/patch.proto";
 
 option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
 
@@ -19,6 +20,8 @@ service UserService {
 	rpc Get(UserGetRequest) returns (User);
 	// Patch updates an existing User
 	rpc Patch(UserPatchRequest) returns (User);
+	// Apply applies a patch document to an existing User
+	rpc Apply(UserApplyRequest) returns (User);
 	// Erase deletes a User
 	rpc Erase(UserRef) returns (google.protobuf.Empty);
 }
@@ -71,4 +74,9 @@ message UserPatchRequest {
 	bool lock_null = 16;
 	google.protobuf.Timestamp date_updated = 27;
 	bool date_updated_force = 28;
+}
+
+message UserApplyRequest {
+	UserRef ref = 1;
+	patch.Patch patch = 2;
 }

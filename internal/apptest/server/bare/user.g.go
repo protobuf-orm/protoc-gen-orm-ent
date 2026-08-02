@@ -6,7 +6,10 @@ package bare
 import (
 	context "context"
 	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
+	errors "errors"
 	uuid "github.com/google/uuid"
+	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
@@ -243,6 +246,51 @@ func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid
 	}
 
 	return v, nil
+}
+
+var userOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_user_proto, "User")
+
+var userPatchColumns = entpatch.Columns{
+	1: user.FieldID, 2: user.TenantColumn, 4: user.FieldAlias, 5: user.FieldName, 7: user.FieldLabels, 8: user.FieldLock, 14: user.FieldDateUpdated, 15: user.FieldDateCreated}
+
+func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequest) (*apptest.User, error) {
+	plan, err := ormpatch.Compile(userOrmEntity, req.GetPatch())
+	if err != nil {
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+	}
+
+	pred, mod, err := entpatch.Build(plan, userPatchColumns)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%s", err)
+	}
+
+	p, err := UserPick(req.GetRef())
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.User.Update().Where(p)
+	if pred != nil {
+		q.Where(predicate.User(pred))
+	}
+	if mod != nil {
+		q.Modify(mod)
+	}
+	q.SetDateUpdated(time.Now().UTC())
+
+	if n, err := q.Save(ctx); err != nil {
+		return nil, err
+	} else if n == 0 {
+		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			return nil, err
+		}
+		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+	}
+
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*emptypb.Empty, error) {

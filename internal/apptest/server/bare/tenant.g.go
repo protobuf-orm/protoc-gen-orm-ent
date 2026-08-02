@@ -6,7 +6,10 @@ package bare
 import (
 	context "context"
 	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
+	errors "errors"
 	uuid "github.com/google/uuid"
+	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
@@ -185,6 +188,66 @@ func TenantGetKey(ctx context.Context, db *ent.Client, ref *apptest.TenantRef) (
 	}
 
 	return v, nil
+}
+
+var tenantOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_tenant_proto, "Tenant")
+
+var tenantPatchColumns = entpatch.Columns{
+	1: tenant.FieldID, 4: tenant.FieldAlias, 5: tenant.FieldName, 7: tenant.FieldLabels, 15: tenant.FieldDateCreated}
+
+func (s TenantServiceServer) Apply(ctx context.Context, req *apptest.TenantApplyRequest) (*apptest.Tenant, error) {
+	plan, err := ormpatch.Compile(tenantOrmEntity, req.GetPatch())
+	if err != nil {
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+	}
+
+	pred, mod, err := entpatch.Build(plan, tenantPatchColumns)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%s", err)
+	}
+
+	p, err := TenantPick(req.GetRef())
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.Tenant.Update().Where(p)
+	if pred != nil {
+		q.Where(predicate.Tenant(pred))
+	}
+	if mod != nil {
+		q.Modify(mod)
+	}
+
+	if mod == nil {
+		q := s.Db.Tenant.Query().Where(p)
+		if pred != nil {
+			q.Where(predicate.Tenant(pred))
+		}
+		if ok, err := q.Exist(ctx); err != nil {
+			return nil, err
+		} else if !ok {
+			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+				return nil, err
+			}
+			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+		}
+		return s.Get(ctx, req.GetRef().Pick())
+	}
+
+	if n, err := q.Save(ctx); err != nil {
+		return nil, err
+	} else if n == 0 {
+		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			return nil, err
+		}
+		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+	}
+
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) (*emptypb.Empty, error) {

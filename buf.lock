@@ -4,3 +4,6 @@ deps:
   - name: buf.build/orm/orm
     commit: 57ec25ec8eca4aed9075f5eb3313576d
     digest: b5:9f6d5ab844a3836eced550085ee6b15bf4056326c945774a9b3ecb1ce179191478dea4dc425ad1e71fc9b919424530c92c8977eab19f10ce8e727dd4495ae12e
+  - name: buf.build/patch/patch
+    commit: 1ff59ac3af634b2b9b73cc7ac1f9a3bd
+    digest: b5:db6b10aecb55283c840f3018b0aa6d601dc160c29db836109cbca622e4bcd4771b04b805f858c949dfac9d0c0c6056da83934678430c8f7d6059db33202b8650

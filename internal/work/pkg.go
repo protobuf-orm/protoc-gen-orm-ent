@@ -28,3 +28,10 @@ var (
 	IdentUuid    = PkgUuid.Ident("UUID")
 	IdentEmpty   = PkgProtoEmpty.Ident("Empty")
 )
+
+// Apply's runtime: the schema-side compiler and the ent-side renderer.
+var (
+	PkgErrors   = protogen.GoImportPath("errors")
+	PkgOrmPatch = protogen.GoImportPath("github.com/protobuf-orm/protobuf-orm/ormpatch")
+	PkgEntPatch = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/entpatch")
+)

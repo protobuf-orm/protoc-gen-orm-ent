@@ -6,6 +6,9 @@ package bare
 import (
 	context "context"
 	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
+	errors "errors"
+	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	mapfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/mapfield"
@@ -1290,6 +1293,66 @@ func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFie
 	return v, nil
 }
 
+var valueFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "ValueField")
+
+var valueFieldPatchColumns = entpatch.Columns{
+	1: valuefield.FieldID, 16: valuefield.FieldImplicitF64, 17: valuefield.FieldImplicitF32, 18: valuefield.FieldImplicitI32, 19: valuefield.FieldImplicitI64, 20: valuefield.FieldImplicitU32, 21: valuefield.FieldImplicitU64, 22: valuefield.FieldImplicitSi32, 23: valuefield.FieldImplicitSi64, 24: valuefield.FieldImplicitFi32, 25: valuefield.FieldImplicitFi64, 26: valuefield.FieldImplicitSfi32, 27: valuefield.FieldImplicitSfi64, 28: valuefield.FieldImplicitBool, 29: valuefield.FieldImplicitString, 30: valuefield.FieldImplicitBytes, 31: valuefield.FieldImplicitEnum, 48: valuefield.FieldExplicitF64, 49: valuefield.FieldExplicitF32, 50: valuefield.FieldExplicitI32, 51: valuefield.FieldExplicitI64, 52: valuefield.FieldExplicitU32, 53: valuefield.FieldExplicitU64, 54: valuefield.FieldExplicitSi32, 55: valuefield.FieldExplicitSi64, 56: valuefield.FieldExplicitFi32, 57: valuefield.FieldExplicitFi64, 58: valuefield.FieldExplicitSfi32, 59: valuefield.FieldExplicitSfi64, 60: valuefield.FieldExplicitBool, 61: valuefield.FieldExplicitString, 62: valuefield.FieldExplicitBytes, 63: valuefield.FieldExplicitEnum, 80: valuefield.FieldImplicitF64s, 81: valuefield.FieldImplicitF32s, 82: valuefield.FieldImplicitI32s, 83: valuefield.FieldImplicitI64s, 84: valuefield.FieldImplicitU32s, 85: valuefield.FieldImplicitU64s, 86: valuefield.FieldImplicitSi32s, 87: valuefield.FieldImplicitSi64s, 88: valuefield.FieldImplicitFi32s, 89: valuefield.FieldImplicitFi64s, 90: valuefield.FieldImplicitSfi32s, 91: valuefield.FieldImplicitSfi64s, 92: valuefield.FieldImplicitBools, 93: valuefield.FieldImplicitStrings, 94: valuefield.FieldImplicitBytess, 95: valuefield.FieldImplicitLevels, 112: valuefield.FieldNullableF64, 113: valuefield.FieldNullableF32, 114: valuefield.FieldNullableI32, 115: valuefield.FieldNullableI64, 116: valuefield.FieldNullableU32, 117: valuefield.FieldNullableU64, 118: valuefield.FieldNullableSi32, 119: valuefield.FieldNullableSi64, 120: valuefield.FieldNullableFi32, 121: valuefield.FieldNullableFi64, 122: valuefield.FieldNullableSfi32, 123: valuefield.FieldNullableSfi64, 124: valuefield.FieldNullableBool, 125: valuefield.FieldNullableString, 126: valuefield.FieldNullableBytes, 127: valuefield.FieldNullableLevel, 144: valuefield.FieldImplicitF64WithDefault, 145: valuefield.FieldImplicitF32WithDefault, 146: valuefield.FieldImplicitI32WithDefault, 147: valuefield.FieldImplicitI64WithDefault, 148: valuefield.FieldImplicitU32WithDefault, 149: valuefield.FieldImplicitU64WithDefault, 150: valuefield.FieldImplicitSi32WithDefault, 151: valuefield.FieldImplicitSi64WithDefault, 152: valuefield.FieldImplicitFi32WithDefault, 153: valuefield.FieldImplicitFi64WithDefault, 154: valuefield.FieldImplicitSfi32WithDefault, 155: valuefield.FieldImplicitSfi64WithDefault, 156: valuefield.FieldImplicitBoolWithDefault, 157: valuefield.FieldImplicitStringWithDefault, 158: valuefield.FieldImplicitBytesWithDefault, 159: valuefield.FieldImplicitLevelWithDefault, 176: valuefield.FieldExplicitF64WithDefault, 177: valuefield.FieldExplicitF32WithDefault, 178: valuefield.FieldExplicitI32WithDefault, 179: valuefield.FieldExplicitI64WithDefault, 180: valuefield.FieldExplicitU32WithDefault, 181: valuefield.FieldExplicitU64WithDefault, 182: valuefield.FieldExplicitSi32WithDefault, 183: valuefield.FieldExplicitSi64WithDefault, 184: valuefield.FieldExplicitFi32WithDefault, 185: valuefield.FieldExplicitFi64WithDefault, 186: valuefield.FieldExplicitSfi32WithDefault, 187: valuefield.FieldExplicitSfi64WithDefault, 188: valuefield.FieldExplicitBoolWithDefault, 189: valuefield.FieldExplicitStringWithDefault, 190: valuefield.FieldExplicitBytesWithDefault, 191: valuefield.FieldExplicitLevelWithDefault, 208: valuefield.FieldImplicitImmutableF64, 209: valuefield.FieldImplicitImmutableF32, 210: valuefield.FieldImplicitImmutableI32, 211: valuefield.FieldImplicitImmutableI64, 212: valuefield.FieldImplicitImmutableU32, 213: valuefield.FieldImplicitImmutableU64, 214: valuefield.FieldImplicitImmutableSi32, 215: valuefield.FieldImplicitImmutableSi64, 216: valuefield.FieldImplicitImmutableFi32, 217: valuefield.FieldImplicitImmutableFi64, 218: valuefield.FieldImplicitImmutableSfi32, 219: valuefield.FieldImplicitImmutableSfi64, 220: valuefield.FieldImplicitImmutableBool, 221: valuefield.FieldImplicitImmutableString, 222: valuefield.FieldImplicitImmutableBytes, 223: valuefield.FieldImplicitImmutableLevel, 240: valuefield.FieldExplicitImmutableF64, 241: valuefield.FieldExplicitImmutableF32, 242: valuefield.FieldExplicitImmutableI32, 243: valuefield.FieldExplicitImmutableI64, 244: valuefield.FieldExplicitImmutableU32, 245: valuefield.FieldExplicitImmutableU64, 246: valuefield.FieldExplicitImmutableSi32, 247: valuefield.FieldExplicitImmutableSi64, 248: valuefield.FieldExplicitImmutableFi32, 249: valuefield.FieldExplicitImmutableFi64, 250: valuefield.FieldExplicitImmutableSfi32, 251: valuefield.FieldExplicitImmutableSfi64, 252: valuefield.FieldExplicitImmutableBool, 253: valuefield.FieldExplicitImmutableString, 254: valuefield.FieldExplicitImmutableBytes, 255: valuefield.FieldExplicitImmutableLevel}
+
+func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFieldApplyRequest) (*apptest.ValueField, error) {
+	plan, err := ormpatch.Compile(valueFieldOrmEntity, req.GetPatch())
+	if err != nil {
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+	}
+
+	pred, mod, err := entpatch.Build(plan, valueFieldPatchColumns)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%s", err)
+	}
+
+	p, err := ValueFieldPick(req.GetRef())
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.ValueField.Update().Where(p)
+	if pred != nil {
+		q.Where(predicate.ValueField(pred))
+	}
+	if mod != nil {
+		q.Modify(mod)
+	}
+
+	if mod == nil {
+		q := s.Db.ValueField.Query().Where(p)
+		if pred != nil {
+			q.Where(predicate.ValueField(pred))
+		}
+		if ok, err := q.Exist(ctx); err != nil {
+			return nil, err
+		} else if !ok {
+			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+				return nil, err
+			}
+			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+		}
+		return s.Get(ctx, req.GetRef().Pick())
+	}
+
+	if n, err := q.Save(ctx); err != nil {
+		return nil, err
+	} else if n == 0 {
+		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			return nil, err
+		}
+		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+	}
+
+	return s.Get(ctx, req.GetRef().Pick())
+}
+
 func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFieldRef) (*emptypb.Empty, error) {
 	p, err := ValueFieldPick(req)
 	if err != nil {
@@ -1482,6 +1545,66 @@ func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.Messag
 	}
 
 	return v, nil
+}
+
+var messageFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "MessageField")
+
+var messageFieldPatchColumns = entpatch.Columns{
+	1: messagefield.FieldID, 48: messagefield.FieldExplicit, 80: messagefield.FieldRepeated, 112: messagefield.FieldNullable, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
+
+func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.MessageFieldApplyRequest) (*apptest.MessageField, error) {
+	plan, err := ormpatch.Compile(messageFieldOrmEntity, req.GetPatch())
+	if err != nil {
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+	}
+
+	pred, mod, err := entpatch.Build(plan, messageFieldPatchColumns)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%s", err)
+	}
+
+	p, err := MessageFieldPick(req.GetRef())
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.MessageField.Update().Where(p)
+	if pred != nil {
+		q.Where(predicate.MessageField(pred))
+	}
+	if mod != nil {
+		q.Modify(mod)
+	}
+
+	if mod == nil {
+		q := s.Db.MessageField.Query().Where(p)
+		if pred != nil {
+			q.Where(predicate.MessageField(pred))
+		}
+		if ok, err := q.Exist(ctx); err != nil {
+			return nil, err
+		} else if !ok {
+			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+				return nil, err
+			}
+			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+		}
+		return s.Get(ctx, req.GetRef().Pick())
+	}
+
+	if n, err := q.Save(ctx); err != nil {
+		return nil, err
+	} else if n == 0 {
+		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			return nil, err
+		}
+		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+	}
+
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.MessageFieldRef) (*emptypb.Empty, error) {
@@ -1704,6 +1827,66 @@ func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRe
 	}
 
 	return v, nil
+}
+
+var mapFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "MapField")
+
+var mapFieldPatchColumns = entpatch.Columns{
+	1: mapfield.FieldID, 16: mapfield.FieldImplicitString, 17: mapfield.FieldImplicitEnum, 18: mapfield.FieldImplicitJSON, 144: mapfield.FieldImplicitStringWithDefault, 145: mapfield.FieldImplicitEnumWithDefault, 146: mapfield.FieldImplicitJSONWithDefault, 208: mapfield.FieldImplicitImmutableString, 209: mapfield.FieldImplicitImmutableEnum, 210: mapfield.FieldImplicitImmutableJSON}
+
+func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldApplyRequest) (*apptest.MapField, error) {
+	plan, err := ormpatch.Compile(mapFieldOrmEntity, req.GetPatch())
+	if err != nil {
+		if errors.Is(err, ormpatch.ErrUnsupported) {
+			return nil, status.Errorf(codes.Unimplemented, "%s", err)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+	}
+
+	pred, mod, err := entpatch.Build(plan, mapFieldPatchColumns)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%s", err)
+	}
+
+	p, err := MapFieldPick(req.GetRef())
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.MapField.Update().Where(p)
+	if pred != nil {
+		q.Where(predicate.MapField(pred))
+	}
+	if mod != nil {
+		q.Modify(mod)
+	}
+
+	if mod == nil {
+		q := s.Db.MapField.Query().Where(p)
+		if pred != nil {
+			q.Where(predicate.MapField(pred))
+		}
+		if ok, err := q.Exist(ctx); err != nil {
+			return nil, err
+		} else if !ok {
+			if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+				return nil, err
+			}
+			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+		}
+		return s.Get(ctx, req.GetRef().Pick())
+	}
+
+	if n, err := q.Save(ctx); err != nil {
+		return nil, err
+	} else if n == 0 {
+		if _, err := s.Get(ctx, req.GetRef().Pick()); err != nil {
+			return nil, err
+		}
+		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+	}
+
+	return s.Get(ctx, req.GetRef().Pick())
 }
 
 func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldRef) (*emptypb.Empty, error) {
