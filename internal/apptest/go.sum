@@ -44,6 +44,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260802191303-9fc21749e515 h1:l9oaBL+kEnuKhdrOQyzZwVt527AbYWEV6tGXwsOUwAA=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260802191303-9fc21749e515/go.mod h1:756UERJEwxtY2ztk1xN0C6DlWNwIMRGMX2RK9n4lh+0=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20260802214707-82eb3d8fbf21 h1:g9KAfss0hkgCNv4rlQYi6E6PlO0J+P4ar4vPa/jg7dk=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20260802214707-82eb3d8fbf21/go.mod h1:756UERJEwxtY2ztk1xN0C6DlWNwIMRGMX2RK9n4lh+0=
 github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260802191503-a7ac1c053320 h1:VK/oA/qbYNwuDY3md8Qo6l7WoCkeBPIxIwC5AjcTA6w=
 github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260802191503-a7ac1c053320/go.mod h1:UDkUbec3fzrcvjNtyM+TyBPHH7v2P1/+W0YpmvMn4fQ=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=

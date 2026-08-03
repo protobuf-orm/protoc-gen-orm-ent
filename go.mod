@@ -1,11 +1,11 @@
 module github.com/protobuf-orm/protoc-gen-orm-ent
 
-go 1.24.6
+go 1.26.2
 
 require (
 	github.com/go-openapi/inflect v0.21.3
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20260627113410-c97ccf1e9419
-	google.golang.org/protobuf v1.36.10
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20260802214707-82eb3d8fbf21
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
