@@ -66,14 +66,14 @@ message UserGetRequest {
 
 message UserPatchRequest {
 	UserRef ref = 1;
-	TenantRef tenant = 3;
-	string alias = 7;
-	string name = 9;
-	map<string, string> labels = 13;
-	string lock = 15;
-	bool lock_null = 16;
-	google.protobuf.Timestamp date_updated = 27;
-	bool date_updated_force = 28;
+	TenantRef tenant = 4;
+	string alias = 8;
+	string name = 10;
+	map<string, string> labels = 14;
+	string lock = 16;
+	bool lock_null = 17;
+	google.protobuf.Timestamp date_updated = 28;
+	bool date_updated_force = 29;
 }
 
 message UserApplyRequest {
