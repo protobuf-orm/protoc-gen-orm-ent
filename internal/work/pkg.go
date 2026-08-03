@@ -4,6 +4,7 @@ import "google.golang.org/protobuf/compiler/protogen"
 
 var (
 	PkgContext = protogen.GoImportPath("context")
+	PkgFmt     = protogen.GoImportPath("fmt")
 	PkgTime    = protogen.GoImportPath("time")
 
 	PkgEnt         = protogen.GoImportPath("entgo.io/ent")

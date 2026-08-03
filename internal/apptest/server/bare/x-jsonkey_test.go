@@ -4,6 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"entgo.io/ent/dialect"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
+
 	"github.com/lesomnus/protobuf-patch/patch"
 	"github.com/lesomnus/z"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -84,4 +88,21 @@ func TestJSONKeysThroughPatch(t *testing.T) {
 		x.NoError(err)
 		x.Equal(want, get(ctx, x, c, u).GetLabels())
 	}))
+}
+
+// The dialect a server is told is the SQL it writes, not a claim about the
+// driver -- so an engine this backend has no spelling for is refused at
+// construction rather than at the first request that would have needed one.
+func TestServerRefusesAnUnwrittenDialect(t *testing.T) {
+	s := NewServer(t)
+	defer s.Close()
+
+	for _, d := range []string{dialect.MySQL, dialect.Gremlin, "cockroach", ""} {
+		_, err := bare.NewServer(s.Db, d)
+		require.ErrorIs(t, err, entpatch.ErrDialect, "dialect %q", d)
+	}
+	for _, d := range []string{dialect.SQLite, dialect.Postgres} {
+		_, err := bare.NewServer(s.Db, d)
+		require.NoError(t, err, "dialect %q", d)
+	}
 }

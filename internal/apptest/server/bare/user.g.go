@@ -25,11 +25,14 @@ import (
 
 type UserServiceServer struct {
 	Db *ent.Client
+	// Dialect is the SQL this server writes; the store's NewServer is
+	// what refuses one nobody wrote.
+	Dialect string
 	apptest.UnimplementedUserServiceServer
 }
 
-func NewUserServiceServer(db *ent.Client) apptest.UserServiceServer {
-	return UserServiceServer{Db: db}
+func NewUserServiceServer(db *ent.Client, dialect string) apptest.UserServiceServer {
+	return UserServiceServer{Db: db, Dialect: dialect}
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
@@ -249,7 +252,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, userPatchColumns)
+	pred, mod, err := entpatch.Build(plan, userPatchColumns, s.Dialect)
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)

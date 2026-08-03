@@ -3,22 +3,39 @@
 package bare
 
 import (
+	fmt "fmt"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 )
 
 type Server struct {
 	Db *ent.Client
+	// Dialect is the SQL this server writes.
+	Dialect string
 }
 
-func NewServer(db *ent.Client) Server {
-	return Server{Db: db}
+// NewServer refuses a dialect this backend does not write SQL for.
+//
+// The dialect is the SQL to emit, not a claim about the driver. Naming one
+// the connection does not speak is allowed and is the caller's risk: an
+// engine compatible with it will work, and one that is not will fail at the
+// statement rather than here.
+func NewServer(db *ent.Client, dialect string) (Server, error) {
+	if !entpatch.Supports(dialect) {
+		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, dialect)
+	}
+	return Server{Db: db, Dialect: dialect}, nil
 }
 
-func (s Server) ValueField() apptest.ValueFieldServiceServer { return NewValueFieldServiceServer(s.Db) }
+func (s Server) ValueField() apptest.ValueFieldServiceServer {
+	return NewValueFieldServiceServer(s.Db, s.Dialect)
+}
 func (s Server) MessageField() apptest.MessageFieldServiceServer {
-	return NewMessageFieldServiceServer(s.Db)
+	return NewMessageFieldServiceServer(s.Db, s.Dialect)
 }
-func (s Server) MapField() apptest.MapFieldServiceServer { return NewMapFieldServiceServer(s.Db) }
-func (s Server) Tenant() apptest.TenantServiceServer     { return NewTenantServiceServer(s.Db) }
-func (s Server) User() apptest.UserServiceServer         { return NewUserServiceServer(s.Db) }
+func (s Server) MapField() apptest.MapFieldServiceServer {
+	return NewMapFieldServiceServer(s.Db, s.Dialect)
+}
+func (s Server) Tenant() apptest.TenantServiceServer { return NewTenantServiceServer(s.Db, s.Dialect) }
+func (s Server) User() apptest.UserServiceServer     { return NewUserServiceServer(s.Db, s.Dialect) }

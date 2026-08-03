@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -39,7 +40,9 @@ func NewServer(t *testing.T) *Server {
 	err = db.Schema.Create(ctx)
 	require.NoError(t, err)
 
-	s := bare.NewServer(db)
+	s, err := bare.NewServer(db, dialect.SQLite)
+	require.NoError(t, err)
+
 	return &Server{
 		t: t,
 

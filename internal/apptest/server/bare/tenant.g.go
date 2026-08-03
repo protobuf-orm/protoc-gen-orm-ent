@@ -23,11 +23,14 @@ import (
 
 type TenantServiceServer struct {
 	Db *ent.Client
+	// Dialect is the SQL this server writes; the store's NewServer is
+	// what refuses one nobody wrote.
+	Dialect string
 	apptest.UnimplementedTenantServiceServer
 }
 
-func NewTenantServiceServer(db *ent.Client) apptest.TenantServiceServer {
-	return TenantServiceServer{Db: db}
+func NewTenantServiceServer(db *ent.Client, dialect string) apptest.TenantServiceServer {
+	return TenantServiceServer{Db: db, Dialect: dialect}
 }
 
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {
@@ -208,7 +211,7 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, tenantPatchColumns)
+	pred, mod, err := entpatch.Build(plan, tenantPatchColumns, s.Dialect)
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)

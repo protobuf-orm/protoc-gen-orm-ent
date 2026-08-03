@@ -22,10 +22,14 @@
 //
 // # Dialects
 //
-// The JSON functions are not portable, so the expressions are built per
-// dialect at statement time. SQLite and PostgreSQL are implemented; MySQL is
-// refused rather than approximated, because its JSON literal and merge
-// spellings differ from both.
+// The JSON functions are not portable, so the expressions are built per dialect
+// at statement time. SQLite and PostgreSQL are written for; anything else is
+// refused by [Build] before a statement exists, because a spelling that is
+// merely close produces one that runs and means something else.
+//
+// The dialect is what SQL to write, not what driver is in use. A caller on a
+// PostgreSQL-compatible engine can say "postgres" and get PostgreSQL's
+// spelling; whether that engine agrees is theirs to decide. See [Supports].
 //
 // # What Modify does not enforce
 //
@@ -62,11 +66,29 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// errMySQL is the refusal from the Dialects section of the package doc. It is
-// raised at statement time, since the dialect belongs to the connection rather
-// than to the document.
-var errMySQL = errors.New("entpatch: MySQL spells JSON literals and merges differently; " +
-	"it is refused rather than approximated")
+// ErrDialect is a dialect this package does not render SQL for.
+//
+// The JSON functions are not portable and nothing about them can be guessed:
+// a spelling that is merely close produces a statement that runs and means
+// something else. So the set is closed, and a dialect outside it is refused
+// rather than approximated.
+var ErrDialect = errors.New("entpatch: no SQL is written for this dialect")
+
+// dialects is every dialect this package renders. Adding one means adding its
+// arm to each branch below and its name here; nothing infers a spelling from
+// another dialect's.
+var dialects = map[string]bool{
+	dialect.SQLite:   true,
+	dialect.Postgres: true,
+}
+
+// Supports reports whether [Build] can render a plan for d.
+//
+// A caller running something else can still name one of these deliberately, and
+// some will work -- a PostgreSQL-compatible engine is told "postgres" and gets
+// PostgreSQL's spelling. That is the caller's risk to take and the reason this
+// is a question about the SQL to write rather than about the driver in use.
+func Supports(d string) bool { return dialects[d] }
 
 // errNegativeIndex is the refusal of an index that counts from the end.
 //
@@ -98,6 +120,12 @@ type Columns map[protoreflect.FieldNumber]string
 // neither issues no SQL and reports zero rows affected, and reading that as
 // "no such row" would be wrong about a row that is there.
 //
+// d is the SQL to write, and it decides the spelling rather than the connection
+// does -- a builder is never asked what dialect it is. That is what lets a
+// caller on a compatible engine name one this package writes for and take the
+// risk deliberately, and it is why an unsupported one is refused here instead
+// of at the statement.
+//
 // Everything the plan decides is resolved before Build returns: values are
 // converted and predicates are constructed here, so the closures only assemble
 // what is already known and cannot fail. That is not tidiness. A predicate that
@@ -107,9 +135,17 @@ type Columns map[protoreflect.FieldNumber]string
 // alone -- the `test` silently gone and the write applied. A `test` is this
 // format's compare-and-swap, so it must never be droppable, and a value this
 // engine cannot render has to be an error here, before any statement exists.
-func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.UpdateBuilder), error) {
+func Build(plan *ormpatch.Plan, cols Columns, d string) (func(*sql.Selector), func(*sql.UpdateBuilder), error) {
 	if plan == nil {
 		return nil, nil, fmt.Errorf("entpatch: no plan")
+	}
+	// Refused here rather than while rendering, because rendering happens
+	// inside closures the builder may or may not consult: an error raised in a
+	// predicate is dropped by UpdateBuilder.FromSelect, and a document made
+	// only of tests never reaches the modifier at all. This is the one place
+	// every plan passes through.
+	if !Supports(d) {
+		return nil, nil, fmt.Errorf("%w: %s", ErrDialect, d)
 	}
 
 	for _, t := range plan.Tests {
@@ -125,7 +161,7 @@ func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.Up
 
 	tests := make([]func(*sql.Selector) *sql.Predicate, 0, len(plan.Tests))
 	for _, t := range plan.Tests {
-		p, err := predicate(t, cols[t.Prop.Number()])
+		p, err := predicate(t, cols[t.Prop.Number()], d)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -134,7 +170,7 @@ func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.Up
 
 	writes := make([]func(*sql.UpdateBuilder), 0, len(plan.Writes))
 	for _, w := range plan.Writes {
-		set, err := write(w, cols[w.Prop.Number()])
+		set, err := write(w, cols[w.Prop.Number()], d)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -174,7 +210,7 @@ func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.Up
 // option slice and write back to it as they render -- so a predicate that has
 // met one dialect carries its adjustments into the next. Building one per
 // application costs nothing and removes the question.
-func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate, error) {
+func predicate(t ormpatch.Test, col string, d string) (func(*sql.Selector) *sql.Predicate, error) {
 	// An address inside the column is asked about with the path BOUND, which
 	// is why these do not go through ent's sqljson helpers. Those write the
 	// path into the statement text, and a map key is whatever the client put
@@ -193,7 +229,7 @@ func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate,
 	inside := func(raw string, isList bool, want func(*sql.Builder)) func(*sql.Selector) *sql.Predicate {
 		return func(s *sql.Selector) *sql.Predicate {
 			return sql.P(func(b *sql.Builder) {
-				switch b.Dialect() {
+				switch d {
 				case dialect.Postgres:
 					b.Ident(col).WriteString(" #> ARRAY[").Arg(raw).WriteString("]::text[]")
 				default:
@@ -244,7 +280,7 @@ func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate,
 		}
 		return inside(raw, t.HasIndex, func(b *sql.Builder) {
 			b.WriteString(" = ")
-			if b.Dialect() == dialect.Postgres {
+			if d == dialect.Postgres {
 				b.Arg(text)
 				return
 			}
@@ -291,7 +327,7 @@ func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate,
 			return nil, err
 		}
 		return func(s *sql.Selector) *sql.Predicate {
-			if s.Dialect() == dialect.Postgres {
+			if d == dialect.Postgres {
 				return sql.EQ(s.C(col), text)
 			}
 			return sql.EQ(s.C(col), blob)
@@ -308,7 +344,7 @@ func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate,
 // write resolves one column's new value into the assignment that writes it.
 //
 // The value is converted here, not in the returned closure -- see [Build].
-func write(w ormpatch.Write, col string) (func(*sql.UpdateBuilder), error) {
+func write(w ormpatch.Write, col string, d string) (func(*sql.UpdateBuilder), error) {
 	switch op := w.Op.(type) {
 	case ormpatch.ClearColumn, ormpatch.ClearEdge:
 		// SetNull and Set land in different lists and both would be emitted,
@@ -334,7 +370,7 @@ func write(w ormpatch.Write, col string) (func(*sql.UpdateBuilder), error) {
 		return func(u *sql.UpdateBuilder) { u.Set(col, v) }, nil
 
 	case ormpatch.EditJSON:
-		return editJSON(w, col, op)
+		return editJSON(w, col, op, d)
 	}
 
 	return nil, fmt.Errorf("entpatch: unrecognized operation %s on %s", w.Op.Describe(), w.Prop.Name())
@@ -352,7 +388,7 @@ func write(w ormpatch.Write, col string) (func(*sql.UpdateBuilder), error) {
 // closure still does work -- rendering, which cannot fail -- and the only
 // decision left to statement time is the refusal of a dialect this cannot
 // spell.
-func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.UpdateBuilder), error) {
+func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON, d string) (func(*sql.UpdateBuilder), error) {
 	empty := "'{}'"
 	if w.Prop.IsList() {
 		empty = "'[]'"
@@ -369,8 +405,8 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 	}
 
 	if len(ops) == 1 && ops[0].Kind == ormpatch.JSONClear {
-		// Nothing dialect-specific is left, so this one does not go through the
-		// expression below and MySQL has no reason to be refused.
+		// Nothing dialect-specific is left; emptying a column is one assignment
+		// in every dialect.
 		return func(u *sql.UpdateBuilder) { u.SetNull(col) }, nil
 	}
 
@@ -432,7 +468,7 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 			// An unset column is NULL, and every JSON function returns NULL for
 			// a NULL document -- the patch would vanish with no error. Start
 			// from an empty document instead.
-			switch b.Dialect() {
+			switch d {
 			case dialect.Postgres:
 				b.WriteString("COALESCE(").Ident(col).WriteString(", " + empty + "::jsonb)")
 			default:
@@ -452,7 +488,7 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 			}
 			s := steps[i]
 
-			switch b.Dialect() {
+			switch d {
 			case dialect.Postgres:
 				switch s.fn {
 				case "set":
@@ -475,7 +511,7 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 					b.WriteString(" || jsonb_build_array(").Arg(s.v).WriteString("::jsonb))")
 				}
 
-			default: // SQLite; the modifier refused MySQL before we got here.
+			default: // SQLite; Build admitted no other dialect.
 				switch s.fn {
 				case "set":
 					b.WriteString("JSON_SET(")
@@ -509,10 +545,6 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 		// on its right-hand side. UpdateBuilder.Err is checked before the
 		// statement is issued, so this one is a refusal rather than a syntax
 		// error from the driver.
-		if u.Dialect() == dialect.MySQL {
-			u.AddError(errMySQL)
-			return
-		}
 		u.Set(col, expr)
 	}, nil
 }

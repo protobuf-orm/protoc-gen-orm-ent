@@ -23,11 +23,14 @@ import (
 
 type ValueFieldServiceServer struct {
 	Db *ent.Client
+	// Dialect is the SQL this server writes; the store's NewServer is
+	// what refuses one nobody wrote.
+	Dialect string
 	apptest.UnimplementedValueFieldServiceServer
 }
 
-func NewValueFieldServiceServer(db *ent.Client) apptest.ValueFieldServiceServer {
-	return ValueFieldServiceServer{Db: db}
+func NewValueFieldServiceServer(db *ent.Client, dialect string) apptest.ValueFieldServiceServer {
+	return ValueFieldServiceServer{Db: db, Dialect: dialect}
 }
 
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
@@ -936,7 +939,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, valueFieldPatchColumns)
+	pred, mod, err := entpatch.Build(plan, valueFieldPatchColumns, s.Dialect)
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
@@ -1010,11 +1013,14 @@ func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
 
 type MessageFieldServiceServer struct {
 	Db *ent.Client
+	// Dialect is the SQL this server writes; the store's NewServer is
+	// what refuses one nobody wrote.
+	Dialect string
 	apptest.UnimplementedMessageFieldServiceServer
 }
 
-func NewMessageFieldServiceServer(db *ent.Client) apptest.MessageFieldServiceServer {
-	return MessageFieldServiceServer{Db: db}
+func NewMessageFieldServiceServer(db *ent.Client, dialect string) apptest.MessageFieldServiceServer {
+	return MessageFieldServiceServer{Db: db, Dialect: dialect}
 }
 
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
@@ -1187,7 +1193,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, messageFieldPatchColumns)
+	pred, mod, err := entpatch.Build(plan, messageFieldPatchColumns, s.Dialect)
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
@@ -1261,11 +1267,14 @@ func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, err
 
 type MapFieldServiceServer struct {
 	Db *ent.Client
+	// Dialect is the SQL this server writes; the store's NewServer is
+	// what refuses one nobody wrote.
+	Dialect string
 	apptest.UnimplementedMapFieldServiceServer
 }
 
-func NewMapFieldServiceServer(db *ent.Client) apptest.MapFieldServiceServer {
-	return MapFieldServiceServer{Db: db}
+func NewMapFieldServiceServer(db *ent.Client, dialect string) apptest.MapFieldServiceServer {
+	return MapFieldServiceServer{Db: db, Dialect: dialect}
 }
 
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
@@ -1466,7 +1475,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, mapFieldPatchColumns)
+	pred, mod, err := entpatch.Build(plan, mapFieldPatchColumns, s.Dialect)
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)

@@ -81,7 +81,7 @@ func TestBuildRefusesATestItCannotRender(t *testing.T) {
 		}},
 	}
 
-	pred, mod, err := entpatch.Build(plan, userColumns)
+	pred, mod, err := entpatch.Build(plan, userColumns, dialect.SQLite)
 	if err == nil {
 		t.Fatal("Build accepted a test it cannot render")
 	}
@@ -131,7 +131,7 @@ func TestTestOnAnEdgeBindsTheTargetsKey(t *testing.T) {
 		}},
 	}
 
-	pred, _, err := entpatch.Build(plan, userColumns)
+	pred, _, err := entpatch.Build(plan, userColumns, dialect.SQLite)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestWholeMapBindsWhatEntBinds(t *testing.T) {
 			Entity: e,
 			Writes: []ormpatch.Write{{Prop: labels, Op: ormpatch.SetColumn{Value: v}}},
 		}
-		_, mod, err := entpatch.Build(plan, userColumns)
+		_, mod, err := entpatch.Build(plan, userColumns, dialect.SQLite)
 		if err != nil {
 			t.Fatalf("Build: %v", err)
 		}
@@ -205,7 +205,7 @@ func TestWholeMapBindsWhatEntBinds(t *testing.T) {
 			Entity: e,
 			Tests:  []ormpatch.Test{{Prop: labels, Want: ormpatch.TestEqual, Value: v}},
 		}
-		pred, _, err := entpatch.Build(plan, userColumns)
+		pred, _, err := entpatch.Build(plan, userColumns, dialect.SQLite)
 		if err != nil {
 			t.Fatalf("Build: %v", err)
 		}
@@ -225,7 +225,7 @@ func TestWholeMapBindsWhatEntBinds(t *testing.T) {
 			Entity: e,
 			Tests:  []ormpatch.Test{{Prop: labels, Want: ormpatch.TestEqual, Value: v}},
 		}
-		pred, _, err := entpatch.Build(plan, userColumns)
+		pred, _, err := entpatch.Build(plan, userColumns, dialect.Postgres)
 		if err != nil {
 			t.Fatalf("Build: %v", err)
 		}
@@ -245,20 +245,22 @@ func TestWholeMapBindsWhatEntBinds(t *testing.T) {
 		}
 	})
 
-	// The same Build must answer both, which is what makes the choice a render-
-	// time one rather than something Build could have decided.
-	t.Run("one plan serves both dialects", func(t *testing.T) {
+	// What Build was told is what it writes. The same plan yields either
+	// spelling depending only on which dialect it was built for, and a builder
+	// is never consulted -- which is what lets a caller on a compatible engine
+	// name one deliberately.
+	t.Run("the dialect Build was given is the one it writes", func(t *testing.T) {
 		plan := &ormpatch.Plan{
 			Entity: e,
 			Tests:  []ormpatch.Test{{Prop: labels, Want: ormpatch.TestEqual, Value: v}},
 		}
-		pred, _, err := entpatch.Build(plan, userColumns)
-		if err != nil {
-			t.Fatalf("Build: %v", err)
-		}
-
-		for _, d := range []string{dialect.Postgres, dialect.SQLite, dialect.Postgres} {
-			s := sql.Dialect(d).Select().From(sql.Table("user"))
+		for _, d := range []string{dialect.Postgres, dialect.SQLite} {
+			pred, _, err := entpatch.Build(plan, userColumns, d)
+			if err != nil {
+				t.Fatalf("Build: %v", err)
+			}
+			// Rendered against a builder that disagrees, on purpose.
+			s := sql.Dialect(dialect.SQLite).Select().From(sql.Table("user"))
 			pred(s)
 			_, args := s.Query()
 			switch d {
@@ -398,7 +400,7 @@ func TestARefusalThisEngineOwnsIsNotAServerFault(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, _, err := entpatch.Build(plan, userColumns)
+			_, _, err := entpatch.Build(plan, userColumns, dialect.SQLite)
 			if err == nil {
 				t.Fatal("Build accepted an index it has to read the row to resolve")
 			}
@@ -430,7 +432,7 @@ func TestBuildTellsAClientMistakeFromABug(t *testing.T) {
 			}},
 		}
 
-		_, _, err := entpatch.Build(plan, userColumns)
+		_, _, err := entpatch.Build(plan, userColumns, dialect.SQLite)
 		if err == nil {
 			t.Fatal("Build accepted a 15 byte UUID")
 		}
@@ -451,7 +453,7 @@ func TestBuildTellsAClientMistakeFromABug(t *testing.T) {
 			}},
 		}
 
-		_, _, err := entpatch.Build(plan, userColumns)
+		_, _, err := entpatch.Build(plan, userColumns, dialect.SQLite)
 		if err == nil {
 			t.Fatal("Build accepted +Inf")
 		}
@@ -469,7 +471,7 @@ func TestBuildTellsAClientMistakeFromABug(t *testing.T) {
 			}},
 		}
 
-		_, _, err := entpatch.Build(plan, entpatch.Columns{})
+		_, _, err := entpatch.Build(plan, entpatch.Columns{}, dialect.SQLite)
 		if err == nil {
 			t.Fatal("Build accepted a prop with no column")
 		}
@@ -496,13 +498,9 @@ func TestJSONEditRendersPerDialect(t *testing.T) {
 		}},
 	}
 
-	_, mod, err := entpatch.Build(plan, userColumns)
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
-
-	// One plan, three connections: the JSON spelling is the dialect's, so it
-	// stays deferred to the statement even though everything else is resolved.
+	// One plan, built once per dialect: what Build is told is what it writes,
+	// so the same plan yields SQLite's spelling or PostgreSQL's depending only
+	// on what it was asked for.
 	for _, tt := range []struct {
 		dialect string
 		want    string
@@ -514,6 +512,11 @@ func TestJSONEditRendersPerDialect(t *testing.T) {
 		{dialect.Postgres, `SET "labels" = jsonb_set(COALESCE("labels", '{}'::jsonb), ARRAY[$1]::text[], $2::jsonb, true)`, "a"},
 	} {
 		t.Run(tt.dialect, func(t *testing.T) {
+			_, mod, err := entpatch.Build(plan, userColumns, tt.dialect)
+			if err != nil {
+				t.Fatalf("Build: %v", err)
+			}
+
 			u := sql.Dialect(tt.dialect).Update("user")
 			mod(u)
 			if err := u.Err(); err != nil {
@@ -543,19 +546,23 @@ func TestJSONEditRendersPerDialect(t *testing.T) {
 		})
 	}
 
-	t.Run("mysql is refused where the refusal is read", func(t *testing.T) {
-		u := sql.Dialect(dialect.MySQL).Update("user")
-		mod(u)
-
-		// ent checks UpdateBuilder.Err before it issues the statement. Raising
-		// this inside the expression instead would lose it: an ExprFunc renders
-		// into a clone of the builder and only its text and arguments are kept.
-		err := u.Err()
-		if err == nil {
-			t.Fatal("MySQL was accepted")
+	// Refused before a statement exists, which is the only place it can be
+	// heard. A predicate's error is dropped by UpdateBuilder.FromSelect, and a
+	// document made only of tests never reaches the modifier at all, so a
+	// refusal raised while rendering would be silent for exactly the documents
+	// that read.
+	t.Run("an unwritten dialect is refused by Build", func(t *testing.T) {
+		_, _, err := entpatch.Build(plan, userColumns, dialect.MySQL)
+		if !errors.Is(err, entpatch.ErrDialect) {
+			t.Fatalf("got %v, want ErrDialect", err)
 		}
-		if !strings.Contains(err.Error(), "MySQL") {
-			t.Errorf("unexpected error: %v", err)
+		if entpatch.Supports(dialect.MySQL) {
+			t.Error("Supports says otherwise")
+		}
+		for _, d := range []string{dialect.SQLite, dialect.Postgres} {
+			if !entpatch.Supports(d) {
+				t.Errorf("%s is written for but Supports says no", d)
+			}
 		}
 	})
 }
@@ -585,7 +592,7 @@ func TestPostgresNumbersArgumentsAcrossTheStatement(t *testing.T) {
 		},
 	}
 
-	_, mod, err := entpatch.Build(plan, userColumns)
+	_, mod, err := entpatch.Build(plan, userColumns, dialect.Postgres)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -620,11 +627,6 @@ func TestJSONEditNestsOnAList(t *testing.T) {
 		}},
 	}
 
-	_, mod, err := entpatch.Build(plan, userColumns)
-	if err != nil {
-		t.Fatalf("Build: %v", err)
-	}
-
 	for _, tt := range []struct {
 		dialect string
 		want    string
@@ -633,6 +635,11 @@ func TestJSONEditNestsOnAList(t *testing.T) {
 		{dialect.Postgres, `SET "scores" = ((COALESCE("scores", '[]'::jsonb) || jsonb_build_array($1::jsonb)) - $2::int)`},
 	} {
 		t.Run(tt.dialect, func(t *testing.T) {
+			_, mod, err := entpatch.Build(plan, userColumns, tt.dialect)
+			if err != nil {
+				t.Fatalf("Build: %v", err)
+			}
+
 			u := sql.Dialect(tt.dialect).Update("user")
 			mod(u)
 			if err := u.Err(); err != nil {
@@ -684,7 +691,7 @@ func in(t *testing.T, e graph.Entity, field, key string, v protoreflect.Value) o
 func entryArgs(t *testing.T, e graph.Entity, d string, test ormpatch.Test) any {
 	t.Helper()
 
-	pred, _, err := entpatch.Build(&ormpatch.Plan{Entity: e, Tests: []ormpatch.Test{test}}, userColumns)
+	pred, _, err := entpatch.Build(&ormpatch.Plan{Entity: e, Tests: []ormpatch.Test{test}}, userColumns, d)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
