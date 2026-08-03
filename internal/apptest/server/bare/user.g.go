@@ -260,32 +260,70 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := UserPick(ref)
+	tx, err := s.Db.Tx(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
+	st := s
+	st.Db = tx.Client()
 
-	q := s.Db.User.Update().Where(p)
-	if pred != nil {
-		q.Where(predicate.User(pred))
-	}
-	if mod != nil {
-		q.Modify(mod)
-	}
-	if !plan.WritesTo(14) {
-		q.SetDateUpdated(time.Now().UTC())
-	}
-
-	if n, err := q.Save(ctx); err != nil {
+	k, err := UserGetKey(ctx, st.Db, ref)
+	if err != nil {
 		return nil, err
-	} else if n == 0 {
-		if _, err := s.Get(ctx, ref.Pick()); err != nil {
-			return nil, err
+	}
+	at := &apptest.UserRef{}
+	at.SetId(k[:])
+	p := user.IDEQ(k)
+
+	if mod == nil {
+		q := st.Db.User.Query().Where(p)
+		if pred != nil {
+			q.Where(predicate.User(pred))
 		}
-		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+		if ok, err := q.Exist(ctx); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, func() error {
+				if ok, err := st.Db.User.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "User not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
+		}
+	} else {
+		q := st.Db.User.Update().Where(p)
+		if pred != nil {
+			q.Where(predicate.User(pred))
+		}
+		q.Modify(mod)
+		if !plan.WritesTo(14) {
+			q.SetDateUpdated(time.Now().UTC())
+		}
+		if n, err := q.Save(ctx); err != nil {
+			return nil, err
+		} else if n == 0 {
+			return nil, func() error {
+				if ok, err := st.Db.User.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "User not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
+		}
 	}
 
-	return s.Get(ctx, ref.Pick())
+	out, err := st.Get(ctx, at.Pick())
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*emptypb.Empty, error) {

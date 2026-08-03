@@ -219,45 +219,67 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := TenantPick(ref)
+	tx, err := s.Db.Tx(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
+	st := s
+	st.Db = tx.Client()
 
-	q := s.Db.Tenant.Update().Where(p)
-	if pred != nil {
-		q.Where(predicate.Tenant(pred))
+	k, err := TenantGetKey(ctx, st.Db, ref)
+	if err != nil {
+		return nil, err
 	}
-	if mod != nil {
-		q.Modify(mod)
-	}
+	at := &apptest.TenantRef{}
+	at.SetId(k[:])
+	p := tenant.IDEQ(k)
 
 	if mod == nil {
-		q := s.Db.Tenant.Query().Where(p)
+		q := st.Db.Tenant.Query().Where(p)
 		if pred != nil {
 			q.Where(predicate.Tenant(pred))
 		}
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, ref.Pick()); err != nil {
-				return nil, err
-			}
-			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			return nil, func() error {
+				if ok, err := st.Db.Tenant.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "Tenant not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return s.Get(ctx, ref.Pick())
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		if _, err := s.Get(ctx, ref.Pick()); err != nil {
+	} else {
+		q := st.Db.Tenant.Update().Where(p)
+		if pred != nil {
+			q.Where(predicate.Tenant(pred))
+		}
+		q.Modify(mod)
+		if n, err := q.Save(ctx); err != nil {
 			return nil, err
+		} else if n == 0 {
+			return nil, func() error {
+				if ok, err := st.Db.Tenant.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "Tenant not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, ref.Pick())
+	out, err := st.Get(ctx, at.Pick())
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) (*emptypb.Empty, error) {

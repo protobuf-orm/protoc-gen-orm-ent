@@ -1,9 +1,11 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
+	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -95,86 +97,129 @@ func (w *fileWork) xApply() {
 	w.P("	}")
 	w.P("")
 
-	w.P("	p, err := ", name_x, "Pick(ref)")
+	// The write and the read-back are one transaction, so the row a caller is
+	// handed is the one its own statement left behind. As two statements the
+	// final SELECT is an independent read: under concurrency a caller can be
+	// given a row -- and a version -- that some other writer stamped, and a
+	// version that is not yours is not a token you can compare-and-swap with.
+	w.P("	tx, err := s.Db.Tx(ctx)")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
+	w.P("	defer tx.Rollback()")
+	w.P("	st := s")
+	w.P("	st.Db = tx.Client()")
 	w.P("")
 
-	w.P("	q := s.Db.", name_x, ".Update().Where(p)")
-	w.P("	if pred != nil {")
-	w.P("		q.Where(", w.entPkg().Ident(name_x), "(pred))")
-	w.P("	}")
-	w.P("	if mod != nil {")
-	w.P("		q.Modify(mod)")
-	w.P("	}")
-
-	ver := w.Entity.GetVersionField()
-	if ver != nil {
-		// The version is the server's to stamp, unless the document stamped it:
-		// a client that supplies the version is what Patch spells as `_force`,
-		// and replaying a stored delta must reproduce the version it recorded
-		// rather than the time of the replay.
-		//
-		// Asking first is also what keeps the column assigned once. The
-		// document's write arrives through Modify and the stamp through the
-		// builder, so both reach the same statement: a `remove` lands in the
-		// builder's NULL list and the stamp in its value list, and it emits
-		// both -- `SET v = NULL, v = ?` -- which PostgreSQL rejects as a
-		// duplicate assignment and SQLite resolves by taking the last one. An
-		// assign collapses into one only because the builder overwrites a
-		// column it already holds, and then it is the stamp that silently
-		// disappears.
-		//
-		// Either way the update still has at least one SET, so the "wrote
-		// nothing" branch below stays unreachable while a version field exists.
-		w.Pf("	if !plan.WritesTo(%d) {", ver.Number())
-		w.P("		q.Set", work.Name(ver.Name()).Ent(), "(", w.QualifiedGoIdent(work.PkgTime.Ident("Now")), "().UTC())")
-		w.P("	}")
-	}
-	w.P("")
-
-	if ver == nil {
-		// An update with no writes issues no SQL and reports zero rows, which
-		// would look exactly like a missing row. A document can legitimately
-		// write nothing -- one made only of tests asserts something -- so ask
-		// the question the statement would have answered.
-		w.P("	if mod == nil {")
-		w.P("		q := s.Db.", name_x, ".Query().Where(p)")
-		w.P("		if pred != nil {")
-		w.P("			q.Where(", w.entPkg().Ident(name_x), "(pred))")
-		w.P("		}")
-		w.P("		if ok, err := q.Exist(ctx); err != nil {")
-		w.P("			return nil, err")
-		w.P("		} else if !ok {")
-		w.P("			if _, err := s.Get(ctx, ref.Pick()); err != nil {")
-		w.P("				return nil, err")
-		w.P("			}")
-		w.Pf("			return nil, %s(%s, \"a test in the patch did not hold\")",
-			w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Error")),
-			w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("FailedPrecondition")))
-		w.P("		}")
-		w.P("		return s.Get(ctx, ref.Pick())")
-		w.P("	}")
-		w.P("")
-	}
-
-	w.P("	if n, err := q.Save(ctx); err != nil {")
+	// The ref is resolved to the key before anything is written, because the
+	// document may assign the very column the ref selects on. Read back through
+	// the original ref, a write that committed finds nothing and is reported to
+	// its own author as NotFound.
+	w.P("	k, err := ", name_x, "GetKey(ctx, st.Db, ref)")
+	w.P("	if err != nil {")
 	w.P("		return nil, err")
-	w.P("	} else if n == 0 {")
-	// The row may be absent, or present with a test that did not hold. One
-	// statement cannot say which, so ask only when the answer is needed.
-	w.P("		if _, err := s.Get(ctx, ref.Pick()); err != nil {")
-	w.P("			return nil, err")
+	w.P("	}")
+	w.P("	at := &", w.Src.GoImportPath.Ident(name_x+"Ref"), "{}")
+	key := w.Entity.Key()
+	w.P("	at.Set", work.Name(key.Name()).Go(), "(", w.xKeyGoValue("k", key), ")")
+	w.P("	p := ", w.xEntPkg().Ident("IDEQ"), "(k)")
+	w.P("")
+
+	// A document can legitimately write nothing: one made only of tests asserts
+	// something. An update with no assignments issues no SQL and reports zero
+	// rows, which is indistinguishable from a missing row, so ask the question
+	// the statement would have answered -- and stamp nothing, because an
+	// assertion is not a write. Stamping would move the token every other
+	// holder is waiting on, for a request that changed no data.
+	w.P("	if mod == nil {")
+	w.P("		q := st.Db.", name_x, ".Query().Where(p)")
+	w.P("		if pred != nil {")
+	w.P("			q.Where(", w.entPkg().Ident(name_x), "(pred))")
 	w.P("		}")
-	w.Pf("		return nil, %s(%s, \"a test in the patch did not hold\")",
-		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Error")),
-		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("FailedPrecondition")))
+	w.P("		if ok, err := q.Exist(ctx); err != nil {")
+	w.P("			return nil, err")
+	w.P("		} else if !ok {")
+	w.P("			return nil, ", w.xNoRowError())
+	w.P("		}")
+	w.P("	} else {")
+	w.P("		q := st.Db.", name_x, ".Update().Where(p)")
+	w.P("		if pred != nil {")
+	w.P("			q.Where(", w.entPkg().Ident(name_x), "(pred))")
+	w.P("		}")
+	w.P("		q.Modify(mod)")
+
+	if ver := w.Entity.GetVersionField(); ver != nil {
+		// The stamp is the server's, always: ormpatch refuses a document that
+		// writes the version, so there is no assignment of its own to collide
+		// with. WritesTo is asked anyway -- it costs a map lookup, and it is
+		// what would keep this honest if that rule were ever relaxed. Both
+		// writes reach the same statement, the document's through Modify and
+		// the stamp through the builder, and they land in different lists:
+		// PostgreSQL rejects the pair as a duplicate assignment, and SQLite
+		// silently keeps one.
+		w.Pf("		if !plan.WritesTo(%d) {", ver.Number())
+		w.P("			q.Set", work.Name(ver.Name()).Ent(), "(", w.QualifiedGoIdent(work.PkgTime.Ident("Now")), "().UTC())")
+		w.P("		}")
+	}
+
+	w.P("		if n, err := q.Save(ctx); err != nil {")
+	w.P("			return nil, err")
+	w.P("		} else if n == 0 {")
+	w.P("			return nil, ", w.xNoRowError())
+	w.P("		}")
 	w.P("	}")
 	w.P("")
-	w.P("	return s.Get(ctx, ref.Pick())")
+
+	w.P("	out, err := st.Get(ctx, at.Pick())")
+	w.P("	if err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
+	w.P("	if err := tx.Commit(); err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
+	w.P("	return out, nil")
 	w.P("}")
 	w.P("")
+}
+
+// xNoRowError renders the answer to "the statement matched no row".
+//
+// The key was resolved before the write, so the row was there a moment ago and
+// a failed test is much the likelier cause -- but it can also have been erased
+// in between, and answering the wrong one sends a client to retry something
+// that will never succeed. One extra query, only on the failing path.
+func (w *fileWork) xNoRowError() string {
+	name_x := w.Ident.GoName
+	return fmt.Sprintf(
+		"func() error {\n"+
+			"\t\t\tif ok, err := st.Db.%s.Query().Where(p).Exist(ctx); err != nil {\n"+
+			"\t\t\t\treturn err\n"+
+			"\t\t\t} else if !ok {\n"+
+			"\t\t\t\treturn %s(%s, \"%s not found\")\n"+
+			"\t\t\t}\n"+
+			"\t\t\treturn %s(%s, \"a test in the patch did not hold\")\n"+
+			"\t\t}()",
+		name_x,
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Error")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("NotFound")),
+		name_x,
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Error")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("FailedPrecondition")))
+}
+
+// xEntPkg is ent's own package for this entity, where IDEQ lives -- distinct
+// from the predicate package [fileWork.entPkg] returns.
+func (w *fileWork) xEntPkg() protogen.GoImportPath {
+	return w.ent + "/" + protogen.GoImportPath(strings.ToLower(w.Ident.GoName))
+}
+
+// xKeyGoValue renders a key held in a Go variable as the argument the Ref's
+// setter takes: a UUID is a fixed array in Go and bytes in the message.
+func (w *fileWork) xKeyGoValue(v string, k graph.Field) string {
+	if k.Type() == ormpb.Type_TYPE_UUID {
+		return v + "[:]"
+	}
+	return v
 }
 
 // xApplyColumns emits the entity and the prop-to-column table Apply needs.

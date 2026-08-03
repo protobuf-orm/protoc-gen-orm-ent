@@ -947,45 +947,67 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := ValueFieldPick(ref)
+	tx, err := s.Db.Tx(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
+	st := s
+	st.Db = tx.Client()
 
-	q := s.Db.ValueField.Update().Where(p)
-	if pred != nil {
-		q.Where(predicate.ValueField(pred))
+	k, err := ValueFieldGetKey(ctx, st.Db, ref)
+	if err != nil {
+		return nil, err
 	}
-	if mod != nil {
-		q.Modify(mod)
-	}
+	at := &apptest.ValueFieldRef{}
+	at.SetId(k)
+	p := valuefield.IDEQ(k)
 
 	if mod == nil {
-		q := s.Db.ValueField.Query().Where(p)
+		q := st.Db.ValueField.Query().Where(p)
 		if pred != nil {
 			q.Where(predicate.ValueField(pred))
 		}
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, ref.Pick()); err != nil {
-				return nil, err
-			}
-			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			return nil, func() error {
+				if ok, err := st.Db.ValueField.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "ValueField not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return s.Get(ctx, ref.Pick())
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		if _, err := s.Get(ctx, ref.Pick()); err != nil {
+	} else {
+		q := st.Db.ValueField.Update().Where(p)
+		if pred != nil {
+			q.Where(predicate.ValueField(pred))
+		}
+		q.Modify(mod)
+		if n, err := q.Save(ctx); err != nil {
 			return nil, err
+		} else if n == 0 {
+			return nil, func() error {
+				if ok, err := st.Db.ValueField.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "ValueField not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, ref.Pick())
+	out, err := st.Get(ctx, at.Pick())
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFieldRef) (*emptypb.Empty, error) {
@@ -1201,45 +1223,67 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := MessageFieldPick(ref)
+	tx, err := s.Db.Tx(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
+	st := s
+	st.Db = tx.Client()
 
-	q := s.Db.MessageField.Update().Where(p)
-	if pred != nil {
-		q.Where(predicate.MessageField(pred))
+	k, err := MessageFieldGetKey(ctx, st.Db, ref)
+	if err != nil {
+		return nil, err
 	}
-	if mod != nil {
-		q.Modify(mod)
-	}
+	at := &apptest.MessageFieldRef{}
+	at.SetId(k)
+	p := messagefield.IDEQ(k)
 
 	if mod == nil {
-		q := s.Db.MessageField.Query().Where(p)
+		q := st.Db.MessageField.Query().Where(p)
 		if pred != nil {
 			q.Where(predicate.MessageField(pred))
 		}
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, ref.Pick()); err != nil {
-				return nil, err
-			}
-			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			return nil, func() error {
+				if ok, err := st.Db.MessageField.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "MessageField not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return s.Get(ctx, ref.Pick())
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		if _, err := s.Get(ctx, ref.Pick()); err != nil {
+	} else {
+		q := st.Db.MessageField.Update().Where(p)
+		if pred != nil {
+			q.Where(predicate.MessageField(pred))
+		}
+		q.Modify(mod)
+		if n, err := q.Save(ctx); err != nil {
 			return nil, err
+		} else if n == 0 {
+			return nil, func() error {
+				if ok, err := st.Db.MessageField.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "MessageField not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, ref.Pick())
+	out, err := st.Get(ctx, at.Pick())
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.MessageFieldRef) (*emptypb.Empty, error) {
@@ -1483,45 +1527,67 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	p, err := MapFieldPick(ref)
+	tx, err := s.Db.Tx(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
+	st := s
+	st.Db = tx.Client()
 
-	q := s.Db.MapField.Update().Where(p)
-	if pred != nil {
-		q.Where(predicate.MapField(pred))
+	k, err := MapFieldGetKey(ctx, st.Db, ref)
+	if err != nil {
+		return nil, err
 	}
-	if mod != nil {
-		q.Modify(mod)
-	}
+	at := &apptest.MapFieldRef{}
+	at.SetId(k)
+	p := mapfield.IDEQ(k)
 
 	if mod == nil {
-		q := s.Db.MapField.Query().Where(p)
+		q := st.Db.MapField.Query().Where(p)
 		if pred != nil {
 			q.Where(predicate.MapField(pred))
 		}
 		if ok, err := q.Exist(ctx); err != nil {
 			return nil, err
 		} else if !ok {
-			if _, err := s.Get(ctx, ref.Pick()); err != nil {
-				return nil, err
-			}
-			return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			return nil, func() error {
+				if ok, err := st.Db.MapField.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "MapField not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return s.Get(ctx, ref.Pick())
-	}
-
-	if n, err := q.Save(ctx); err != nil {
-		return nil, err
-	} else if n == 0 {
-		if _, err := s.Get(ctx, ref.Pick()); err != nil {
+	} else {
+		q := st.Db.MapField.Update().Where(p)
+		if pred != nil {
+			q.Where(predicate.MapField(pred))
+		}
+		q.Modify(mod)
+		if n, err := q.Save(ctx); err != nil {
 			return nil, err
+		} else if n == 0 {
+			return nil, func() error {
+				if ok, err := st.Db.MapField.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "MapField not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
 		}
-		return nil, status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
 	}
 
-	return s.Get(ctx, ref.Pick())
+	out, err := st.Get(ctx, at.Pick())
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldRef) (*emptypb.Empty, error) {

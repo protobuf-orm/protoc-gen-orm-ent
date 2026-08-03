@@ -2,6 +2,7 @@ package bare_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -95,21 +96,88 @@ func TestPatchVersion(t *testing.T) {
 		x.True(version(ctx, x, c, u).AsTime().After(before.AsTime()))
 	}))
 
-	// Force plus an explicit version is the one path that lets a client choose
-	// the stored version rather than having the server stamp now(). Replaying a
-	// recorded change needs exactly this.
-	t.Run("force with a version stores the given version", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+	// Force plus an explicit version used to store the version the request
+	// carried. It was the one path that let a client choose the token every
+	// other client's compare-and-swap is measured against, and choosing the
+	// value it had just read was enough to undo the lock: the row changed while
+	// the token stood still, so a concurrent writer's already-stale test still
+	// held, and overwrote, and the RPC said OK.
+	t.Run("force with a version is refused", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, nil)
-		want := timestamppb.New(time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC))
+		before := version(ctx, x, c, u)
 
 		_, err := c.User().Patch(ctx, pb.UserPatchRequest_builder{
 			Ref:              u.Ref(),
 			Name:             z.Ptr("Ada"),
-			DateUpdated:      want,
+			DateUpdated:      timestamppb.New(time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)),
 			DateUpdatedForce: z.Ptr(true),
 		}.Build())
+		x.Equal(codes.InvalidArgument, status.Code(err))
+		x.Contains(status.Convert(err).Message(), "may test it but not write it")
+
+		// Nothing else in the request landed either.
+		got := get(ctx, x, c, u)
+		x.Equal("", got.GetName())
+		x.Equal(before.AsTime(), got.GetDateUpdated().AsTime())
+	}))
+
+	// The version a caller is handed has to be the one its own statement wrote.
+	// The write and the read-back used to be two independent statements, so
+	// under load a caller could be given a version some other writer stamped --
+	// and a token that is not yours is one your next compare-and-swap will lose
+	// with. Measured before the fix: 800 concurrent writes, 800 distinct stamps
+	// in the SQL, but only 435 distinct versions returned, up to 6 callers
+	// sharing one.
+	t.Run("each writer is handed its own version", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		u := seed(ctx, x, c, nil)
+
+		const n = 32
+		got := make([]string, n)
+		wg := sync.WaitGroup{}
+		for i := range n {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				v, err := c.User().Patch(ctx, pb.UserPatchRequest_builder{
+					Ref: u.Ref(), Name: z.Ptr("w"), DateUpdatedForce: z.Ptr(true),
+				}.Build())
+				if err != nil {
+					got[i] = "error: " + err.Error()
+					return
+				}
+				got[i] = v.GetDateUpdated().AsTime().Format(time.RFC3339Nano)
+			}()
+		}
+		wg.Wait()
+
+		seen := map[string]int{}
+		for _, v := range got {
+			seen[v]++
+		}
+		x.Len(seen, n, "every writer must get back the version it wrote: %v", seen)
+	}))
+
+	// The lost update that motivated the refusal, kept as a regression: a
+	// writer must not be able to commit a change while leaving the token where
+	// it found it.
+	t.Run("a write always moves the version", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		u := seed(ctx, x, c, nil)
+		held := version(ctx, x, c, u)
+
+		// B writes, declining the lock for itself -- the one thing force still
+		// does.
+		_, err := c.User().Patch(ctx, pb.UserPatchRequest_builder{
+			Ref: u.Ref(), Name: z.Ptr("B"), DateUpdatedForce: z.Ptr(true),
+		}.Build())
 		x.NoError(err)
-		x.Equal(want.AsTime().UTC(), version(ctx, x, c, u).AsTime().UTC())
+
+		// A has been holding `held` the whole time. Its compare-and-swap must
+		// now fail, because the row is no longer what it read.
+		_, err = c.User().Patch(ctx, pb.UserPatchRequest_builder{
+			Ref: u.Ref(), Name: z.Ptr("A"), DateUpdated: held,
+		}.Build())
+		x.Equal(codes.FailedPrecondition, status.Code(err))
+		x.Equal("B", get(ctx, x, c, u).GetName(), "B's write survived")
 	}))
 
 	t.Run("force on a missing row is NotFound", T(func(ctx context.Context, x *require.Assertions, c *Client) {

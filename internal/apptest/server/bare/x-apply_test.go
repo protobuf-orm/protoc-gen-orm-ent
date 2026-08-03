@@ -3,9 +3,9 @@ package bare_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/lesomnus/protobuf-patch/patch"
+	"github.com/lesomnus/z"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -237,26 +237,72 @@ func TestApply(t *testing.T) {
 		x.True(get(ctx, x, c, u).GetDateUpdated().AsTime().After(before))
 	}))
 
-	// Unless the document stamped it. Replaying a recorded change has to
-	// reproduce the version it recorded rather than the time of the replay, and
-	// asking first is also what keeps the column assigned exactly once.
-	t.Run("a document that writes the version keeps its own", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+	// Always. A document used to be able to bring its own version, which made
+	// the stamp skippable and the token the client's to choose -- the same hole
+	// `_force` carried, reachable here with no flag at all.
+	t.Run("a document that writes the version is refused", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, nil)
-		want := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+		before := get(ctx, x, c, u).GetDateUpdated().AsTime()
 
 		req := doc(x,
 			patch.Target(patch.Name("name")).Assign(patch.Str("Ada")),
 			patch.Target(patch.Name("date_updated")).Assign(
-				patch.Msg(patch.F(patch.Name("seconds"), patch.Int64(want.Unix())))),
+				patch.Msg(patch.F(patch.Name("seconds"), patch.Int64(1577934245)))),
 		)
 		req.SetRef(u.Ref())
 
 		_, err := c.User().Apply(ctx, req)
+		x.Equal(codes.InvalidArgument, status.Code(err))
+
+		// The whole document was abandoned, not just the version entry.
+		got := get(ctx, x, c, u)
+		x.Equal("", got.GetName())
+		x.Equal(before, got.GetDateUpdated().AsTime())
+	}))
+
+	t.Run("a document that clears the version is refused", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		u := seed(ctx, x, c, nil)
+
+		req := doc(x, patch.Target(patch.Name("date_updated")).Remove())
+		req.SetRef(u.Ref())
+
+		_, err := c.User().Apply(ctx, req)
+		x.Equal(codes.InvalidArgument, status.Code(err))
+	}))
+
+	// A document of nothing but tests asserts something; it is not a write.
+	// Stamping it would move the token every other holder is waiting on, for a
+	// request that changed no data.
+	t.Run("an assert-only document leaves the version alone", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		u := seed(ctx, x, c, nil)
+		before := get(ctx, x, c, u).GetDateUpdated().AsTime()
+
+		req := doc(x, patch.Target(patch.Name("name")).Test(patch.Str("")))
+		req.SetRef(u.Ref())
+
+		_, err := c.User().Apply(ctx, req)
+		x.NoError(err)
+		x.Equal(before, get(ctx, x, c, u).GetDateUpdated().AsTime())
+	}))
+
+	// The document may rewrite the very column the ref selects on. The row is
+	// found again by its key, which no document can move, so a write that
+	// committed is not reported to its own author as NotFound.
+	t.Run("renaming through the ref that names it still returns the row", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		u := seed(ctx, x, c, nil)
+		_, err := c.User().Patch(ctx, pb.UserPatchRequest_builder{
+			Ref: u.Ref(), Alias: z.Ptr("old"), DateUpdatedForce: z.Ptr(true),
+		}.Build())
 		x.NoError(err)
 
-		got := get(ctx, x, c, u)
-		x.Equal("Ada", got.GetName())
-		x.Equal(want, got.GetDateUpdated().AsTime().UTC())
+		byAlias := get(ctx, x, c, u).Ref()
+
+		req := doc(x, patch.Target(patch.Name("alias")).Assign(patch.Str("new")))
+		req.SetRef(byAlias)
+
+		got, err := c.User().Apply(ctx, req)
+		x.NoError(err)
+		x.Equal("new", got.GetAlias())
 	}))
 
 	// Apply requires the document. Patch is the one that may have nothing to
