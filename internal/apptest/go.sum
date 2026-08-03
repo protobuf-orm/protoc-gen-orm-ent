@@ -62,6 +62,8 @@ github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803075511-d4686e
 github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803075511-d4686eec918f/go.mod h1:zeMFrn6x4kLmHCmseTsuSVWbUS/2+eTSdY53/GoJFMo=
 github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803175535-cb1be6118de8 h1:nuJXJslLCg4lpk5dC6HpPB5eoSa2RhOsSBhPnRpA0Do=
 github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803175535-cb1be6118de8/go.mod h1:lQQFds8gn23BJlFBuS58VkCAMbVCZ82ch8d9/NsUV/U=
+github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803182554-97476c522b1d h1:OzgJSF8VN+kc2NQpT+hCl1rV5g1Hy5vrCpfLOyTjG3E=
+github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803182554-97476c522b1d/go.mod h1:lQQFds8gn23BJlFBuS58VkCAMbVCZ82ch8d9/NsUV/U=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/zclconf/go-cty v1.17.0 h1:seZvECve6XX4tmnvRzWtJNHdscMtYEx5R7bnnVyd/d0=
