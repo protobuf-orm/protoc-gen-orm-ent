@@ -51,13 +51,11 @@
 package entpatch
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
-	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpatch"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
@@ -162,50 +160,68 @@ func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.Up
 // met one dialect carries its adjustments into the next. Building one per
 // application costs nothing and removes the question.
 func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate, error) {
-	// The sqljson helpers take the bare column name and qualify nothing, so
-	// they need no selector -- but they must still be called once per render,
-	// not once per Build. sqljson.ValueEQ assigns back to the option slice it
-	// captured, so the first render against PostgreSQL leaves Unquote set on
-	// the predicate forever and a later render emits JSON_UNQUOTE where it
-	// should not. Handing back a constructor keeps the value conversion eager,
-	// which is the part that can fail, while the predicate stays per-statement.
-	unqualified := func(build func() *sql.Predicate) func(*sql.Selector) *sql.Predicate {
-		return func(*sql.Selector) *sql.Predicate { return build() }
+	// An address inside the column is asked about with the path BOUND, which
+	// is why these do not go through ent's sqljson helpers. Those write the
+	// path into the statement text, and a map key is whatever the client put
+	// in the document -- one carrying a quote would close the literal and
+	// continue as SQL. It also keeps the question symmetric with the answer:
+	// the write side quotes and escapes a key for the JSON path grammar, and
+	// sqljson does not, so a key the write side could reach was one no test
+	// could ask about.
+	//
+	// Building per application rather than once is deliberate too. A predicate
+	// closes over the dialect it first met, and these spell differently in
+	// each.
+	// raw is the address as the document gave it: a map key, or a list index in
+	// decimal. Each dialect spells the path from it in its own way, and both
+	// bind it.
+	inside := func(raw string, isList bool, want func(*sql.Builder)) func(*sql.Selector) *sql.Predicate {
+		return func(s *sql.Selector) *sql.Predicate {
+			return sql.P(func(b *sql.Builder) {
+				switch b.Dialect() {
+				case dialect.Postgres:
+					b.Ident(col).WriteString(" #> ARRAY[").Arg(raw).WriteString("]::text[]")
+				default:
+					b.WriteString("JSON_EXTRACT(").Ident(col).Comma().
+						Arg(sqlitePath(raw, isList)).WriteString(")")
+				}
+				want(b)
+			})
+		}
+	}
+	exists := func(raw string, isList, absent bool) func(*sql.Selector) *sql.Predicate {
+		return inside(raw, isList, func(b *sql.Builder) {
+			if absent {
+				b.WriteString(" IS NULL")
+				return
+			}
+			b.WriteString(" IS NOT NULL")
+		})
 	}
 
-	switch {
-	case t.HasKey:
-		path := sqljson.Path(fmt.Sprint(t.Key.Interface()))
+	if t.HasKey || t.HasIndex {
+		raw := fmt.Sprint(t.Key.Interface())
+		if t.HasIndex {
+			if t.Index < 0 {
+				// A negative index counts from the end, which needs the length
+				// the row holds. Refusing beats guessing.
+				return nil, fmt.Errorf("entpatch: a negative list index needs the row's length")
+			}
+			raw = fmt.Sprint(t.Index)
+		}
 		switch t.Want {
 		case ormpatch.TestExists:
-			return unqualified(func() *sql.Predicate { return sqljson.HasKey(col, path) }), nil
+			return exists(raw, t.HasIndex, false), nil
 		case ormpatch.TestAbsent:
-			return unqualified(func() *sql.Predicate { return sql.Not(sqljson.HasKey(col, path)) }), nil
+			return exists(raw, t.HasIndex, true), nil
 		}
 		v, err := insideArg(t.Value)
 		if err != nil {
 			return nil, err
 		}
-		return unqualified(func() *sql.Predicate { return sqljson.ValueEQ(col, v, path) }), nil
-
-	case t.HasIndex:
-		if t.Index < 0 {
-			// A negative index counts from the end, which needs the length the
-			// row holds. Refusing beats guessing.
-			return nil, fmt.Errorf("entpatch: a negative list index needs the row's length")
-		}
-		path := sqljson.Path(fmt.Sprintf("[%d]", t.Index))
-		switch t.Want {
-		case ormpatch.TestExists:
-			return unqualified(func() *sql.Predicate { return sqljson.HasKey(col, path) }), nil
-		case ormpatch.TestAbsent:
-			return unqualified(func() *sql.Predicate { return sql.Not(sqljson.HasKey(col, path)) }), nil
-		}
-		v, err := insideArg(t.Value)
-		if err != nil {
-			return nil, err
-		}
-		return unqualified(func() *sql.Predicate { return sqljson.ValueEQ(col, v, path) }), nil
+		return inside(raw, t.HasIndex, func(b *sql.Builder) {
+			b.WriteString(" = ").Arg(v)
+		}), nil
 	}
 
 	switch t.Want {
@@ -414,14 +430,14 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 				case "set":
 					b.WriteString("jsonb_set(")
 					emit(i - 1)
-					b.Comma().WriteString(pgPath(s.path, isList)).Comma()
+					b.Comma().WriteString("ARRAY[").Arg(s.path).WriteString("]::text[]").Comma()
 					b.Arg(s.v).WriteString("::jsonb")
 					b.WriteString(", true)")
 				case "remove":
 					b.WriteString("(")
 					emit(i - 1)
 					if isList {
-						b.WriteString(" - " + s.path + ")")
+						b.WriteString(" - ").Arg(s.path).WriteString("::int)")
 					} else {
 						b.WriteString(" - ").Arg(s.path).WriteString(")")
 					}
@@ -436,13 +452,13 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 				case "set":
 					b.WriteString("JSON_SET(")
 					emit(i - 1)
-					b.Comma().WriteString(sqlitePath(s.path, isList)).Comma()
+					b.Comma().Arg(sqlitePath(s.path, isList)).Comma()
 					b.WriteString("JSON(").Arg(s.v).WriteString(")")
 					b.WriteString(")")
 				case "remove":
 					b.WriteString("JSON_REMOVE(")
 					emit(i - 1)
-					b.Comma().WriteString(sqlitePath(s.path, isList))
+					b.Comma().Arg(sqlitePath(s.path, isList))
 					b.WriteString(")")
 				case "append":
 					b.WriteString("JSON_INSERT(")
@@ -473,29 +489,19 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 	}, nil
 }
 
+// sqlitePath is the JSON path a step addresses, as a VALUE to be bound.
+//
+// It is not a SQL literal and must never become one. A map key is whatever the
+// client put in the document, so writing it into the statement text -- which is
+// what this used to do -- let a key carrying a quote close the literal and
+// continue as SQL. Bound, the worst a key can do is address nothing.
 func sqlitePath(path string, isList bool) string {
 	if isList {
-		return "'$[" + path + "]'"
+		return "$[" + path + "]"
 	}
 	// A key is quoted so that a dot or a bracket in it is data, not syntax.
-	return `'$."` + jsonEscape(path) + `"'`
-}
-
-func pgPath(path string, isList bool) string {
-	b, _ := json.Marshal(path)
-	_ = b
-	return "'{" + pgElem(path) + "}'"
-}
-
-func pgElem(s string) string {
-	out := make([]rune, 0, len(s)+2)
-	for _, r := range s {
-		if r == '"' || r == '\\' || r == ',' || r == '{' || r == '}' {
-			out = append(out, '\\')
-		}
-		out = append(out, r)
-	}
-	return string(out)
+	// This escaping is the JSON path grammar's, not SQL's.
+	return `$."` + jsonEscape(path) + `"`
 }
 
 func jsonEscape(s string) string {

@@ -350,11 +350,12 @@ func TestJSONEditRendersPerDialect(t *testing.T) {
 	for _, tt := range []struct {
 		dialect string
 		want    string
+		path    string
 	}{
-		{dialect.SQLite, "SET `labels` = JSON_SET(COALESCE(`labels`, '{}'), '$.\"a\"', JSON(?))"},
+		{dialect.SQLite, "SET `labels` = JSON_SET(COALESCE(`labels`, '{}'), ?, JSON(?))", `$."a"`},
 		// PostgreSQL numbers its arguments, and only Builder.Arg knows that --
 		// a `?` written into a format string arrives as a `?`.
-		{dialect.Postgres, `SET "labels" = jsonb_set(COALESCE("labels", '{}'::jsonb), '{a}', $1::jsonb, true)`},
+		{dialect.Postgres, `SET "labels" = jsonb_set(COALESCE("labels", '{}'::jsonb), ARRAY[$1]::text[], $2::jsonb, true)`, "a"},
 	} {
 		t.Run(tt.dialect, func(t *testing.T) {
 			u := sql.Dialect(tt.dialect).Update("user")
@@ -367,14 +368,21 @@ func TestJSONEditRendersPerDialect(t *testing.T) {
 			if !strings.Contains(q, tt.want) {
 				t.Errorf("rendered\n\t%s\nwant it to contain\n\t%s", q, tt.want)
 			}
+			// Two arguments, and the first is the PATH. It is bound rather
+			// than written into the statement because a map key is whatever
+			// the client put in the document; interpolated, one carrying a
+			// quote would close the literal and continue as SQL.
+			if len(args) != 2 {
+				t.Fatalf("bound %d arguments, want 2: %#v", len(args), args)
+			}
+			if got, ok := args[0].(string); !ok || got != tt.path {
+				t.Errorf("bound path %#v, want %q", args[0], tt.path)
+			}
 			// The entry is an argument to JSON(?) or to ?::jsonb, which parse
 			// the text they are handed -- so this one is a string, unlike the
 			// whole-column form.
-			if len(args) != 1 {
-				t.Fatalf("bound %d arguments, want 1: %#v", len(args), args)
-			}
-			if got, ok := args[0].(string); !ok || got != `"1"` {
-				t.Errorf("bound %#v (%T), want the JSON text `\"1\"`", args[0], args[0])
+			if got, ok := args[1].(string); !ok || got != `"1"` {
+				t.Errorf("bound %#v (%T), want the JSON text `\"1\"`", args[1], args[1])
 			}
 		})
 	}
@@ -430,12 +438,12 @@ func TestPostgresNumbersArgumentsAcrossTheStatement(t *testing.T) {
 	mod(u)
 	q, args := u.Query()
 
-	want := `SET "name" = $1, "labels" = jsonb_set(COALESCE("labels", '{}'::jsonb), '{a}', $2::jsonb, true)`
+	want := `SET "name" = $1, "labels" = jsonb_set(COALESCE("labels", '{}'::jsonb), ARRAY[$2]::text[], $3::jsonb, true)`
 	if !strings.Contains(q, want) {
 		t.Errorf("rendered\n\t%s\nwant it to contain\n\t%s", q, want)
 	}
-	if len(args) != 2 {
-		t.Fatalf("bound %d arguments, want 2: %#v", len(args), args)
+	if len(args) != 3 {
+		t.Fatalf("bound %d arguments, want 3: %#v", len(args), args)
 	}
 }
 
@@ -465,8 +473,8 @@ func TestJSONEditNestsOnAList(t *testing.T) {
 		dialect string
 		want    string
 	}{
-		{dialect.SQLite, "SET `scores` = JSON_REMOVE(JSON_INSERT(COALESCE(`scores`, '[]'), '$[#]', JSON(?)), '$[0]')"},
-		{dialect.Postgres, `SET "scores" = ((COALESCE("scores", '[]'::jsonb) || jsonb_build_array($1::jsonb)) - 0)`},
+		{dialect.SQLite, "SET `scores` = JSON_REMOVE(JSON_INSERT(COALESCE(`scores`, '[]'), '$[#]', JSON(?)), ?)"},
+		{dialect.Postgres, `SET "scores" = ((COALESCE("scores", '[]'::jsonb) || jsonb_build_array($1::jsonb)) - $2::int)`},
 	} {
 		t.Run(tt.dialect, func(t *testing.T) {
 			u := sql.Dialect(tt.dialect).Update("user")
