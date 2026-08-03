@@ -68,6 +68,21 @@ import (
 var errMySQL = errors.New("entpatch: MySQL spells JSON literals and merges differently; " +
 	"it is refused rather than approximated")
 
+// errNegativeIndex is the refusal of an index that counts from the end.
+//
+// It wraps [ormpatch.ErrUnsupported] rather than carrying a sentinel of this
+// package's own, because that is already the name for this exact meaning: the
+// document is well-formed and the reference engine would apply it, and a row is
+// what cannot. A server reading it answers Unimplemented; left unwrapped, as it
+// was, the refusal fell through to Internal and blamed the server for something
+// the document asked for. A second sentinel with the same meaning would only be
+// a second thing every server has to check.
+func errNegativeIndex(name string) error {
+	return fmt.Errorf("%w: entpatch: a negative index counts from the end of %s, "+
+		"which is a length the row holds and one statement cannot read while writing it",
+		ormpatch.ErrUnsupported, name)
+}
+
 // Columns names the database column of each prop, keyed by proto field number.
 //
 // It is generated alongside the server, because only the generator knows how
@@ -203,9 +218,7 @@ func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate,
 		raw := fmt.Sprint(t.Key.Interface())
 		if t.HasIndex {
 			if t.Index < 0 {
-				// A negative index counts from the end, which needs the length
-				// the row holds. Refusing beats guessing.
-				return nil, fmt.Errorf("entpatch: a negative list index needs the row's length")
+				return nil, errNegativeIndex(t.Prop.Name())
 			}
 			raw = fmt.Sprint(t.Index)
 		}
@@ -215,12 +228,27 @@ func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate,
 		case ormpatch.TestAbsent:
 			return exists(raw, t.HasIndex, true), nil
 		}
+		// Both forms are built here, where a failure to spell the value is still
+		// an error; only the choice waits for the dialect. The expressions above
+		// do not extract the same thing: PostgreSQL's #> yields jsonb, which
+		// compares against the element's JSON TEXT -- what the write binds there
+		// too -- while SQLite's JSON_EXTRACT decodes a JSON string first, so
+		// there the comparison is against the decoded element.
+		text, err := jsonText(t.Value)
+		if err != nil {
+			return nil, err
+		}
 		v, err := insideArg(t.Value)
 		if err != nil {
 			return nil, err
 		}
 		return inside(raw, t.HasIndex, func(b *sql.Builder) {
-			b.WriteString(" = ").Arg(v)
+			b.WriteString(" = ")
+			if b.Dialect() == dialect.Postgres {
+				b.Arg(text)
+				return
+			}
+			b.Arg(v)
 		}), nil
 	}
 
@@ -363,7 +391,7 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.Upd
 			path = fmt.Sprint(o.Key.Interface())
 		case o.HasIndex:
 			if o.Index < 0 {
-				return nil, fmt.Errorf("entpatch: a negative list index needs the row's length")
+				return nil, errNegativeIndex(w.Prop.Name())
 			}
 			path = fmt.Sprint(o.Index)
 		}

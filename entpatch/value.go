@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -168,6 +169,10 @@ func jsonArg(v protoreflect.Value) (any, error) {
 // text reading only when it does not -- an ambiguity with no upside. ent's own
 // sqljson binds this position as a string for every dialect, for the same
 // reason.
+//
+// It is also what a comparison against one entry binds on PostgreSQL, where the
+// extraction yields jsonb and the argument is parsed as jsonb beside it. See
+// [insideArg] for the other dialect, which decodes instead.
 func jsonText(v protoreflect.Value) (any, error) {
 	b, err := jsonBytes(v)
 	if err != nil {
@@ -241,25 +246,70 @@ func marshal(v any) ([]byte, error) {
 	return b, nil
 }
 
-// insideArg renders a value for COMPARISON against something already inside a
-// JSON document.
+// insideArg renders a value for COMPARISON against one element already inside a
+// JSON document, as the element the EXTRACTION hands back.
 //
-// It is not jsonArg: the surrounding predicate extracts the element first, so
-// the comparison is against the element's own type. Binding the marshalled form
-// would compare a quoted string to an unquoted one and never match.
+// It goes through [jsonScalar] and [marshal] rather than converting the value
+// again, and that is the whole point. The column holds whatever encoding/json
+// wrote, and a comparison spelled any other way is a test that can never hold
+// -- which does not merely fail, it abandons the document and silently drops
+// every other entry with it. Two spellings used to differ: bytes, which the
+// writer stores as base64 and this compared as the raw bytes, and a message,
+// which the writer compacts and HTML-escapes on its way through encoding/json
+// and this compared as protojson left it, spacing and all.
+//
+// What it does not keep is the marshalled form's outer quoting, because the
+// surrounding predicate extracts the element first: SQLite's JSON_EXTRACT
+// decodes a JSON string into a plain one, so `"3q2+7w=="` in the column arrives
+// at the comparison as 3q2+7w==. An object or an array arrives as the text it
+// is stored as, and a number as the number that text parses to -- which is not
+// always the number Go would have bound for it.
+//
+// PostgreSQL extracts jsonb instead of a decoded value, so it compares against
+// [jsonText] -- the same form the write binds there. See [predicate].
 func insideArg(v protoreflect.Value) (any, error) {
-	switch x := v.Interface().(type) {
-	case protoreflect.Message:
-		b, err := protojson.Marshal(x.Interface())
+	e, err := jsonScalar(v)
+	if err != nil {
+		return nil, err
+	}
+	// The element exactly as the write spelled it. Nothing below re-encodes;
+	// they only undo the reading the extraction already did.
+	b, err := marshal(e)
+	if err != nil {
+		return nil, err
+	}
+
+	switch e.(type) {
+	case json.RawMessage:
+		return string(b), nil
+
+	case []byte, string:
+		var s string
+		if err := json.Unmarshal(b, &s); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrValue, err)
+		}
+		if string(b) == "null" {
+			// A nil []byte marshals to null, and unmarshalling null into a
+			// string leaves it empty and reports nothing -- so the comparison
+			// would quietly become one against "" while the write bound null.
+			// Nothing reaches here with a nil slice today (ValueOf normalizes
+			// one and the wire cannot carry it), which is why this says so
+			// rather than guessing which of the two was meant.
+			return nil, fmt.Errorf("%w: a nil bytes value has no element form", ErrValue)
+		}
+		return s, nil
+
+	case float32:
+		// A float32 is written with 32-bit precision -- 3.14, not the
+		// 3.140000104904175 it widens to -- and the row parses that text as a
+		// double. Binding the widened value compares the two and they are never
+		// equal, so the value has to come back through the text as well.
+		f, err := strconv.ParseFloat(string(b), 64)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrValue, err)
 		}
-		return string(b), nil
-	case protoreflect.EnumNumber:
-		return int32(x), nil
-	case []byte:
-		return string(x), nil
-	default:
-		return x, nil
+		return f, nil
 	}
+
+	return e, nil
 }
