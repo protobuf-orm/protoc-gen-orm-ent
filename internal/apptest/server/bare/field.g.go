@@ -938,6 +938,9 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 
 	pred, mod, err := entpatch.Build(plan, valueFieldPatchColumns)
 	if err != nil {
+		if errors.Is(err, entpatch.ErrValue) {
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		}
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
@@ -1186,6 +1189,9 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 
 	pred, mod, err := entpatch.Build(plan, messageFieldPatchColumns)
 	if err != nil {
+		if errors.Is(err, entpatch.ErrValue) {
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		}
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
@@ -1462,6 +1468,9 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 
 	pred, mod, err := entpatch.Build(plan, mapFieldPatchColumns)
 	if err != nil {
+		if errors.Is(err, entpatch.ErrValue) {
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		}
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 

@@ -251,6 +251,9 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 
 	pred, mod, err := entpatch.Build(plan, userPatchColumns)
 	if err != nil {
+		if errors.Is(err, entpatch.ErrValue) {
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		}
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 

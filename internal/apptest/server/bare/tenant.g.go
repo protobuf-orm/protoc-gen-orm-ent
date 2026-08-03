@@ -210,6 +210,9 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 
 	pred, mod, err := entpatch.Build(plan, tenantPatchColumns)
 	if err != nil {
+		if errors.Is(err, entpatch.ErrValue) {
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		}
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 

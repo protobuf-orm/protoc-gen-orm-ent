@@ -76,8 +76,19 @@ func (w *fileWork) xApply() {
 	w.P("	}")
 	w.P("")
 
+	// Rendering fails for two different reasons and they are not the client's
+	// to tell apart. A value this engine cannot store is the document's, the
+	// same answer compiling would have given; anything else means the column
+	// table and the schema disagree, which no request can correct.
 	w.P("	pred, mod, err := ", work.PkgEntPatch.Ident("Build"), "(plan, ", v, "PatchColumns)")
 	w.P("	if err != nil {")
+	w.Pf("		if %s(err, %s) {",
+		w.QualifiedGoIdent(work.PkgErrors.Ident("Is")),
+		w.QualifiedGoIdent(work.PkgEntPatch.Ident("ErrValue")))
+	w.Pf("			return nil, %s(%s, \"%%s\", err)",
+		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
+		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("InvalidArgument")))
+	w.P("		}")
 	w.Pf("		return nil, %s(%s, \"%%s\", err)",
 		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
 		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("Internal")))

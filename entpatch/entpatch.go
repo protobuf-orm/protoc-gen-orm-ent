@@ -26,10 +26,33 @@
 // dialect at statement time. SQLite and PostgreSQL are implemented; MySQL is
 // refused rather than approximated, because its JSON literal and merge
 // spellings differ from both.
+//
+// # What Modify does not enforce
+//
+// A write rendered here reaches the statement through Modify, which appends to
+// the UPDATE builder and never fills the ent mutation. Everything ent hangs off
+// the mutation is therefore vacuous on this path. The generated check() guards
+// every field validator with `if v, ok := mutation.Field(); ok`, and a column
+// only Modify assigned is never ok, so no validator ever sees the value. A hook
+// registered with client.Use is handed that same mutation, whose Fields() lists
+// only the fields set through the builder -- through Apply, none of the
+// document's.
+//
+// It is harmless today because this generator emits no schema for either to
+// act on: the orm.field vocabulary is disabled/type/key/unique/nullable/
+// immutable/default/version, and none of those becomes an ent validator. It
+// starts to matter the moment the vocabulary grows a constraint -- a length, a
+// pattern, an allowed set -- or an application registers a hook that reads
+// mutation.Fields() to audit or to derive a column, because through Apply
+// neither would run while both still run for Add and for a generated setter.
+// Setting the mutation as well would not fix it either: SetNull appends without
+// looking, so a document's `remove` and the mutation's clear would both be
+// emitted, which is the duplicate assignment PostgreSQL rejects.
 package entpatch
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"entgo.io/ent/dialect"
@@ -37,8 +60,15 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpatch"
+	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
+
+// errMySQL is the refusal from the Dialects section of the package doc. It is
+// raised at statement time, since the dialect belongs to the connection rather
+// than to the document.
+var errMySQL = errors.New("entpatch: MySQL spells JSON literals and merges differently; " +
+	"it is refused rather than approximated")
 
 // Columns names the database column of each prop, keyed by proto field number.
 //
@@ -54,6 +84,16 @@ type Columns map[protoreflect.FieldNumber]string
 // it writes nothing -- which a caller must notice, because an update with
 // neither issues no SQL and reports zero rows affected, and reading that as
 // "no such row" would be wrong about a row that is there.
+//
+// Everything the plan decides is resolved before Build returns: values are
+// converted and predicates are constructed here, so the closures only assemble
+// what is already known and cannot fail. That is not tidiness. A predicate that
+// reported its failure with Selector.AddError would be dropped on the floor:
+// ent's UpdateBuilder.FromSelect copies the selector's WHERE clause and nothing
+// else, so the error disappears and the UPDATE runs with the row predicate
+// alone -- the `test` silently gone and the write applied. A `test` is this
+// format's compare-and-swap, so it must never be droppable, and a value this
+// engine cannot render has to be an error here, before any statement exists.
 func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.UpdateBuilder), error) {
 	if plan == nil {
 		return nil, nil, fmt.Errorf("entpatch: no plan")
@@ -70,30 +110,38 @@ func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.Up
 		}
 	}
 
+	tests := make([]func(*sql.Selector) *sql.Predicate, 0, len(plan.Tests))
+	for _, t := range plan.Tests {
+		p, err := predicate(t, cols[t.Prop.Number()])
+		if err != nil {
+			return nil, nil, err
+		}
+		tests = append(tests, p)
+	}
+
+	writes := make([]func(*sql.UpdateBuilder), 0, len(plan.Writes))
+	for _, w := range plan.Writes {
+		set, err := write(w, cols[w.Prop.Number()])
+		if err != nil {
+			return nil, nil, err
+		}
+		writes = append(writes, set)
+	}
+
 	var pred func(*sql.Selector)
-	if len(plan.Tests) > 0 {
-		tests := plan.Tests
+	if len(tests) > 0 {
 		pred = func(s *sql.Selector) {
 			for _, t := range tests {
-				p, err := predicate(s, t, cols[t.Prop.Number()])
-				if err != nil {
-					s.AddError(err)
-					return
-				}
-				s.Where(p)
+				s.Where(t(s))
 			}
 		}
 	}
 
 	var mod func(*sql.UpdateBuilder)
-	if len(plan.Writes) > 0 {
-		writes := plan.Writes
+	if len(writes) > 0 {
 		mod = func(u *sql.UpdateBuilder) {
-			for _, w := range writes {
-				if err := write(u, w, cols[w.Prop.Number()]); err != nil {
-					u.AddError(err)
-					return
-				}
+			for _, set := range writes {
+				set(u)
 			}
 		}
 	}
@@ -101,23 +149,44 @@ func Build(plan *ormpatch.Plan, cols Columns) (func(*sql.Selector), func(*sql.Up
 	return pred, mod, nil
 }
 
-func predicate(s *sql.Selector, t ormpatch.Test, col string) (*sql.Predicate, error) {
-	qualified := s.C(col)
+// predicate resolves one test into its contribution to the WHERE clause.
+//
+// What is left for the returned closure is building the predicate against the
+// selector, which cannot fail -- see [Build] for why that matters. Everything
+// that can, which is the value conversion, happens here.
+//
+// The predicate object itself is deliberately not built here. It looks
+// reusable, since rendering one resets its buffer and a second statement
+// re-renders rather than appends, but the sqljson helpers close over their
+// option slice and write back to it as they render -- so a predicate that has
+// met one dialect carries its adjustments into the next. Building one per
+// application costs nothing and removes the question.
+func predicate(t ormpatch.Test, col string) (func(*sql.Selector) *sql.Predicate, error) {
+	// The sqljson helpers take the bare column name and qualify nothing, so
+	// they need no selector -- but they must still be called once per render,
+	// not once per Build. sqljson.ValueEQ assigns back to the option slice it
+	// captured, so the first render against PostgreSQL leaves Unquote set on
+	// the predicate forever and a later render emits JSON_UNQUOTE where it
+	// should not. Handing back a constructor keeps the value conversion eager,
+	// which is the part that can fail, while the predicate stays per-statement.
+	unqualified := func(build func() *sql.Predicate) func(*sql.Selector) *sql.Predicate {
+		return func(*sql.Selector) *sql.Predicate { return build() }
+	}
 
 	switch {
 	case t.HasKey:
 		path := sqljson.Path(fmt.Sprint(t.Key.Interface()))
 		switch t.Want {
 		case ormpatch.TestExists:
-			return sqljson.HasKey(col, path), nil
+			return unqualified(func() *sql.Predicate { return sqljson.HasKey(col, path) }), nil
 		case ormpatch.TestAbsent:
-			return sql.Not(sqljson.HasKey(col, path)), nil
+			return unqualified(func() *sql.Predicate { return sql.Not(sqljson.HasKey(col, path)) }), nil
 		}
 		v, err := insideArg(t.Value)
 		if err != nil {
 			return nil, err
 		}
-		return sqljson.ValueEQ(col, v, path), nil
+		return unqualified(func() *sql.Predicate { return sqljson.ValueEQ(col, v, path) }), nil
 
 	case t.HasIndex:
 		if t.Index < 0 {
@@ -128,64 +197,103 @@ func predicate(s *sql.Selector, t ormpatch.Test, col string) (*sql.Predicate, er
 		path := sqljson.Path(fmt.Sprintf("[%d]", t.Index))
 		switch t.Want {
 		case ormpatch.TestExists:
-			return sqljson.HasKey(col, path), nil
+			return unqualified(func() *sql.Predicate { return sqljson.HasKey(col, path) }), nil
 		case ormpatch.TestAbsent:
-			return sql.Not(sqljson.HasKey(col, path)), nil
+			return unqualified(func() *sql.Predicate { return sql.Not(sqljson.HasKey(col, path)) }), nil
 		}
 		v, err := insideArg(t.Value)
 		if err != nil {
 			return nil, err
 		}
-		return sqljson.ValueEQ(col, v, path), nil
+		return unqualified(func() *sql.Predicate { return sqljson.ValueEQ(col, v, path) }), nil
 	}
 
 	switch t.Want {
 	case ormpatch.TestExists:
-		return sql.NotNull(qualified), nil
+		return func(s *sql.Selector) *sql.Predicate { return sql.NotNull(s.C(col)) }, nil
 	case ormpatch.TestAbsent:
-		return sql.IsNull(qualified), nil
+		return func(s *sql.Selector) *sql.Predicate { return sql.IsNull(s.C(col)) }, nil
 	}
 
-	v, err := arg(t.Prop, t.Value, false)
+	// An edge's column is the foreign key, and what it holds is a value of the
+	// TARGET's key -- so the comparison converts as that key, the substitution
+	// SetEdge already makes on the write side. Converting it as the edge itself
+	// would bind the wire form (raw bytes, for a UUID key) against a column
+	// holding the converted one, and the test could never hold.
+	p := t.Prop
+	if ed, ok := p.(graph.Edge); ok {
+		p = ed.Target().Key()
+	}
+
+	if graph.IsCollection(p) || p.Type() == ormpb.Type_TYPE_JSON {
+		// A whole JSON column has no portable comparison, so this is the one
+		// place the argument's form depends on the dialect rather than on the
+		// column. SQLite stores what ent wrote as a BLOB and compares storage
+		// classes before contents, so text would never match a row Add
+		// created; PostgreSQL holds jsonb, and a []byte arrives as bytea, for
+		// which no comparison against jsonb exists. Both forms are built here,
+		// where a failure to marshal is still an error; only the choice waits.
+		//
+		// Neither makes whole-column equality dependable. Two documents with
+		// the same entries can differ in key order -- SQLite keeps what it was
+		// given, Go marshals sorted -- and nothing here reorders them. Test an
+		// entry instead; this exists so that the case which can work does.
+		blob, err := jsonArg(t.Value)
+		if err != nil {
+			return nil, err
+		}
+		text, err := jsonText(t.Value)
+		if err != nil {
+			return nil, err
+		}
+		return func(s *sql.Selector) *sql.Predicate {
+			if s.Dialect() == dialect.Postgres {
+				return sql.EQ(s.C(col), text)
+			}
+			return sql.EQ(s.C(col), blob)
+		}, nil
+	}
+
+	v, err := arg(p, t.Value, posCompare)
 	if err != nil {
 		return nil, err
 	}
-	return sql.EQ(qualified, v), nil
+	return func(s *sql.Selector) *sql.Predicate { return sql.EQ(s.C(col), v) }, nil
 }
 
-func write(u *sql.UpdateBuilder, w ormpatch.Write, col string) error {
+// write resolves one column's new value into the assignment that writes it.
+//
+// The value is converted here, not in the returned closure -- see [Build].
+func write(w ormpatch.Write, col string) (func(*sql.UpdateBuilder), error) {
 	switch op := w.Op.(type) {
 	case ormpatch.ClearColumn, ormpatch.ClearEdge:
 		// SetNull and Set land in different lists and both would be emitted,
 		// which PostgreSQL rejects as a duplicate assignment. Only ever one.
-		u.SetNull(col)
-		return nil
+		return func(u *sql.UpdateBuilder) { u.SetNull(col) }, nil
 
 	case ormpatch.SetColumn:
-		v, err := arg(w.Prop, op.Value, false)
+		v, err := arg(w.Prop, op.Value, posColumn)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		u.Set(col, v)
-		return nil
+		return func(u *sql.UpdateBuilder) { u.Set(col, v) }, nil
 
 	case ormpatch.SetEdge:
 		ed, ok := w.Prop.(graph.Edge)
 		if !ok {
-			return fmt.Errorf("entpatch: %s is not an edge", w.Prop.Name())
+			return nil, fmt.Errorf("entpatch: %s is not an edge", w.Prop.Name())
 		}
 		v, err := scalarArg(ed.Target().Key(), op.Key)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		u.Set(col, v)
-		return nil
+		return func(u *sql.UpdateBuilder) { u.Set(col, v) }, nil
 
 	case ormpatch.EditJSON:
-		return editJSON(u, w, col, op)
+		return editJSON(w, col, op)
 	}
 
-	return fmt.Errorf("entpatch: unrecognized operation %s on %s", w.Op.Describe(), w.Prop.Name())
+	return nil, fmt.Errorf("entpatch: unrecognized operation %s on %s", w.Op.Describe(), w.Prop.Name())
 }
 
 // editJSON folds a column's sub-document operations into one expression.
@@ -193,7 +301,14 @@ func write(u *sql.UpdateBuilder, w ormpatch.Write, col string) error {
 // They nest rather than chain: each operation wraps the previous one, so the
 // column is assigned exactly once. Assigning it twice would be a duplicate
 // assignment in PostgreSQL, and in SQLite the later one would silently win.
-func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.EditJSON) error {
+//
+// The paths and the values are resolved here, but the spelling stays deferred:
+// which JSON functions to write is the connection's dialect to decide, and no
+// one knows it until there is a statement. So this is the one place where a
+// closure still does work -- rendering, which cannot fail -- and the only
+// decision left to statement time is the refusal of a dialect this cannot
+// spell.
+func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON) (func(*sql.UpdateBuilder), error) {
 	empty := "'{}'"
 	if w.Prop.IsList() {
 		empty = "'[]'"
@@ -210,8 +325,9 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 	}
 
 	if len(ops) == 1 && ops[0].Kind == ormpatch.JSONClear {
-		u.SetNull(col)
-		return nil
+		// Nothing dialect-specific is left, so this one does not go through the
+		// expression below and MySQL has no reason to be refused.
+		return func(u *sql.UpdateBuilder) { u.SetNull(col) }, nil
 	}
 
 	type step struct {
@@ -231,7 +347,7 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 			path = fmt.Sprint(o.Key.Interface())
 		case o.HasIndex:
 			if o.Index < 0 {
-				return fmt.Errorf("entpatch: a negative list index needs the row's length")
+				return nil, fmt.Errorf("entpatch: a negative list index needs the row's length")
 			}
 			path = fmt.Sprint(o.Index)
 		}
@@ -240,22 +356,22 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 		switch o.Kind {
 		case ormpatch.JSONSet:
 			s.fn = "set"
-			v, err := arg(w.Prop, o.Value, true)
+			v, err := arg(w.Prop, o.Value, posInner)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			s.v = v
 		case ormpatch.JSONRemove:
 			s.fn = "remove"
 		case ormpatch.JSONAppend:
 			s.fn = "append"
-			v, err := arg(w.Prop, o.Value, true)
+			v, err := arg(w.Prop, o.Value, posInner)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			s.v = v
 		default:
-			return fmt.Errorf("entpatch: unrecognized json operation %s", o.Kind)
+			return nil, fmt.Errorf("entpatch: unrecognized json operation %s", o.Kind)
 		}
 		steps = append(steps, s)
 	}
@@ -263,7 +379,7 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 	cleared := len(ops) > 0 && ops[0].Kind == ormpatch.JSONClear
 	isList := w.Prop.IsList()
 
-	u.Set(col, sql.ExprFunc(func(b *sql.Builder) {
+	expr := sql.ExprFunc(func(b *sql.Builder) {
 		base := func() {
 			if cleared {
 				b.WriteString(empty)
@@ -280,6 +396,10 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 			}
 		}
 
+		// Every value goes in through Arg, never through Argf: Argf writes the
+		// format it is handed verbatim, so a `?` inside one reaches PostgreSQL
+		// as a `?` rather than the $n it numbers its arguments with. Arg is
+		// what knows the dialect, so the wrapping is written around it.
 		var emit func(i int)
 		emit = func(i int) {
 			if i < 0 {
@@ -295,7 +415,7 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 					b.WriteString("jsonb_set(")
 					emit(i - 1)
 					b.Comma().WriteString(pgPath(s.path, isList)).Comma()
-					b.Argf("?::jsonb", s.v)
+					b.Arg(s.v).WriteString("::jsonb")
 					b.WriteString(", true)")
 				case "remove":
 					b.WriteString("(")
@@ -308,16 +428,16 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 				case "append":
 					b.WriteString("(")
 					emit(i - 1)
-					b.WriteString(" || ").Argf("jsonb_build_array(?::jsonb)", s.v).WriteString(")")
+					b.WriteString(" || jsonb_build_array(").Arg(s.v).WriteString("::jsonb))")
 				}
 
-			default: // SQLite, and MySQL is refused before we get here.
+			default: // SQLite; the modifier refused MySQL before we got here.
 				switch s.fn {
 				case "set":
 					b.WriteString("JSON_SET(")
 					emit(i - 1)
 					b.Comma().WriteString(sqlitePath(s.path, isList)).Comma()
-					b.Argf("JSON(?)", s.v)
+					b.WriteString("JSON(").Arg(s.v).WriteString(")")
 					b.WriteString(")")
 				case "remove":
 					b.WriteString("JSON_REMOVE(")
@@ -327,21 +447,30 @@ func editJSON(u *sql.UpdateBuilder, w ormpatch.Write, col string, op ormpatch.Ed
 				case "append":
 					b.WriteString("JSON_INSERT(")
 					emit(i - 1)
-					b.WriteString(", '$[#]', ").Argf("JSON(?)", s.v)
+					b.WriteString(", '$[#]', JSON(").Arg(s.v).WriteString(")")
 					b.WriteString(")")
 				}
 			}
 		}
 
-		if b.Dialect() == dialect.MySQL {
-			b.AddError(fmt.Errorf("entpatch: MySQL spells JSON literals and merges differently; " +
-				"it is refused rather than approximated"))
+		emit(len(steps) - 1)
+	})
+
+	return func(u *sql.UpdateBuilder) {
+		// The refusal belongs on the update builder rather than inside the
+		// expression above, even though both learn the dialect at the same
+		// moment. ent renders an ExprFunc into a clone of the builder and keeps
+		// only its text and its arguments, so an error raised in there is
+		// dropped and what reaches the database is an assignment with no value
+		// on its right-hand side. UpdateBuilder.Err is checked before the
+		// statement is issued, so this one is a refusal rather than a syntax
+		// error from the driver.
+		if u.Dialect() == dialect.MySQL {
+			u.AddError(errMySQL)
 			return
 		}
-		emit(len(steps) - 1)
-	}))
-
-	return nil
+		u.Set(col, expr)
+	}, nil
 }
 
 func sqlitePath(path string, isList bool) string {
