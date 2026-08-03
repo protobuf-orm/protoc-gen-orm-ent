@@ -383,36 +383,100 @@ message ValueFieldPatchRequest {
 	bytes implicit_bytes = 60;
 	Level implicit_enum = 62;
 	double explicit_f64 = 96;
+	// Clear explicit_f64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_f64 clears.
 	bool explicit_f64_null = 97;
 	float explicit_f32 = 98;
+	// Clear explicit_f32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_f32 clears.
 	bool explicit_f32_null = 99;
 	int32 explicit_i32 = 100;
+	// Clear explicit_i32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_i32 clears.
 	bool explicit_i32_null = 101;
 	int64 explicit_i64 = 102;
+	// Clear explicit_i64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_i64 clears.
 	bool explicit_i64_null = 103;
 	uint32 explicit_u32 = 104;
+	// Clear explicit_u32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_u32 clears.
 	bool explicit_u32_null = 105;
 	uint64 explicit_u64 = 106;
+	// Clear explicit_u64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_u64 clears.
 	bool explicit_u64_null = 107;
 	sint32 explicit_si32 = 108;
+	// Clear explicit_si32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_si32 clears.
 	bool explicit_si32_null = 109;
 	sint64 explicit_si64 = 110;
+	// Clear explicit_si64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_si64 clears.
 	bool explicit_si64_null = 111;
 	fixed32 explicit_fi32 = 112;
+	// Clear explicit_fi32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_fi32 clears.
 	bool explicit_fi32_null = 113;
 	fixed64 explicit_fi64 = 114;
+	// Clear explicit_fi64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_fi64 clears.
 	bool explicit_fi64_null = 115;
 	sfixed32 explicit_sfi32 = 116;
+	// Clear explicit_sfi32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_sfi32 clears.
 	bool explicit_sfi32_null = 117;
 	sfixed64 explicit_sfi64 = 118;
+	// Clear explicit_sfi64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_sfi64 clears.
 	bool explicit_sfi64_null = 119;
 	bool explicit_bool = 120;
+	// Clear explicit_bool instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_bool clears.
 	bool explicit_bool_null = 121;
 	string explicit_string = 122;
+	// Clear explicit_string instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_string clears.
 	bool explicit_string_null = 123;
 	bytes explicit_bytes = 124;
+	// Clear explicit_bytes instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_bytes clears.
 	bool explicit_bytes_null = 125;
 	Level explicit_enum = 126;
+	// Clear explicit_enum instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_enum clears.
 	bool explicit_enum_null = 127;
 	repeated double implicit_f64s = 160;
 	repeated float implicit_f32s = 162;
@@ -431,36 +495,100 @@ message ValueFieldPatchRequest {
 	repeated bytes implicit_bytess = 188;
 	repeated Level implicit_levels = 190;
 	double nullable_f64 = 224;
+	// Clear nullable_f64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_f64 clears.
 	bool nullable_f64_null = 225;
 	float nullable_f32 = 226;
+	// Clear nullable_f32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_f32 clears.
 	bool nullable_f32_null = 227;
 	int32 nullable_i32 = 228;
+	// Clear nullable_i32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_i32 clears.
 	bool nullable_i32_null = 229;
 	int64 nullable_i64 = 230;
+	// Clear nullable_i64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_i64 clears.
 	bool nullable_i64_null = 231;
 	uint32 nullable_u32 = 232;
+	// Clear nullable_u32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_u32 clears.
 	bool nullable_u32_null = 233;
 	uint64 nullable_u64 = 234;
+	// Clear nullable_u64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_u64 clears.
 	bool nullable_u64_null = 235;
 	sint32 nullable_si32 = 236;
+	// Clear nullable_si32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_si32 clears.
 	bool nullable_si32_null = 237;
 	sint64 nullable_si64 = 238;
+	// Clear nullable_si64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_si64 clears.
 	bool nullable_si64_null = 239;
 	fixed32 nullable_fi32 = 240;
+	// Clear nullable_fi32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_fi32 clears.
 	bool nullable_fi32_null = 241;
 	fixed64 nullable_fi64 = 242;
+	// Clear nullable_fi64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_fi64 clears.
 	bool nullable_fi64_null = 243;
 	sfixed32 nullable_sfi32 = 244;
+	// Clear nullable_sfi32 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_sfi32 clears.
 	bool nullable_sfi32_null = 245;
 	sfixed64 nullable_sfi64 = 246;
+	// Clear nullable_sfi64 instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_sfi64 clears.
 	bool nullable_sfi64_null = 247;
 	bool nullable_bool = 248;
+	// Clear nullable_bool instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_bool clears.
 	bool nullable_bool_null = 249;
 	string nullable_string = 250;
+	// Clear nullable_string instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_string clears.
 	bool nullable_string_null = 251;
 	bytes nullable_bytes = 252;
+	// Clear nullable_bytes instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_bytes clears.
 	bool nullable_bytes_null = 253;
 	Level nullable_level = 254;
+	// Clear nullable_level instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_level clears.
 	bool nullable_level_null = 255;
 	double implicit_f64_with_default = 288;
 	float implicit_f32_with_default = 290;
@@ -479,36 +607,100 @@ message ValueFieldPatchRequest {
 	bytes implicit_bytes_with_default = 316;
 	Level implicit_level_with_default = 318;
 	double explicit_f64_with_default = 352;
+	// Clear explicit_f64_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_f64_with_default clears.
 	bool explicit_f64_with_default_null = 353;
 	float explicit_f32_with_default = 354;
+	// Clear explicit_f32_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_f32_with_default clears.
 	bool explicit_f32_with_default_null = 355;
 	int32 explicit_i32_with_default = 356;
+	// Clear explicit_i32_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_i32_with_default clears.
 	bool explicit_i32_with_default_null = 357;
 	int64 explicit_i64_with_default = 358;
+	// Clear explicit_i64_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_i64_with_default clears.
 	bool explicit_i64_with_default_null = 359;
 	uint32 explicit_u32_with_default = 360;
+	// Clear explicit_u32_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_u32_with_default clears.
 	bool explicit_u32_with_default_null = 361;
 	uint64 explicit_u64_with_default = 362;
+	// Clear explicit_u64_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_u64_with_default clears.
 	bool explicit_u64_with_default_null = 363;
 	sint32 explicit_si32_with_default = 364;
+	// Clear explicit_si32_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_si32_with_default clears.
 	bool explicit_si32_with_default_null = 365;
 	sint64 explicit_si64_with_default = 366;
+	// Clear explicit_si64_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_si64_with_default clears.
 	bool explicit_si64_with_default_null = 367;
 	fixed32 explicit_fi32_with_default = 368;
+	// Clear explicit_fi32_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_fi32_with_default clears.
 	bool explicit_fi32_with_default_null = 369;
 	fixed64 explicit_fi64_with_default = 370;
+	// Clear explicit_fi64_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_fi64_with_default clears.
 	bool explicit_fi64_with_default_null = 371;
 	sfixed32 explicit_sfi32_with_default = 372;
+	// Clear explicit_sfi32_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_sfi32_with_default clears.
 	bool explicit_sfi32_with_default_null = 373;
 	sfixed64 explicit_sfi64_with_default = 374;
+	// Clear explicit_sfi64_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_sfi64_with_default clears.
 	bool explicit_sfi64_with_default_null = 375;
 	bool explicit_bool_with_default = 376;
+	// Clear explicit_bool_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_bool_with_default clears.
 	bool explicit_bool_with_default_null = 377;
 	string explicit_string_with_default = 378;
+	// Clear explicit_string_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_string_with_default clears.
 	bool explicit_string_with_default_null = 379;
 	bytes explicit_bytes_with_default = 380;
+	// Clear explicit_bytes_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_bytes_with_default clears.
 	bool explicit_bytes_with_default_null = 381;
 	Level explicit_level_with_default = 382;
+	// Clear explicit_level_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_level_with_default clears.
 	bool explicit_level_with_default_null = 383;
 }
 
@@ -562,11 +754,23 @@ message MessageFieldGetRequest {
 message MessageFieldPatchRequest {
 	MessageFieldRef ref = 1;
 	google.protobuf.Struct explicit = 96;
+	// Clear explicit instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit clears.
 	bool explicit_null = 97;
 	repeated google.protobuf.Struct repeated = 160;
 	google.protobuf.Struct nullable = 224;
+	// Clear nullable instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable clears.
 	bool nullable_null = 225;
 	google.protobuf.Struct explicit_with_default = 352;
+	// Clear explicit_with_default instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and explicit_with_default clears.
 	bool explicit_with_default_null = 353;
 }
 

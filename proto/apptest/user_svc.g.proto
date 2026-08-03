@@ -71,8 +71,24 @@ message UserPatchRequest {
 	string name = 10;
 	map<string, string> labels = 14;
 	string lock = 16;
+	// Clear lock instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and lock clears.
 	bool lock_null = 17;
+	// The version this update requires the stored date_updated to be.
+	// It is a precondition, not a write: the update applies only if the row
+	// still holds this value, and the server stamps the new version itself.
+	// Setting it together with date_updated_force is an error --
+	// the version is the token every client's compare-and-swap is measured
+	// against, so it is not the caller's to choose.
 	google.protobuf.Timestamp date_updated = 28;
+	// Update whatever the stored date_updated is, with no precondition.
+	// The server still stamps a new version, so other clients' tokens are
+	// invalidated as usual; this declines the check for THIS update only.
+	// One of date_updated or this must be set. An omitted version is
+	// refused rather than assumed, because an unset field cannot be told
+	// apart from a caller who never considered locking at all.
 	bool date_updated_force = 29;
 }
 
