@@ -23,7 +23,8 @@ import (
 type Server struct {
 	t *testing.T
 
-	Db *ent.Client
+	Db     *ent.Client
+	Driver dialect.Driver
 	apptest.Server
 }
 
@@ -40,13 +41,14 @@ func NewServer(t *testing.T) *Server {
 	err = db.Schema.Create(ctx)
 	require.NoError(t, err)
 
-	s, err := bare.NewServer(db, dialect.SQLite)
+	s, err := bare.NewServer(db, driver)
 	require.NoError(t, err)
 
 	return &Server{
 		t: t,
 
 		Db:     ent.NewClient(ent.Driver(driver)),
+		Driver: driver,
 		Server: s,
 	}
 }

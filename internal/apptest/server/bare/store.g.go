@@ -3,6 +3,7 @@
 package bare
 
 import (
+	dialect "entgo.io/ent/dialect"
 	fmt "fmt"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -15,17 +16,33 @@ type Server struct {
 	Dialect string
 }
 
+// Option adjusts a [Server] as it is built.
+type Option func(*Server)
+
+// WithDialect writes SQL for a dialect other than the driver's own.
+//
+// It is for an engine that speaks one of the written dialects under a
+// different name -- a PostgreSQL-compatible server told to be postgres.
+// Whether it really is compatible is the caller's to know; a statement
+// is where a wrong answer shows up. It cannot name a dialect nothing
+// was written for.
+func WithDialect(dialect string) Option {
+	return func(s *Server) { s.Dialect = dialect }
+}
+
 // NewServer refuses a dialect this backend does not write SQL for.
 //
-// The dialect is the SQL to emit, not a claim about the driver. Naming one
-// the connection does not speak is allowed and is the caller's risk: an
-// engine compatible with it will work, and one that is not will fail at the
-// statement rather than here.
-func NewServer(db *ent.Client, dialect string) (Server, error) {
-	if !entpatch.Supports(dialect) {
-		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, dialect)
+// The driver says which one that is. Pass the same one the client was
+// built with, or say otherwise with [WithDialect].
+func NewServer(db *ent.Client, drv dialect.Driver, opts ...Option) (Server, error) {
+	s := Server{Db: db, Dialect: drv.Dialect()}
+	for _, opt := range opts {
+		opt(&s)
 	}
-	return Server{Db: db, Dialect: dialect}, nil
+	if !entpatch.Supports(s.Dialect) {
+		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, s.Dialect)
+	}
+	return s, nil
 }
 
 func (s Server) ValueField() apptest.ValueFieldServiceServer {
