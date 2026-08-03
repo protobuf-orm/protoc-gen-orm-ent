@@ -13,11 +13,11 @@ go 1.26.2
 require (
 	entgo.io/ent v0.14.5
 	github.com/google/uuid v1.6.0
-	github.com/lesomnus/protobuf-patch v0.0.0-20260803070125-75159a5efcba
+	github.com/lesomnus/protobuf-patch v0.0.0-20260803175157-e1b7a0c2804f
 	github.com/lesomnus/z v0.0.0-20250923111312-437bd8f8f4cf
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20260803070323-3d16565c3a32
-	github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803075511-d4686eec918f
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20260803175457-3d185635f291
+	github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803175535-cb1be6118de8
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
