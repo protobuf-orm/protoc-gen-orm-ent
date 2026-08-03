@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/go-openapi/inflect v0.21.3
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20260803070323-3d16565c3a32
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20260803175457-3d185635f291
 	google.golang.org/protobuf v1.36.11
 )
 
