@@ -3,19 +3,123 @@
 package bare
 
 import (
+	context "context"
 	dialect "entgo.io/ent/dialect"
 	fmt "fmt"
+	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 )
 
 type Server struct {
 	Db *ent.Client
+
+	// Rec is told about every write these servers make, and nothing is
+	// told if it is nil. See [Recorder].
+	Rec Recorder
 }
 
 // Option adjusts a [Server] as it is built.
 type Option func(*Server)
+
+// WithRecorder answers with the option that has every write reported to
+// `v`.
+//
+// It is not free. A write and what a recorder makes of it have to be one
+// write, so Add and Erase, which are a single statement without a
+// recorder, open a transaction and hold it for as long as the recorder
+// takes; and Erase reads the row it is about to delete, to be able to say
+// which one it was. Nothing of the sort happens while this is unset.
+func WithRecorder(v Recorder) Option {
+	return func(s *Server) { s.Rec = v }
+}
+
+// Change is one write, described the way the server that made it saw it.
+type Change struct {
+	// Method is the RPC of this server that made the write, by the name
+	// gRPC knows it by, such as "/pkg.HolderService/Apply".
+	//
+	// It says the whole of what happened, which is why it is the only field
+	// here that says any of it. A service is named for the entity it is
+	// about, so the name carries that; and it is always one of the four this
+	// server has, so it carries what the write did as well -- an Add adds
+	// and an Erase erases, and Patch and Apply are one write by two roads.
+	// A field beside it naming the entity, or classifying the operation,
+	// would be a second copy of something already written down.
+	//
+	// It is not necessarily what a client called, and a recorder that wants
+	// that should ask the context for it. These servers are also called in
+	// process, where there is no RPC at all, and one call to a server in
+	// front of them can write several rows through several of these --
+	// adding a tenant that comes with an admin writes a row here under the
+	// name of the Holder service.
+	Method string
+
+	// Key is the row, as Go holds the key of this entity: a uuid.UUID, a
+	// string, whatever the schema declared. It is the key and never the
+	// reference the request named the row by, which may have been an alias,
+	// and may not name the same row a moment later.
+	Key any
+
+	// Patch is the document the write was compiled from, and nil for a
+	// write that was not one. A Patch request converts into a document, so
+	// both RPCs arrive with the same thing to say and a recorder does not
+	// have to know which one it was -- Method still says.
+	//
+	// It is what was asked for and not a redo log. What the server settled
+	// on itself is not in it: the version stamp of an Apply, and the key and
+	// the timestamps an Add makes up for a request that left them out.
+	Patch *patchpb.Patch
+}
+
+// Recorder is told about every write, inside the transaction that makes
+// it and before it is committed.
+//
+// Write through the server it is handed and through nothing else. That
+// server runs on the write's own transaction, so what it does is part of
+// that write, and it does not record -- a recorder that recorded its own
+// writes would not stop. Another client is another connection, and on a
+// pool of one it waits for the connection this transaction is holding,
+// which is a hang rather than an error.
+//
+// An error it answers with is reported to the caller, and the write is
+// undone with it *when this server opened the transaction*. When it
+// joined one that a caller began -- see enttx -- undoing it is not this
+// server's to do: the refusal is reported, and whoever began the
+// transaction says whether the whole of it still holds. A caller that
+// carries on past a failed call commits a write that nothing recorded.
+//
+// The guarantee is about the database and nothing else. Anything a
+// recorder does elsewhere -- a message published, a cache dropped --
+// outlives a rollback, so what has to hold with the write has to be
+// written with it, as a row somebody else picks up.
+type Recorder interface {
+	Record(ctx context.Context, s Server, c Change) error
+}
+
+// record tells `rec` about `c`, and is what the servers call so that a
+// nil recorder costs a comparison rather than a branch at every site.
+//
+// What a recorder answers with is reported as Internal, whatever it was.
+// A recorder writes through a server of its own and that server answers
+// in the same words this one does -- an AlreadyExists about the row the
+// *trail* collided on would reach the caller as an AlreadyExists about
+// the row it was writing, and a caller that acts on that code, as one
+// looking for an entity that is already there does, would act on a
+// conflict that was never its own. Keeping the trail is this server's
+// job, so failing to is this server's fault.
+func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
+	if rec == nil {
+		return nil
+	}
+	if err := rec.Record(ctx, Server{Db: db}, c); err != nil {
+		return status.Errorf(codes.Internal, "record the write by %s: %s", c.Method, err)
+	}
+	return nil
+}
 
 // NewServer refuses a client whose dialect this backend does not write
 // SQL for.
@@ -54,10 +158,16 @@ func (s Server) WithDriver(drv dialect.Driver) (apptest.Server, error) {
 	return s, nil
 }
 
-func (s Server) ValueField() apptest.ValueFieldServiceServer { return NewValueFieldServiceServer(s.Db) }
-func (s Server) MessageField() apptest.MessageFieldServiceServer {
-	return NewMessageFieldServiceServer(s.Db)
+func (s Server) ValueField() apptest.ValueFieldServiceServer {
+	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec}
 }
-func (s Server) MapField() apptest.MapFieldServiceServer { return NewMapFieldServiceServer(s.Db) }
-func (s Server) Tenant() apptest.TenantServiceServer     { return NewTenantServiceServer(s.Db) }
-func (s Server) User() apptest.UserServiceServer         { return NewUserServiceServer(s.Db) }
+func (s Server) MessageField() apptest.MessageFieldServiceServer {
+	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec}
+}
+func (s Server) MapField() apptest.MapFieldServiceServer {
+	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec}
+}
+func (s Server) Tenant() apptest.TenantServiceServer {
+	return TenantServiceServer{Db: s.Db, Rec: s.Rec}
+}
+func (s Server) User() apptest.UserServiceServer { return UserServiceServer{Db: s.Db, Rec: s.Rec} }

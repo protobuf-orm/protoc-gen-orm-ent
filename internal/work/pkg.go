@@ -36,6 +36,7 @@ var (
 	PkgErrors   = protogen.GoImportPath("errors")
 	PkgOrmPatch = protogen.GoImportPath("github.com/protobuf-orm/protobuf-orm/ormpatch")
 	PkgEntPatch = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch")
+	PkgEntTx    = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx")
 
 	// Patch converts its request into a document and hands it to the same
 	// path Apply uses. That needs the document type, the schema graph the

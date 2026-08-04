@@ -19,12 +19,31 @@ import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 func (w *Work) xServer() {
 	w.P("type Server struct {")
 	w.P("	Db *", w.Ent.Ident("Client"))
+	w.P("")
+	w.P("	// Rec is told about every write these servers make, and nothing is")
+	w.P("	// told if it is nil. See [Recorder].")
+	w.P("	Rec Recorder")
 	w.P("}")
 	w.P("")
 
 	w.P("// Option adjusts a [Server] as it is built.")
 	w.P("type Option func(*Server)")
 	w.P("")
+
+	w.P("// WithRecorder answers with the option that has every write reported to")
+	w.P("// `v`.")
+	w.P("//")
+	w.P("// It is not free. A write and what a recorder makes of it have to be one")
+	w.P("// write, so Add and Erase, which are a single statement without a")
+	w.P("// recorder, open a transaction and hold it for as long as the recorder")
+	w.P("// takes; and Erase reads the row it is about to delete, to be able to say")
+	w.P("// which one it was. Nothing of the sort happens while this is unset.")
+	w.P("func WithRecorder(v Recorder) Option {")
+	w.P("	return func(s *Server) { s.Rec = v }")
+	w.P("}")
+	w.P("")
+
+	w.xRecorder()
 
 	w.P("// NewServer refuses a client whose dialect this backend does not write")
 	w.P("// SQL for.")
@@ -72,9 +91,12 @@ func (w *Work) xServer() {
 	w.P("}")
 	w.P("")
 
+	// Built here rather than through the constructor, which takes a client and
+	// nothing else: a service server reached through the store carries what the
+	// store was built with, the recorder included.
 	for _, v := range w.Entities {
 		w.P("func (s Server) ", v.Name(), "() ", w.Package.Ident(v.Name()+"ServiceServer"),
-			" { return New", v.Name(), "ServiceServer(s.Db) }")
+			" { return ", v.Name(), "ServiceServer{Db: s.Db, Rec: s.Rec} }")
 	}
 	w.P("")
 }

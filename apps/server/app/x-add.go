@@ -16,11 +16,17 @@ func (w *fileWork) xAdd() {
 		/* */ "req *", w.Src.GoImportPath.Ident(name+"AddRequest"),
 		") (*", w.Src.GoImportPath.Ident(name), ", error) {")
 
+	// The row and what a recorder writes about it are one write, so they are
+	// done inside one transaction -- and only when there is a recorder, since
+	// the row alone is a single statement with nothing to hold it together
+	// with. See xJoin.
+	w.xJoin("s.Rec != nil")
+
 	edges := slices.Collect(w.Entity.Edges())
 	if len(edges) > 0 {
 		w.P("	ds := make([]func(v *", w.Ident, "), 0, ", len(edges), ")")
 	}
-	w.P("	q := s.Db.", name, ".Create()")
+	w.P("	q := st.Db.", name, ".Create()")
 	for p := range w.Entity.Props() {
 		name := work.Name(p.Name())
 		u := "req.Get" + name.Go() + "()"
@@ -82,7 +88,7 @@ func (w *fileWork) xAdd() {
 				k += "[:]"
 			}
 
-			w.P("	if k, err := ", m.Name(), "GetKey(ctx, s.Db, req.Get", name.Go(), "()); err != nil {")
+			w.P("	if k, err := ", m.Name(), "GetKey(ctx, st.Db, req.Get", name.Go(), "()); err != nil {")
 			w.P("		return nil, err")
 			w.P("	} else {")
 			w.P("		q.Set", name.Ent(), "ID(k)")
@@ -151,6 +157,20 @@ func (w *fileWork) xAdd() {
 	w.P("				return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("NotFound"), ", \"", name, ": referenced entity not found: %s\", err.Unwrap())")
 	w.P("			}")
 	w.P("		}")
+	w.P("		return nil, err")
+	w.P("	}")
+	w.P("")
+
+	// The key is taken from the row rather than from the request: a request
+	// may leave it out, and then the one that exists is the one the database
+	// or the branch above settled on.
+	w.P("	if err := record(ctx, s.Rec, st.Db, Change{")
+	w.P("		Method: ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ",")
+	w.P("		Key: u.ID,")
+	w.P("	}); err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
+	w.P("	if err := tx.Commit(); err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
 	w.P("")

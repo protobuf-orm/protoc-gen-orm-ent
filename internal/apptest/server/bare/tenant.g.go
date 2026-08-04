@@ -15,6 +15,7 @@ import (
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
+	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -23,15 +24,37 @@ import (
 
 type TenantServiceServer struct {
 	Db *ent.Client
+
+	// Rec is told about every write this server makes, and nothing is told
+	// if it is nil. See [Recorder].
+	Rec Recorder
+
 	apptest.UnimplementedTenantServiceServer
 }
 
-func NewTenantServiceServer(db *ent.Client) apptest.TenantServiceServer {
-	return TenantServiceServer{Db: db}
+// NewTenantServiceServer answers with a server that runs its queries with `db`.
+//
+// It takes the options of [Server] so that what is built here can be told
+// where to report its writes. Built without that, it reports nowhere.
+func NewTenantServiceServer(db *ent.Client, opts ...Option) apptest.TenantServiceServer {
+	s := Server{Db: db}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return TenantServiceServer{Db: s.Db, Rec: s.Rec}
 }
 
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {
-	q := s.Db.Tenant.Create()
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q := st.Db.Tenant.Create()
 	if req.HasId() {
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
@@ -70,6 +93,16 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 				return nil, status.Errorf(codes.NotFound, "Tenant: referenced entity not found: %s", err.Unwrap())
 			}
 		}
+		return nil, err
+	}
+
+	if err := record(ctx, s.Rec, st.Db, Change{
+		Method: apptest.TenantService_Add_FullMethodName,
+		Key:    u.ID,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -154,7 +187,7 @@ func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatch
 		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	return s.apply(ctx, req.GetRef(), doc)
+	return s.apply(ctx, req.GetRef(), doc, apptest.TenantService_Patch_FullMethodName)
 }
 
 func TenantGetKey(ctx context.Context, db *ent.Client, ref *apptest.TenantRef) (uuid.UUID, error) {
@@ -192,10 +225,10 @@ func (s TenantServiceServer) Apply(ctx context.Context, req *apptest.TenantApply
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
-	return s.apply(ctx, req.GetRef(), req.GetPatch())
+	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.TenantService_Apply_FullMethodName)
 }
 
-func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, doc *patchpb.Patch) (*apptest.Tenant, error) {
+func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, doc *patchpb.Patch, method string) (*apptest.Tenant, error) {
 	plan := &ormpatch.Plan{Entity: tenantOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(tenantOrmEntity, doc)
@@ -216,17 +249,14 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	st := s
-	commit := func() error { return nil }
-	if !s.Db.InTx() {
-		tx, err := s.Db.Tx(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback()
-		st.Db = tx.Client()
-		commit = tx.Commit
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
 	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
 
 	k, err := TenantGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -273,11 +303,21 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		}
 	}
 
+	if mod != nil {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: method,
+			Key:    k,
+			Patch:  doc,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	out, err := st.Get(ctx, at.Pick())
 	if err != nil {
 		return nil, err
 	}
-	if err := commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -289,7 +329,42 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 		return nil, err
 	}
 
-	if _, err := s.Db.Tenant.Delete().Where(p).Exec(ctx); err != nil {
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	var k any
+	if s.Rec != nil {
+		v, err := st.Db.Tenant.Query().Where(p).OnlyID(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return &emptypb.Empty{}, nil
+			}
+			return nil, err
+		}
+
+		k = v
+		p = tenant.IDEQ(v)
+	}
+
+	n, err := st.Db.Tenant.Delete().Where(p).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n > 0 {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: apptest.TenantService_Erase_FullMethodName,
+			Key:    k,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

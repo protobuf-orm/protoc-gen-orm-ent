@@ -62,7 +62,8 @@ func (w *fileWork) xPatch() {
 	// A request that asks for nothing converts to no document, which is not the
 	// same as an empty one. apply takes it: for a versioned entity it is still
 	// the version stamp, which is what `_force` alone has always meant.
-	w.P("	return s.apply(ctx, req.GetRef(), doc)")
+	w.P("	return s.apply(ctx, req.GetRef(), doc, ",
+		w.Src.GoImportPath.Ident(name_x+"Service_Patch_FullMethodName"), ")")
 	w.P("}")
 	w.P("")
 }

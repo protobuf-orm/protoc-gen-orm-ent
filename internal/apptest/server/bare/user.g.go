@@ -16,6 +16,7 @@ import (
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
+	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -25,16 +26,38 @@ import (
 
 type UserServiceServer struct {
 	Db *ent.Client
+
+	// Rec is told about every write this server makes, and nothing is told
+	// if it is nil. See [Recorder].
+	Rec Recorder
+
 	apptest.UnimplementedUserServiceServer
 }
 
-func NewUserServiceServer(db *ent.Client) apptest.UserServiceServer {
-	return UserServiceServer{Db: db}
+// NewUserServiceServer answers with a server that runs its queries with `db`.
+//
+// It takes the options of [Server] so that what is built here can be told
+// where to report its writes. Built without that, it reports nowhere.
+func NewUserServiceServer(db *ent.Client, opts ...Option) apptest.UserServiceServer {
+	s := Server{Db: db}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return UserServiceServer{Db: s.Db, Rec: s.Rec}
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
 	ds := make([]func(v *apptest.User), 0, 1)
-	q := s.Db.User.Create()
+	q := st.Db.User.Create()
 	if req.HasId() {
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
@@ -44,7 +67,7 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	} else {
 		q.SetID(uuid.New())
 	}
-	if k, err := TenantGetKey(ctx, s.Db, req.GetTenant()); err != nil {
+	if k, err := TenantGetKey(ctx, st.Db, req.GetTenant()); err != nil {
 		return nil, err
 	} else {
 		q.SetTenantID(k)
@@ -85,6 +108,16 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 				return nil, status.Errorf(codes.NotFound, "User: referenced entity not found: %s", err.Unwrap())
 			}
 		}
+		return nil, err
+	}
+
+	if err := record(ctx, s.Rec, st.Db, Change{
+		Method: apptest.UserService_Add_FullMethodName,
+		Key:    u.ID,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -195,7 +228,7 @@ func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequ
 		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	return s.apply(ctx, req.GetRef(), doc)
+	return s.apply(ctx, req.GetRef(), doc, apptest.UserService_Patch_FullMethodName)
 }
 
 func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid.UUID, error) {
@@ -233,10 +266,10 @@ func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequ
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
-	return s.apply(ctx, req.GetRef(), req.GetPatch())
+	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.UserService_Apply_FullMethodName)
 }
 
-func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc *patchpb.Patch) (*apptest.User, error) {
+func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc *patchpb.Patch, method string) (*apptest.User, error) {
 	plan := &ormpatch.Plan{Entity: userOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(userOrmEntity, doc)
@@ -257,17 +290,14 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	st := s
-	commit := func() error { return nil }
-	if !s.Db.InTx() {
-		tx, err := s.Db.Tx(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback()
-		st.Db = tx.Client()
-		commit = tx.Commit
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
 	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
 
 	k, err := UserGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -317,11 +347,21 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		}
 	}
 
+	if mod != nil {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: method,
+			Key:    k,
+			Patch:  doc,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	out, err := st.Get(ctx, at.Pick())
 	if err != nil {
 		return nil, err
 	}
-	if err := commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -333,7 +373,42 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*em
 		return nil, err
 	}
 
-	if _, err := s.Db.User.Delete().Where(p).Exec(ctx); err != nil {
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	var k any
+	if s.Rec != nil {
+		v, err := st.Db.User.Query().Where(p).OnlyID(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return &emptypb.Empty{}, nil
+			}
+			return nil, err
+		}
+
+		k = v
+		p = user.IDEQ(v)
+	}
+
+	n, err := st.Db.User.Delete().Where(p).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n > 0 {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: apptest.UserService_Erase_FullMethodName,
+			Key:    k,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

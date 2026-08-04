@@ -16,6 +16,7 @@ import (
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
+	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -23,15 +24,37 @@ import (
 
 type ValueFieldServiceServer struct {
 	Db *ent.Client
+
+	// Rec is told about every write this server makes, and nothing is told
+	// if it is nil. See [Recorder].
+	Rec Recorder
+
 	apptest.UnimplementedValueFieldServiceServer
 }
 
-func NewValueFieldServiceServer(db *ent.Client) apptest.ValueFieldServiceServer {
-	return ValueFieldServiceServer{Db: db}
+// NewValueFieldServiceServer answers with a server that runs its queries with `db`.
+//
+// It takes the options of [Server] so that what is built here can be told
+// where to report its writes. Built without that, it reports nowhere.
+func NewValueFieldServiceServer(db *ent.Client, opts ...Option) apptest.ValueFieldServiceServer {
+	s := Server{Db: db}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec}
 }
 
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
-	q := s.Db.ValueField.Create()
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q := st.Db.ValueField.Create()
 	if req.HasId() {
 		q.SetID(req.GetId())
 	}
@@ -430,6 +453,16 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 				return nil, status.Errorf(codes.NotFound, "ValueField: referenced entity not found: %s", err.Unwrap())
 			}
 		}
+		return nil, err
+	}
+
+	if err := record(ctx, s.Rec, st.Db, Change{
+		Method: apptest.ValueFieldService_Add_FullMethodName,
+		Key:    u.ID,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -886,7 +919,7 @@ func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFi
 		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	return s.apply(ctx, req.GetRef(), doc)
+	return s.apply(ctx, req.GetRef(), doc, apptest.ValueFieldService_Patch_FullMethodName)
 }
 
 func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFieldRef) (string, error) {
@@ -920,10 +953,10 @@ func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFi
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
-	return s.apply(ctx, req.GetRef(), req.GetPatch())
+	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.ValueFieldService_Apply_FullMethodName)
 }
 
-func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFieldRef, doc *patchpb.Patch) (*apptest.ValueField, error) {
+func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFieldRef, doc *patchpb.Patch, method string) (*apptest.ValueField, error) {
 	plan := &ormpatch.Plan{Entity: valueFieldOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(valueFieldOrmEntity, doc)
@@ -944,17 +977,14 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	st := s
-	commit := func() error { return nil }
-	if !s.Db.InTx() {
-		tx, err := s.Db.Tx(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback()
-		st.Db = tx.Client()
-		commit = tx.Commit
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
 	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
 
 	k, err := ValueFieldGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -1001,11 +1031,21 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		}
 	}
 
+	if mod != nil {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: method,
+			Key:    k,
+			Patch:  doc,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	out, err := st.Get(ctx, at.Pick())
 	if err != nil {
 		return nil, err
 	}
-	if err := commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -1017,7 +1057,42 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		return nil, err
 	}
 
-	if _, err := s.Db.ValueField.Delete().Where(p).Exec(ctx); err != nil {
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	var k any
+	if s.Rec != nil {
+		v, err := st.Db.ValueField.Query().Where(p).OnlyID(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return &emptypb.Empty{}, nil
+			}
+			return nil, err
+		}
+
+		k = v
+		p = valuefield.IDEQ(v)
+	}
+
+	n, err := st.Db.ValueField.Delete().Where(p).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n > 0 {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: apptest.ValueFieldService_Erase_FullMethodName,
+			Key:    k,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -1036,15 +1111,37 @@ func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
 
 type MessageFieldServiceServer struct {
 	Db *ent.Client
+
+	// Rec is told about every write this server makes, and nothing is told
+	// if it is nil. See [Recorder].
+	Rec Recorder
+
 	apptest.UnimplementedMessageFieldServiceServer
 }
 
-func NewMessageFieldServiceServer(db *ent.Client) apptest.MessageFieldServiceServer {
-	return MessageFieldServiceServer{Db: db}
+// NewMessageFieldServiceServer answers with a server that runs its queries with `db`.
+//
+// It takes the options of [Server] so that what is built here can be told
+// where to report its writes. Built without that, it reports nowhere.
+func NewMessageFieldServiceServer(db *ent.Client, opts ...Option) apptest.MessageFieldServiceServer {
+	s := Server{Db: db}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec}
 }
 
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
-	q := s.Db.MessageField.Create()
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q := st.Db.MessageField.Create()
 	if req.HasId() {
 		q.SetID(req.GetId())
 	}
@@ -1076,6 +1173,16 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 				return nil, status.Errorf(codes.NotFound, "MessageField: referenced entity not found: %s", err.Unwrap())
 			}
 		}
+		return nil, err
+	}
+
+	if err := record(ctx, s.Rec, st.Db, Change{
+		Method: apptest.MessageFieldService_Add_FullMethodName,
+		Key:    u.ID,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -1163,7 +1270,7 @@ func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.Messa
 		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	return s.apply(ctx, req.GetRef(), doc)
+	return s.apply(ctx, req.GetRef(), doc, apptest.MessageFieldService_Patch_FullMethodName)
 }
 
 func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MessageFieldRef) (string, error) {
@@ -1197,10 +1304,10 @@ func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.Messa
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
-	return s.apply(ctx, req.GetRef(), req.GetPatch())
+	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.MessageFieldService_Apply_FullMethodName)
 }
 
-func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.MessageFieldRef, doc *patchpb.Patch) (*apptest.MessageField, error) {
+func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.MessageFieldRef, doc *patchpb.Patch, method string) (*apptest.MessageField, error) {
 	plan := &ormpatch.Plan{Entity: messageFieldOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(messageFieldOrmEntity, doc)
@@ -1221,17 +1328,14 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	st := s
-	commit := func() error { return nil }
-	if !s.Db.InTx() {
-		tx, err := s.Db.Tx(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback()
-		st.Db = tx.Client()
-		commit = tx.Commit
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
 	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
 
 	k, err := MessageFieldGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -1278,11 +1382,21 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		}
 	}
 
+	if mod != nil {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: method,
+			Key:    k,
+			Patch:  doc,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	out, err := st.Get(ctx, at.Pick())
 	if err != nil {
 		return nil, err
 	}
-	if err := commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -1294,7 +1408,42 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		return nil, err
 	}
 
-	if _, err := s.Db.MessageField.Delete().Where(p).Exec(ctx); err != nil {
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	var k any
+	if s.Rec != nil {
+		v, err := st.Db.MessageField.Query().Where(p).OnlyID(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return &emptypb.Empty{}, nil
+			}
+			return nil, err
+		}
+
+		k = v
+		p = messagefield.IDEQ(v)
+	}
+
+	n, err := st.Db.MessageField.Delete().Where(p).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n > 0 {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: apptest.MessageFieldService_Erase_FullMethodName,
+			Key:    k,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -1313,15 +1462,37 @@ func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, err
 
 type MapFieldServiceServer struct {
 	Db *ent.Client
+
+	// Rec is told about every write this server makes, and nothing is told
+	// if it is nil. See [Recorder].
+	Rec Recorder
+
 	apptest.UnimplementedMapFieldServiceServer
 }
 
-func NewMapFieldServiceServer(db *ent.Client) apptest.MapFieldServiceServer {
-	return MapFieldServiceServer{Db: db}
+// NewMapFieldServiceServer answers with a server that runs its queries with `db`.
+//
+// It takes the options of [Server] so that what is built here can be told
+// where to report its writes. Built without that, it reports nowhere.
+func NewMapFieldServiceServer(db *ent.Client, opts ...Option) apptest.MapFieldServiceServer {
+	s := Server{Db: db}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec}
 }
 
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
-	q := s.Db.MapField.Create()
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q := st.Db.MapField.Create()
 	if req.HasId() {
 		q.SetID(req.GetId())
 	}
@@ -1369,6 +1540,16 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 				return nil, status.Errorf(codes.NotFound, "MapField: referenced entity not found: %s", err.Unwrap())
 			}
 		}
+		return nil, err
+	}
+
+	if err := record(ctx, s.Rec, st.Db, Change{
+		Method: apptest.MapFieldService_Add_FullMethodName,
+		Key:    u.ID,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -1468,7 +1649,7 @@ func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldP
 		return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 	}
 
-	return s.apply(ctx, req.GetRef(), doc)
+	return s.apply(ctx, req.GetRef(), doc, apptest.MapFieldService_Patch_FullMethodName)
 }
 
 func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRef) (string, error) {
@@ -1502,10 +1683,10 @@ func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldA
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
-	return s.apply(ctx, req.GetRef(), req.GetPatch())
+	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.MapFieldService_Apply_FullMethodName)
 }
 
-func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldRef, doc *patchpb.Patch) (*apptest.MapField, error) {
+func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldRef, doc *patchpb.Patch, method string) (*apptest.MapField, error) {
 	plan := &ormpatch.Plan{Entity: mapFieldOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(mapFieldOrmEntity, doc)
@@ -1526,17 +1707,14 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	st := s
-	commit := func() error { return nil }
-	if !s.Db.InTx() {
-		tx, err := s.Db.Tx(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback()
-		st.Db = tx.Client()
-		commit = tx.Commit
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
 	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
 
 	k, err := MapFieldGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -1583,11 +1761,21 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		}
 	}
 
+	if mod != nil {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: method,
+			Key:    k,
+			Patch:  doc,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	out, err := st.Get(ctx, at.Pick())
 	if err != nil {
 		return nil, err
 	}
-	if err := commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -1599,7 +1787,42 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		return nil, err
 	}
 
-	if _, err := s.Db.MapField.Delete().Where(p).Exec(ctx); err != nil {
+	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	var k any
+	if s.Rec != nil {
+		v, err := st.Db.MapField.Query().Where(p).OnlyID(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return &emptypb.Empty{}, nil
+			}
+			return nil, err
+		}
+
+		k = v
+		p = mapfield.IDEQ(v)
+	}
+
+	n, err := st.Db.MapField.Delete().Where(p).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n > 0 {
+		if err := record(ctx, s.Rec, st.Db, Change{
+			Method: apptest.MapFieldService_Erase_FullMethodName,
+			Key:    k,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

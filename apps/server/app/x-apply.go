@@ -41,16 +41,24 @@ func (w *fileWork) xApply() {
 		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("InvalidArgument")),
 		w.QualifiedGoIdent(work.PkgOrmPatch.Ident("ErrNoPatch")))
 	w.P("	}")
-	w.P("	return s.apply(ctx, req.GetRef(), req.GetPatch())")
+	w.P("	return s.apply(ctx, req.GetRef(), req.GetPatch(), ",
+		w.Src.GoImportPath.Ident(name_x+"Service_Apply_FullMethodName"), ")")
 	w.P("}")
 	w.P("")
 
 	// apply is the whole write path, and the only one: Patch converts its
 	// request into a document and arrives here too.
+	//
+	// Which of the two it was is carried in rather than worked out, because by
+	// the time the write happens there is nothing left to work it out from --
+	// the document is the same either way, which is the point of converting.
+	// It is the RPC's own name rather than a word this generator made up,
+	// which is the only spelling of it that outlives this package.
 	w.P("func (s ", name_x, "ServiceServer) apply(",
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "ref *", w.Src.GoImportPath.Ident(name_x+"Ref"), ",",
-		/* */ "doc *", work.PkgPatchPb.Ident("Patch"),
+		/* */ "doc *", work.PkgPatchPb.Ident("Patch"), ",",
+		/* */ "method string",
 		") (*", w.Ident, ", error) {")
 
 	// No document means no delta -- a request that asked for nothing. It is
@@ -106,22 +114,10 @@ func (w *fileWork) xApply() {
 	// A caller may already have put this call inside a transaction, to make it
 	// one write together with something else. Then this one joins rather than
 	// starts, and ending it is not this server's to do: whoever began it says
-	// whether the whole thing holds. Ent's own nesting is refused outright and
-	// InTx is how that is asked without starting one to find out; a driver from
-	// enttx answers by handing out a transaction that cannot end the outer one,
-	// so the commit and the rollback below are already nops in that case.
-	w.P("	st := s")
-	w.P("	commit := func() error { return nil }")
-	w.P("	if !s.Db.InTx() {")
-	w.P("		tx, err := s.Db.Tx(ctx)")
-	w.P("		if err != nil {")
-	w.P("			return nil, err")
-	w.P("		}")
-	w.P("		defer tx.Rollback()")
-	w.P("		st.Db = tx.Client()")
-	w.P("		commit = tx.Commit")
-	w.P("	}")
-	w.P("")
+	// whether the whole thing holds. That is enttx's to settle; see xJoin.
+	// Always, here, because the two statements are this server's own need and
+	// have nothing to do with whether anybody is watching.
+	w.xJoin("true")
 
 	// The ref is resolved to the key before anything is written, because the
 	// document may assign the very column the ref selects on. Read back through
@@ -182,11 +178,26 @@ func (w *fileWork) xApply() {
 	w.P("	}")
 	w.P("")
 
+	// Only the branch that wrote. A document made of tests asserts something
+	// and leaves the row as it was, so there is no change to be told about --
+	// and a recorder told about one would be saying that a row was touched on
+	// the strength of a request that read it.
+	w.P("	if mod != nil {")
+	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
+	w.P("			Method: method,")
+	w.P("			Key: k,")
+	w.P("			Patch: doc,")
+	w.P("		}); err != nil {")
+	w.P("			return nil, err")
+	w.P("		}")
+	w.P("	}")
+	w.P("")
+
 	w.P("	out, err := st.Get(ctx, at.Pick())")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
-	w.P("	if err := commit(); err != nil {")
+	w.P("	if err := tx.Commit(); err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
 	w.P("	return out, nil")

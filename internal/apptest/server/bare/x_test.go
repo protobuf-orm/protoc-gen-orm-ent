@@ -29,6 +29,12 @@ type Server struct {
 }
 
 func NewServer(t *testing.T) *Server {
+	return NewServerWith(t)
+}
+
+// NewServerWith is NewServer for a test that has something to say about how the
+// server is built, which so far is only what it is told to report its writes to.
+func NewServerWith(t *testing.T, opts ...bare.Option) *Server {
 	ctx := context.TODO()
 
 	driver, err := sql.Open("sqlite3", ":memory:?cache=shared&_fk=1")
@@ -41,7 +47,7 @@ func NewServer(t *testing.T) *Server {
 	err = db.Schema.Create(ctx)
 	require.NoError(t, err)
 
-	s, err := bare.NewServer(db)
+	s, err := bare.NewServer(db, opts...)
 	require.NoError(t, err)
 
 	return &Server{

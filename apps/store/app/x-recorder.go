@@ -1,0 +1,108 @@
+package app
+
+import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
+
+// xRecorder emits what a server says about a write it made, and to whom.
+//
+// It is the one place every write arrives at. Add, Patch, Apply and Erase are
+// four RPCs and three code paths, and an app that has to know what changed --
+// to keep an audit trail, to invalidate a cache, to publish an event -- would
+// otherwise reimplement all of them in a layer in front, once per entity, and
+// go on doing so for every entity added afterwards. Patch is the sharpest case:
+// it is not an RPC that a layer in front can watch Apply for, because it
+// converts its request into a document and joins Apply's path *inside* this
+// server, below anything that could have been stacked on top.
+//
+// It is told inside the transaction that makes the write, so what it does and
+// what it was told about hold or fall together, and it is told after the write
+// rather than before: a recorder is for what happened, and a rule about what
+// may happen belongs in a server in front of this one.
+func (w *Work) xRecorder() {
+	w.P("// Change is one write, described the way the server that made it saw it.")
+	w.P("type Change struct {")
+	w.P("	// Method is the RPC of this server that made the write, by the name")
+	w.P("	// gRPC knows it by, such as \"/pkg.HolderService/Apply\".")
+	w.P("	//")
+	w.P("	// It says the whole of what happened, which is why it is the only field")
+	w.P("	// here that says any of it. A service is named for the entity it is")
+	w.P("	// about, so the name carries that; and it is always one of the four this")
+	w.P("	// server has, so it carries what the write did as well -- an Add adds")
+	w.P("	// and an Erase erases, and Patch and Apply are one write by two roads.")
+	w.P("	// A field beside it naming the entity, or classifying the operation,")
+	w.P("	// would be a second copy of something already written down.")
+	w.P("	//")
+	w.P("	// It is not necessarily what a client called, and a recorder that wants")
+	w.P("	// that should ask the context for it. These servers are also called in")
+	w.P("	// process, where there is no RPC at all, and one call to a server in")
+	w.P("	// front of them can write several rows through several of these --")
+	w.P("	// adding a tenant that comes with an admin writes a row here under the")
+	w.P("	// name of the Holder service.")
+	w.P("	Method string")
+	w.P("")
+	w.P("	// Key is the row, as Go holds the key of this entity: a uuid.UUID, a")
+	w.P("	// string, whatever the schema declared. It is the key and never the")
+	w.P("	// reference the request named the row by, which may have been an alias,")
+	w.P("	// and may not name the same row a moment later.")
+	w.P("	Key any")
+	w.P("")
+	w.P("	// Patch is the document the write was compiled from, and nil for a")
+	w.P("	// write that was not one. A Patch request converts into a document, so")
+	w.P("	// both RPCs arrive with the same thing to say and a recorder does not")
+	w.P("	// have to know which one it was -- Method still says.")
+	w.P("	//")
+	w.P("	// It is what was asked for and not a redo log. What the server settled")
+	w.P("	// on itself is not in it: the version stamp of an Apply, and the key and")
+	w.P("	// the timestamps an Add makes up for a request that left them out.")
+	w.P("	Patch *", work.PkgPatchPb.Ident("Patch"))
+	w.P("}")
+	w.P("")
+
+	w.P("// Recorder is told about every write, inside the transaction that makes")
+	w.P("// it and before it is committed.")
+	w.P("//")
+	w.P("// Write through the server it is handed and through nothing else. That")
+	w.P("// server runs on the write's own transaction, so what it does is part of")
+	w.P("// that write, and it does not record -- a recorder that recorded its own")
+	w.P("// writes would not stop. Another client is another connection, and on a")
+	w.P("// pool of one it waits for the connection this transaction is holding,")
+	w.P("// which is a hang rather than an error.")
+	w.P("//")
+	w.P("// An error it answers with is reported to the caller, and the write is")
+	w.P("// undone with it *when this server opened the transaction*. When it")
+	w.P("// joined one that a caller began -- see enttx -- undoing it is not this")
+	w.P("// server's to do: the refusal is reported, and whoever began the")
+	w.P("// transaction says whether the whole of it still holds. A caller that")
+	w.P("// carries on past a failed call commits a write that nothing recorded.")
+	w.P("//")
+	w.P("// The guarantee is about the database and nothing else. Anything a")
+	w.P("// recorder does elsewhere -- a message published, a cache dropped --")
+	w.P("// outlives a rollback, so what has to hold with the write has to be")
+	w.P("// written with it, as a row somebody else picks up.")
+	w.P("type Recorder interface {")
+	w.P("	Record(ctx ", work.IdentContext, ", s Server, c Change) error")
+	w.P("}")
+	w.P("")
+
+	w.P("// record tells `rec` about `c`, and is what the servers call so that a")
+	w.P("// nil recorder costs a comparison rather than a branch at every site.")
+	w.P("//")
+	w.P("// What a recorder answers with is reported as Internal, whatever it was.")
+	w.P("// A recorder writes through a server of its own and that server answers")
+	w.P("// in the same words this one does -- an AlreadyExists about the row the")
+	w.P("// *trail* collided on would reach the caller as an AlreadyExists about")
+	w.P("// the row it was writing, and a caller that acts on that code, as one")
+	w.P("// looking for an entity that is already there does, would act on a")
+	w.P("// conflict that was never its own. Keeping the trail is this server's")
+	w.P("// job, so failing to is this server's fault.")
+	w.P("func record(ctx ", work.IdentContext, ", rec Recorder, db *", w.Ent.Ident("Client"), ", c Change) error {")
+	w.P("	if rec == nil {")
+	w.P("		return nil")
+	w.P("	}")
+	w.P("	if err := rec.Record(ctx, Server{Db: db}, c); err != nil {")
+	w.P("		return ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("Internal"),
+		", \"record the write by %s: %s\", c.Method, err)")
+	w.P("	}")
+	w.P("	return nil")
+	w.P("}")
+	w.P("")
+}
