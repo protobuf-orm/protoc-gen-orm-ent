@@ -10,11 +10,11 @@ import (
 	uuid "github.com/google/uuid"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
-	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -23,14 +23,11 @@ import (
 
 type TenantServiceServer struct {
 	Db *ent.Client
-	// Dialect is the SQL this server writes; the store's NewServer is
-	// what refuses one nobody wrote.
-	Dialect string
 	apptest.UnimplementedTenantServiceServer
 }
 
-func NewTenantServiceServer(db *ent.Client, dialect string) apptest.TenantServiceServer {
-	return TenantServiceServer{Db: db, Dialect: dialect}
+func NewTenantServiceServer(db *ent.Client) apptest.TenantServiceServer {
+	return TenantServiceServer{Db: db}
 }
 
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {
@@ -211,7 +208,7 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, tenantPatchColumns, s.Dialect)
+	pred, mod, err := entpatch.Build(plan, tenantPatchColumns, s.Db.Dialect())
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
@@ -219,13 +216,17 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := s.Db.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
 	st := s
-	st.Db = tx.Client()
+	commit := func() error { return nil }
+	if !s.Db.InTx() {
+		tx, err := s.Db.Tx(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		st.Db = tx.Client()
+		commit = tx.Commit
+	}
 
 	k, err := TenantGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -276,7 +277,7 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commit(); err != nil {
 		return nil, err
 	}
 	return out, nil

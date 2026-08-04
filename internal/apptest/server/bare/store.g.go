@@ -5,54 +5,59 @@ package bare
 import (
 	dialect "entgo.io/ent/dialect"
 	fmt "fmt"
-	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 )
 
 type Server struct {
 	Db *ent.Client
-	// Dialect is the SQL this server writes.
-	Dialect string
 }
 
 // Option adjusts a [Server] as it is built.
 type Option func(*Server)
 
-// WithDialect writes SQL for a dialect other than the driver's own.
+// NewServer refuses a client whose dialect this backend does not write
+// SQL for.
 //
-// It is for an engine that speaks one of the written dialects under a
-// different name -- a PostgreSQL-compatible server told to be postgres.
-// Whether it really is compatible is the caller's to know; a statement
-// is where a wrong answer shows up. It cannot name a dialect nothing
-// was written for.
-func WithDialect(dialect string) Option {
-	return func(s *Server) { s.Dialect = dialect }
-}
-
-// NewServer refuses a dialect this backend does not write SQL for.
-//
-// The driver says which one that is. Pass the same one the client was
-// built with, or say otherwise with [WithDialect].
-func NewServer(db *ent.Client, drv dialect.Driver, opts ...Option) (Server, error) {
-	s := Server{Db: db, Dialect: drv.Dialect()}
+// An engine that speaks one of the written dialects under a different
+// name -- a PostgreSQL-compatible server -- is named when the connection
+// is opened, which is where saying so belongs: everything the client does
+// is rendered for that dialect, not just what this server writes.
+func NewServer(db *ent.Client, opts ...Option) (Server, error) {
+	s := Server{Db: db}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	if !entpatch.Supports(s.Dialect) {
-		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, s.Dialect)
+	if d := db.Dialect(); !entpatch.Supports(d) {
+		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, d)
 	}
 	return s, nil
 }
 
-func (s Server) ValueField() apptest.ValueFieldServiceServer {
-	return NewValueFieldServiceServer(s.Db, s.Dialect)
+// WithDriver answers with a server that runs through drv, and is this one
+// in every other way.
+//
+// It is how a caller puts several servers on one transaction: begin one
+// with enttx and rebind the stack onto the driver it answers with.
+//
+// The dialect is checked again rather than assumed. A transaction wraps
+// the connection it was begun on, so it carries the same dialect -- but
+// this takes a driver from anywhere, and what NewServer refused at the
+// start should not become reachable by going around it.
+func (s Server) WithDriver(drv dialect.Driver) (apptest.Server, error) {
+	db := s.Db.WithDriver(drv)
+	if d := db.Dialect(); !entpatch.Supports(d) {
+		return nil, fmt.Errorf("%w: %s", entpatch.ErrDialect, d)
+	}
+	s.Db = db
+	return s, nil
 }
+
+func (s Server) ValueField() apptest.ValueFieldServiceServer { return NewValueFieldServiceServer(s.Db) }
 func (s Server) MessageField() apptest.MessageFieldServiceServer {
-	return NewMessageFieldServiceServer(s.Db, s.Dialect)
+	return NewMessageFieldServiceServer(s.Db)
 }
-func (s Server) MapField() apptest.MapFieldServiceServer {
-	return NewMapFieldServiceServer(s.Db, s.Dialect)
-}
-func (s Server) Tenant() apptest.TenantServiceServer { return NewTenantServiceServer(s.Db, s.Dialect) }
-func (s Server) User() apptest.UserServiceServer     { return NewUserServiceServer(s.Db, s.Dialect) }
+func (s Server) MapField() apptest.MapFieldServiceServer { return NewMapFieldServiceServer(s.Db) }
+func (s Server) Tenant() apptest.TenantServiceServer     { return NewTenantServiceServer(s.Db) }
+func (s Server) User() apptest.UserServiceServer         { return NewUserServiceServer(s.Db) }

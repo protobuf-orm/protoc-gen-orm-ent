@@ -9,13 +9,13 @@ import (
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
-	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	mapfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/mapfield"
 	messagefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/messagefield"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -23,14 +23,11 @@ import (
 
 type ValueFieldServiceServer struct {
 	Db *ent.Client
-	// Dialect is the SQL this server writes; the store's NewServer is
-	// what refuses one nobody wrote.
-	Dialect string
 	apptest.UnimplementedValueFieldServiceServer
 }
 
-func NewValueFieldServiceServer(db *ent.Client, dialect string) apptest.ValueFieldServiceServer {
-	return ValueFieldServiceServer{Db: db, Dialect: dialect}
+func NewValueFieldServiceServer(db *ent.Client) apptest.ValueFieldServiceServer {
+	return ValueFieldServiceServer{Db: db}
 }
 
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
@@ -939,7 +936,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, valueFieldPatchColumns, s.Dialect)
+	pred, mod, err := entpatch.Build(plan, valueFieldPatchColumns, s.Db.Dialect())
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
@@ -947,13 +944,17 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := s.Db.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
 	st := s
-	st.Db = tx.Client()
+	commit := func() error { return nil }
+	if !s.Db.InTx() {
+		tx, err := s.Db.Tx(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		st.Db = tx.Client()
+		commit = tx.Commit
+	}
 
 	k, err := ValueFieldGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -1004,7 +1005,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commit(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -1035,14 +1036,11 @@ func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
 
 type MessageFieldServiceServer struct {
 	Db *ent.Client
-	// Dialect is the SQL this server writes; the store's NewServer is
-	// what refuses one nobody wrote.
-	Dialect string
 	apptest.UnimplementedMessageFieldServiceServer
 }
 
-func NewMessageFieldServiceServer(db *ent.Client, dialect string) apptest.MessageFieldServiceServer {
-	return MessageFieldServiceServer{Db: db, Dialect: dialect}
+func NewMessageFieldServiceServer(db *ent.Client) apptest.MessageFieldServiceServer {
+	return MessageFieldServiceServer{Db: db}
 }
 
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
@@ -1215,7 +1213,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, messageFieldPatchColumns, s.Dialect)
+	pred, mod, err := entpatch.Build(plan, messageFieldPatchColumns, s.Db.Dialect())
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
@@ -1223,13 +1221,17 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := s.Db.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
 	st := s
-	st.Db = tx.Client()
+	commit := func() error { return nil }
+	if !s.Db.InTx() {
+		tx, err := s.Db.Tx(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		st.Db = tx.Client()
+		commit = tx.Commit
+	}
 
 	k, err := MessageFieldGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -1280,7 +1282,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commit(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -1311,14 +1313,11 @@ func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, err
 
 type MapFieldServiceServer struct {
 	Db *ent.Client
-	// Dialect is the SQL this server writes; the store's NewServer is
-	// what refuses one nobody wrote.
-	Dialect string
 	apptest.UnimplementedMapFieldServiceServer
 }
 
-func NewMapFieldServiceServer(db *ent.Client, dialect string) apptest.MapFieldServiceServer {
-	return MapFieldServiceServer{Db: db, Dialect: dialect}
+func NewMapFieldServiceServer(db *ent.Client) apptest.MapFieldServiceServer {
+	return MapFieldServiceServer{Db: db}
 }
 
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
@@ -1519,7 +1518,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, mapFieldPatchColumns, s.Dialect)
+	pred, mod, err := entpatch.Build(plan, mapFieldPatchColumns, s.Db.Dialect())
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
@@ -1527,13 +1526,17 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := s.Db.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
 	st := s
-	st.Db = tx.Client()
+	commit := func() error { return nil }
+	if !s.Db.InTx() {
+		tx, err := s.Db.Tx(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		st.Db = tx.Client()
+		commit = tx.Commit
+	}
 
 	k, err := MapFieldGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -1584,7 +1587,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commit(); err != nil {
 		return nil, err
 	}
 	return out, nil

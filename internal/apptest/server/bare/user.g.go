@@ -11,11 +11,11 @@ import (
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	graph "github.com/protobuf-orm/protobuf-orm/graph"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
-	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
+	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -25,14 +25,11 @@ import (
 
 type UserServiceServer struct {
 	Db *ent.Client
-	// Dialect is the SQL this server writes; the store's NewServer is
-	// what refuses one nobody wrote.
-	Dialect string
 	apptest.UnimplementedUserServiceServer
 }
 
-func NewUserServiceServer(db *ent.Client, dialect string) apptest.UserServiceServer {
-	return UserServiceServer{Db: db, Dialect: dialect}
+func NewUserServiceServer(db *ent.Client) apptest.UserServiceServer {
+	return UserServiceServer{Db: db}
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
@@ -252,7 +249,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		plan = v
 	}
 
-	pred, mod, err := entpatch.Build(plan, userPatchColumns, s.Dialect)
+	pred, mod, err := entpatch.Build(plan, userPatchColumns, s.Db.Dialect())
 	if err != nil {
 		if errors.Is(err, entpatch.ErrValue) {
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
@@ -260,13 +257,17 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := s.Db.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
 	st := s
-	st.Db = tx.Client()
+	commit := func() error { return nil }
+	if !s.Db.InTx() {
+		tx, err := s.Db.Tx(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		st.Db = tx.Client()
+		commit = tx.Commit
+	}
 
 	k, err := UserGetKey(ctx, st.Db, ref)
 	if err != nil {
@@ -320,7 +321,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commit(); err != nil {
 		return nil, err
 	}
 	return out, nil

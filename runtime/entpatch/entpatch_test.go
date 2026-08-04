@@ -13,7 +13,7 @@ import (
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpatch"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
-	"github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"

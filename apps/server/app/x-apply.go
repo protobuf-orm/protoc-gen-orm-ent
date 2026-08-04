@@ -82,7 +82,7 @@ func (w *fileWork) xApply() {
 	// to tell apart. A value this engine cannot store is the document's, the
 	// same answer compiling would have given; anything else means the column
 	// table and the schema disagree, which no request can correct.
-	w.P("	pred, mod, err := ", work.PkgEntPatch.Ident("Build"), "(plan, ", v, "PatchColumns, s.Dialect)")
+	w.P("	pred, mod, err := ", work.PkgEntPatch.Ident("Build"), "(plan, ", v, "PatchColumns, s.Db.Dialect())")
 	w.P("	if err != nil {")
 	w.Pf("		if %s(err, %s) {",
 		w.QualifiedGoIdent(work.PkgErrors.Ident("Is")),
@@ -102,13 +102,25 @@ func (w *fileWork) xApply() {
 	// final SELECT is an independent read: under concurrency a caller can be
 	// given a row -- and a version -- that some other writer stamped, and a
 	// version that is not yours is not a token you can compare-and-swap with.
-	w.P("	tx, err := s.Db.Tx(ctx)")
-	w.P("	if err != nil {")
-	w.P("		return nil, err")
-	w.P("	}")
-	w.P("	defer tx.Rollback()")
+	//
+	// A caller may already have put this call inside a transaction, to make it
+	// one write together with something else. Then this one joins rather than
+	// starts, and ending it is not this server's to do: whoever began it says
+	// whether the whole thing holds. Ent's own nesting is refused outright and
+	// InTx is how that is asked without starting one to find out; a driver from
+	// enttx answers by handing out a transaction that cannot end the outer one,
+	// so the commit and the rollback below are already nops in that case.
 	w.P("	st := s")
-	w.P("	st.Db = tx.Client()")
+	w.P("	commit := func() error { return nil }")
+	w.P("	if !s.Db.InTx() {")
+	w.P("		tx, err := s.Db.Tx(ctx)")
+	w.P("		if err != nil {")
+	w.P("			return nil, err")
+	w.P("		}")
+	w.P("		defer tx.Rollback()")
+	w.P("		st.Db = tx.Client()")
+	w.P("		commit = tx.Commit")
+	w.P("	}")
 	w.P("")
 
 	// The ref is resolved to the key before anything is written, because the
@@ -174,7 +186,7 @@ func (w *fileWork) xApply() {
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
-	w.P("	if err := tx.Commit(); err != nil {")
+	w.P("	if err := commit(); err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
 	w.P("	return out, nil")

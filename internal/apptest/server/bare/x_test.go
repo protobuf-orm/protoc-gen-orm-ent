@@ -41,7 +41,7 @@ func NewServer(t *testing.T) *Server {
 	err = db.Schema.Create(ctx)
 	require.NoError(t, err)
 
-	s, err := bare.NewServer(db, driver)
+	s, err := bare.NewServer(db)
 	require.NoError(t, err)
 
 	return &Server{

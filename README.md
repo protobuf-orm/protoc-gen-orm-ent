@@ -17,12 +17,49 @@ The handler runs four sub-generators in order:
 | App        | Output                              | Contents                                                                 |
 | ---------- | ----------------------------------- | ------------------------------------------------------------------------ |
 | **Schema** | `schema/<name>.go`                  | ent schema types — `Fields()`, `Edges()`, `Indexes()`, `Annotations()`.  |
-| **Ent**    | `ent/<name>.go`                     | proto ↔ ent conversion helpers for each entity.                          |
-| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing Add/Get/Patch/Erase. |
+| **Ent**    | `ent/<name>.go`, `ent/orm.g.go`     | proto ↔ ent conversion helpers for each entity, and what the ent client will not say about itself. |
+| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing Add/Get/Patch/Apply/Erase. |
 | **Store**  | `store.g.go`                        | server/client registration wiring (like protoc-gen-orm-go's store).      |
 
 The generated ent schema (`schema/*.go`) is then consumed by ent's own code
 generator (`ent generate`) to produce the runtime ent package the servers use.
+
+### What is written into the ent package
+
+`ent/orm.g.go` is the one output that is about the package rather than about an
+entity, and it is there because it has nowhere else to be: ent keeps the driver
+on an unexported field, so only a file inside that package can read it.
+
+| | |
+| --- | --- |
+| `Client.Dialect()`   | the SQL this client speaks — the servers write raw SQL for `Apply` and have to know which. |
+| `Client.Driver()`    | what the client runs through, which is what a shared transaction is begun on. |
+| `Client.WithDriver()`| the same client on another driver, hooks and interceptors intact. |
+| `Client.InTx()`      | whether the client is already bound to a transaction of ent's own. |
+
+Without these a caller would have to repeat, to every server it builds, what it
+already said when it opened the connection — and a caller that repeats itself
+can disagree with itself.
+
+### The runtime module
+
+The generated servers import
+[`protoc-gen-orm-ent/runtime`](./runtime), a module of its own so that the
+plugin does not depend on ent and a consumer of the plugin does not build it:
+
+| | |
+| --- | --- |
+| `runtime/entpatch` | renders a compiled patch document as ent statements. |
+| `runtime/enttx`    | lets a transaction stand in for a driver, so a whole server stack shares one. |
+
+It is one module rather than one per package because a generated server imports
+all of it: split up, a consumer would carry a pin per package and would have to
+keep those pins agreeing with each other and with the plugin that wrote the
+imports.
+
+> `runtime/entpatch` was `protoc-gen-orm-ent/entpatch`. The path appears only in
+> generated code, so moving costs one regeneration — which upgrading the plugin
+> asks for anyway.
 
 Example of the generated ent schema for a `User` entity:
 
@@ -78,59 +115,75 @@ plugins:
 ```
 
 After `buf generate`, run `ent generate` over the produced `schema/` package to
-materialize the ent runtime.
+materialize the ent runtime. It needs the `sql/modifier` feature: `Apply` writes
+a patch document as one statement, through column expressions ent has no builder
+for.
+
+```sh
+ent generate ./schema --target ./ent --feature sql/modifier
+```
 
 Options:
 
 | Option       | Default              | Meaning                                       |
 | ------------ | -------------------- | --------------------------------------------- |
 | `ent.namer`  | `ent/{{ .Name }}.go` | template for the proto↔ent helper filename.   |
+| `ent.client` | `orm.g.go`           | filename, beside those, for what is about the package rather than an entity. |
 
 ## Structure
 
 ```
 main.go / handler.go    flag parsing; parses files into a graph.Graph; runs the 4 apps
 apps/schema/app/        ent schema (x-fields.go, x-edges.go, x-annotations.go, type.go)
-apps/ent/app/           proto ↔ ent conversion (x-proto.go)
-apps/server/app/        gRPC servers backed by ent (x-add/get/patch/erase/select/pick.go)
+apps/ent/app/           proto ↔ ent conversion (x-proto.go), client accessors (x-client.go)
+apps/server/app/        gRPC servers backed by ent (x-add/get/patch/apply/erase/select/pick.go)
 apps/store/app/         registration wiring
 internal/work/          file/name/import bookkeeping (Name.Go(), Name.Ent())
 internal/ent/           PascalCase helper (vendored from ent)
 internal/strs/          protobuf name-casing helpers (vendored from protobuf-go)
+runtime/                SEPARATE MODULE — what the generated servers import (see below)
 internal/apptest/       SEPARATE MODULE — integration fixtures + tests (see below)
 ```
 
-### Two modules: the plugin and its integration tests
+### Three modules: the plugin, its runtime, and its integration tests
 
 The plugin itself depends only on `protobuf-orm`, `google.golang.org/protobuf`,
 and `go-openapi/inflect` — so a consumer that just runs the generator pulls a
 tiny dependency set (the plugin binary compiles ~4 modules).
 
-The heavy runtime dependencies — `entgo.io/ent`, `ariga.io/atlas`,
-`mattn/go-sqlite3` (cgo), `google.golang.org/grpc`, `testify`, … — are used
-only by the generated integration suite. To keep them out of consumers'
-builds, `internal/apptest/` is its **own Go module**
-(`github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest`); those deps live
-in its `go.mod`, not the plugin's.
+`runtime/` is its **own Go module** for the same reason from the other side: it
+needs ent because it renders ent statements and wraps ent drivers, and a
+consumer imports it from the generated servers rather than from the generator.
+Keeping it apart is what lets the plugin stay free of ent.
 
-Because it is a nested module, `go build ./...` / `go test ./...` from the repo
-root operate on the **plugin only** and never touch `apptest`. Work on the
-integration suite from inside its directory.
+The heavy test-only dependencies — `ariga.io/atlas`, `mattn/go-sqlite3` (cgo),
+`google.golang.org/grpc`, `testify`, … — are used only by the generated
+integration suite. To keep them out of consumers' builds, `internal/apptest/` is
+a **third module** (`…/internal/apptest`); those deps live in its `go.mod`, not
+the plugin's. It `replace`s the runtime with the working tree, so a change to
+either the generator or the runtime is exercised by the same `go test`.
+
+Because they are nested modules, `go build ./...` / `go test ./...` from the
+repo root operate on the **plugin only**. Work on the other two from inside
+their directories.
 
 ## Development
 
-A (git-ignored) `go.work` ties the plugin module, the `internal/apptest`
-module, and the sibling `protobuf-orm` / `protoc-gen-orm-go` /
-`protoc-gen-orm-service` checkouts together so local changes flow through.
+A (git-ignored) `go.work` ties the plugin module, `runtime`, the
+`internal/apptest` module, and the sibling `protobuf-orm` / `protoc-gen-orm-go`
+/ `protoc-gen-orm-service` checkouts together so local changes flow through.
 
 ```sh
 # the plugin
-go build ./...               # plugin packages only (apptest is a separate module)
+go build ./...               # plugin packages only (the other two are separate modules)
 go vet ./...
+
+# what the generated servers import
+cd runtime && go test ./...
 
 # regenerate + exercise the integration suite
 buf generate                 # full plugin pipeline over proto/ (writes into internal/apptest)
-go generate ./...            # run `ent generate` for the schema
+./gen-ent.sh                 # run `ent generate` for the schema
 cd internal/apptest && go test ./...   # server integration tests against sqlite
 ```
 

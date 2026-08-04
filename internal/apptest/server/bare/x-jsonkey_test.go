@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"entgo.io/ent/dialect"
-	"github.com/protobuf-orm/protoc-gen-orm-ent/entpatch"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 
 	"github.com/lesomnus/protobuf-patch/patch"
 	"github.com/lesomnus/z"
@@ -90,29 +91,29 @@ func TestJSONKeysThroughPatch(t *testing.T) {
 	}))
 }
 
-// The dialect a server is told is the SQL it writes, not a claim about the
-// driver -- so an engine this backend has no spelling for is refused at
-// construction rather than at the first request that would have needed one.
+// The dialect a server writes is the connection's, and an engine this backend
+// has no spelling for is refused at construction rather than at the first
+// request that would have needed one.
 func TestServerRefusesAnUnwrittenDialect(t *testing.T) {
 	s := NewServer(t)
 	defer s.Close()
 
-	// The driver decides by default, and the harness opens SQLite.
-	_, err := bare.NewServer(s.Db, s.Driver)
+	// The harness opens SQLite, which is written for.
+	_, err := bare.NewServer(s.Db)
 	require.NoError(t, err)
 
-	// An override may name another written dialect -- that is the escape hatch
-	// for an engine that speaks one under a different name.
-	_, err = bare.NewServer(s.Db, s.Driver, bare.WithDialect(dialect.Postgres))
-	require.NoError(t, err)
-
-	// It may not name one nothing was written for, however it arrives.
+	// A client opened on something unwritten is refused, however it arrives.
 	for _, d := range []string{dialect.MySQL, dialect.Gremlin, "cockroach", ""} {
-		_, err := bare.NewServer(s.Db, s.Driver, bare.WithDialect(d))
+		_, err := bare.NewServer(ent.NewClient(ent.Driver(fakeDriver{d})))
 		require.ErrorIs(t, err, entpatch.ErrDialect, "dialect %q", d)
 	}
-	_, err = bare.NewServer(s.Db, fakeDriver{dialect.MySQL})
-	require.ErrorIs(t, err, entpatch.ErrDialect, "a driver this backend does not write for")
+
+	// An engine that speaks a written dialect under another name says so when
+	// the connection is opened, which is where it belongs: everything the
+	// client renders is rendered for that dialect, not just what this server
+	// writes.
+	_, err = bare.NewServer(s.Db.WithDriver(fakeDriver{dialect.Postgres}))
+	require.NoError(t, err)
 }
 
 // fakeDriver stands in for a connection to something unwritten; only its

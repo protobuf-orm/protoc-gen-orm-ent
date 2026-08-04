@@ -17,7 +17,7 @@ require (
 	github.com/lesomnus/z v0.0.0-20250923111312-437bd8f8f4cf
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260803211301-4b30f7db159f
-	github.com/protobuf-orm/protoc-gen-orm-ent/entpatch v0.0.0-20260803182554-97476c522b1d
+	github.com/protobuf-orm/protoc-gen-orm-ent/runtime v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
@@ -45,3 +45,10 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// The runtime module lives in this repository, and these tests are about what
+// the generator emits against it. Pinned to a published version they would test
+// the working tree's generated code against somebody else's runtime, and would
+// have nothing to say until the runtime was published; this way a change to
+// either is exercised by the same `go test`.
+replace github.com/protobuf-orm/protoc-gen-orm-ent/runtime => ../../runtime
