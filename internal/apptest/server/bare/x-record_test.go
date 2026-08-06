@@ -412,3 +412,82 @@ func TestRecordIsPartOfTheWrite(t *testing.T) {
 		x.NoError(err, "the row is still there")
 	}))
 }
+
+// TestRecorders is what WithRecorder does when it is given a second one: it
+// adds rather than replaces, because a recorder that was silently dropped is
+// the failure of this that nobody would notice.
+func TestRecorders(t *testing.T) {
+	build := func(t *testing.T, rs ...bare.Recorder) (*Server, *Client) {
+		opts := make([]bare.Option, len(rs))
+		for i, r := range rs {
+			opts[i] = bare.WithRecorder(r)
+		}
+
+		s := NewServerWith(t, opts...)
+		t.Cleanup(func() { s.Close() })
+
+		c := NewClient(t, s)
+		t.Cleanup(func() { c.Close() })
+
+		return s, c
+	}
+
+	t.Run("both are told", func(t *testing.T) {
+		x := require.New(t)
+		a, b := &recorder{}, &recorder{}
+		_, c := build(t, a, b)
+
+		v, err := c.Tenant().Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
+		x.NoError(err)
+
+		for _, r := range []*recorder{a, b} {
+			u := r.Only(x)
+			x.Equal(pb.TenantService_Add_FullMethodName, u.Method)
+			k, ok := u.Key.(uuid.UUID)
+			x.True(ok)
+			x.Equal(v.GetId(), k[:])
+		}
+	})
+
+	t.Run("in the order they were given", func(t *testing.T) {
+		x := require.New(t)
+
+		var order []string
+		say := func(name string) *recorder {
+			r := &recorder{}
+			r.Do = func(context.Context, bare.Server, bare.Change) error {
+				order = append(order, name)
+				return nil
+			}
+			return r
+		}
+		_, c := build(t, say("first"), say("second"))
+
+		_, err := c.Tenant().Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
+		x.NoError(err)
+		x.Equal([]string{"first", "second"}, order)
+	})
+
+	t.Run("one that refuses stops the rest, and the write", func(t *testing.T) {
+		x := require.New(t)
+
+		no := &recorder{}
+		no.Do = func(context.Context, bare.Server, bare.Change) error {
+			return status.Error(codes.ResourceExhausted, "no")
+		}
+		after := &recorder{}
+		s, c := build(t, no, after)
+
+		_, err := c.Tenant().Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
+		x.Equal(codes.Internal, status.Code(err))
+
+		// Every recorder is required, so the write is undone for any of them.
+		// A recorder that should not be able to refuse a write says so by not
+		// refusing; there is no option here that means it.
+		x.Zero(after.Len(), "the ones behind it were not told")
+
+		n, err := s.Db.Tenant.Query().Count(t.Context())
+		x.NoError(err)
+		x.Zero(n, "the row was written and then taken back")
+	})
+}

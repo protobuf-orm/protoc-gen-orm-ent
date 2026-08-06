@@ -75,6 +75,64 @@ func (User) Fields() []ent.Field {
 }
 ```
 
+## Two hooks, and why they are here rather than in front
+
+An app usually has something to say about writes and something to say about
+reads: keep an audit trail, invalidate a cache, publish an event; show a caller
+only their own rows, hide what was soft-deleted. Both look like work for a layer
+stacked in front of these servers, and both are worse there.
+
+**A write cannot be watched from in front.** `Add`, `Get`, `Patch`, `Apply` and
+`Erase` are five RPCs and four code paths: `Patch` turns its request into a
+patch document and joins `Apply`'s path *inside* this server, below anything
+that can be stacked on top. A layer in front sees two shapes, has to convert one
+of them itself, once per entity and once more for every entity added afterwards
+— and still cannot tell a document that wrote something from one that only
+asserted.
+
+**A read can be narrowed from in front, and that is the problem.** It means
+overriding `Get`, `Patch`, `Apply` and `Erase`, once per entity, forever. It is
+the same override written out again and again, and the copies drift: a rule
+fixed in one of them stays wrong in the next.
+
+So both are hooks on the generated server.
+
+| | | |
+| --- | --- | --- |
+| `Recorder` | told about every write | inside the transaction that makes it, before it is committed |
+| `Scopes`   | asked before every read | and its predicate goes into the query |
+
+```go
+s, err := bare.NewServer(db,
+    bare.WithRecorder(trail),        // given twice it adds, rather than replacing
+    bare.WithScope(bare.Scopes{
+        Holder: func(ctx context.Context) (predicate.Holder, error) { ... },
+    }),
+)
+```
+
+Neither hook teaches this generator what it is for. It emits them and calls
+them; whether the predicate is about tenancy, ownership or a soft delete, and
+whether the recorder writes a trail or drops a cache, is the app's to say.
+
+Three things follow from where they are:
+
+- **A write and what is recorded about it are one write.** `Add` and `Erase`
+  open a transaction they would not otherwise need, and only while a recorder is
+  configured. `Erase` also reads the row before deleting it, since a request may
+  have named it by an alias and an alias is not what a trail is read back with.
+- **Narrowing is not refusing.** A row out of scope is a row the query does not
+  match, so a `Get` of it is `NotFound` and an `Apply` of it says no row was
+  matched. That is usually the right answer: that something exists is itself
+  something a caller who may not see it should not be told.
+- **Neither applies to `Add`.** It builds a row rather than finding one. Whether
+  a caller may create something, or point an edge at something they cannot see,
+  is not a predicate, and it belongs in front.
+
+The server a recorder is handed carries neither hook: it does not record, so a
+trail cannot audit itself into a loop, and it is not narrowed, so it can read
+what it has just been told about.
+
 ## Field mapping
 
 `apps/schema/app/x-fields.go` maps each prop's ORM `Type` to an ent field

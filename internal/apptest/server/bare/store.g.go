@@ -9,6 +9,7 @@ import (
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -20,13 +21,18 @@ type Server struct {
 	// Rec is told about every write these servers make, and nothing is
 	// told if it is nil. See [Recorder].
 	Rec Recorder
+
+	// Scope narrows what these servers can see, and they see everything
+	// it says nothing about. See [Scopes].
+	Scope Scopes
 }
 
 // Option adjusts a [Server] as it is built.
 type Option func(*Server)
 
 // WithRecorder answers with the option that has every write reported to
-// `v`.
+// `v`. Given more than once it adds a recorder rather than replacing the
+// one before it; see [Recorders] for what that costs when one refuses.
 //
 // It is not free. A write and what a recorder makes of it have to be one
 // write, so Add and Erase, which are a single statement without a
@@ -34,7 +40,22 @@ type Option func(*Server)
 // takes; and Erase reads the row it is about to delete, to be able to say
 // which one it was. Nothing of the sort happens while this is unset.
 func WithRecorder(v Recorder) Option {
-	return func(s *Server) { s.Rec = v }
+	return func(s *Server) {
+		switch r := s.Rec.(type) {
+		case nil:
+			s.Rec = v
+		case Recorders:
+			s.Rec = append(r, v)
+		default:
+			s.Rec = Recorders{r, v}
+		}
+	}
+}
+
+// WithScope answers with the option that narrows what these servers can
+// see to what `v` says. See [Scopes].
+func WithScope(v Scopes) Option {
+	return func(s *Server) { s.Scope = v }
 }
 
 // Change is one write, described the way the server that made it saw it.
@@ -96,8 +117,38 @@ type Change struct {
 // recorder does elsewhere -- a message published, a cache dropped --
 // outlives a rollback, so what has to hold with the write has to be
 // written with it, as a row somebody else picks up.
+//
+// The server it is handed carries no scope either, so a recorder sees
+// every row rather than the ones the request was allowed to. That is
+// what it is for: a trail that could not read what it just wrote about,
+// or that recorded only the writes the caller could see, would be a
+// trail of the wrong thing. See [Scopes].
 type Recorder interface {
 	Record(ctx context.Context, s Server, c Change) error
+}
+
+// Recorders is told about a write in the order they are written, and
+// stops at the first one that refuses. [WithRecorder] builds one of these
+// as soon as it is given a second recorder.
+//
+// Every one of them is *required*: the write is undone for any of them.
+// That is the right default, since a trail is what this exists for and a
+// row written while nothing recorded it is the failure nobody notices.
+// It is not right for all of them -- a cache that was not dropped and a
+// message that was not published are worth a log line rather than a
+// refused write -- and a recorder that means that says so by answering
+// nil and dealing with its own errors. There is no option here that means
+// it, because the choice belongs to whoever wrote the recorder and not to
+// whoever assembled the server.
+type Recorders []Recorder
+
+func (rs Recorders) Record(ctx context.Context, s Server, c Change) error {
+	for _, r := range rs {
+		if err := r.Record(ctx, s, c); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // record tells `rec` about `c`, and is what the servers call so that a
@@ -119,6 +170,34 @@ func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
 		return status.Errorf(codes.Internal, "record the write by %s: %s", c.Method, err)
 	}
 	return nil
+}
+
+// Scopes narrows what the servers of a [Server] can see, one entity at a
+// time. A nil hook, or one that answers with a nil predicate, narrows
+// nothing: every row is in scope.
+//
+// A hook is asked once per query and is handed the context of the call,
+// which is where whatever it needs to decide has to be -- who is calling,
+// what they are allowed. An error it answers with is the caller's answer,
+// so it may be a status.
+//
+// Narrowing is not refusing, and the difference is the point. A row out
+// of scope is a row the query does not match, so a Get of it is NotFound
+// and an Apply of it says no row was matched -- which is usually what
+// should be said. That something exists is itself something a caller who
+// may not see it should not be told.
+//
+// A call with nothing in its context to decide by -- a deployment writing
+// to itself before anybody exists, a job with no request behind it -- is
+// the case to be deliberate about. A hook that answers `nil, nil` there
+// lets that call see everything, which is usually right and is never
+// safe to arrive at by accident.
+type Scopes struct {
+	ValueField   func(ctx context.Context) (predicate.ValueField, error)
+	MessageField func(ctx context.Context) (predicate.MessageField, error)
+	MapField     func(ctx context.Context) (predicate.MapField, error)
+	Tenant       func(ctx context.Context) (predicate.Tenant, error)
+	User         func(ctx context.Context) (predicate.User, error)
 }
 
 // NewServer refuses a client whose dialect this backend does not write
@@ -159,15 +238,17 @@ func (s Server) WithDriver(drv dialect.Driver) (apptest.Server, error) {
 }
 
 func (s Server) ValueField() apptest.ValueFieldServiceServer {
-	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec}
+	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.ValueField}
 }
 func (s Server) MessageField() apptest.MessageFieldServiceServer {
-	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec}
+	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MessageField}
 }
 func (s Server) MapField() apptest.MapFieldServiceServer {
-	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec}
+	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MapField}
 }
 func (s Server) Tenant() apptest.TenantServiceServer {
-	return TenantServiceServer{Db: s.Db, Rec: s.Rec}
+	return TenantServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Tenant}
 }
-func (s Server) User() apptest.UserServiceServer { return UserServiceServer{Db: s.Db, Rec: s.Rec} }
+func (s Server) User() apptest.UserServiceServer {
+	return UserServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.User}
+}

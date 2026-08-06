@@ -130,7 +130,20 @@ func (w *fileWork) xApply() {
 	w.P("	at := &", w.Src.GoImportPath.Ident(name_x+"Ref"), "{}")
 	key := w.Entity.Key()
 	w.P("	at.Set", work.Name(key.Name()).Go(), "(", w.xKeyGoValue("k", key), ")")
-	w.P("	p := ", w.xEntPkg().Ident("IDEQ"), "(k)")
+	// The scope is folded into the key rather than checked before it. Every
+	// statement below runs through this predicate -- the write, the existence
+	// question a document of nothing but tests asks, and the one that explains
+	// a write that matched nothing -- so a row out of scope is reported as a
+	// row that is not there. That is the same answer Get gives, and it comes
+	// from the same absent match rather than from a second rule.
+	//
+	// GetKey above is not narrowed. It resolves the reference, which may be an
+	// alias, and narrowing it would answer NotFound one query earlier while
+	// telling the caller nothing different.
+	w.P("	p, err := s.narrow(ctx, ", w.xEntPkg().Ident("IDEQ"), "(k))")
+	w.P("	if err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
 	w.P("")
 
 	// A document can legitimately write nothing: one made only of tests asserts

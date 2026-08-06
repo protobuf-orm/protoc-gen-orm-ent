@@ -31,19 +31,45 @@ type UserServiceServer struct {
 	// if it is nil. See [Recorder].
 	Rec Recorder
 
+	// Scope narrows every query this server builds, and it sees every row
+	// if it is nil. See [Scopes].
+	Scope func(ctx context.Context) (predicate.User, error)
+
 	apptest.UnimplementedUserServiceServer
 }
 
 // NewUserServiceServer answers with a server that runs its queries with `db`.
 //
 // It takes the options of [Server] so that what is built here can be told
-// where to report its writes. Built without that, it reports nowhere.
+// where to report its writes and what it may see. Built without them, it
+// reports nowhere and sees everything.
 func NewUserServiceServer(db *ent.Client, opts ...Option) apptest.UserServiceServer {
 	s := Server{Db: db}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return UserServiceServer{Db: s.Db, Rec: s.Rec}
+	return UserServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.User}
+}
+
+// narrow answers with `p` and whatever [UserServiceServer.Scope]
+// adds to it, which is `p` itself where nothing is out of scope.
+func (s UserServiceServer) narrow(ctx context.Context, p predicate.User) (predicate.User, error) {
+	if s.Scope == nil {
+		return p, nil
+	}
+
+	q, err := s.Scope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case q == nil:
+		return p, nil
+	case p == nil:
+		return q, nil
+	default:
+		return user.And(p, q), nil
+	}
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
@@ -129,13 +155,16 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 }
 
 func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest) (*apptest.User, error) {
-	q := s.Db.User.Query()
-
-	if p, err := UserPick(req.GetRef()); err != nil {
+	p, err := UserPick(req.GetRef())
+	if err != nil {
 		return nil, err
-	} else {
-		q.Where(p)
 	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.User.Query().Where(p)
 	UserSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
@@ -305,7 +334,10 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 	}
 	at := &apptest.UserRef{}
 	at.SetId(k[:])
-	p := user.IDEQ(k)
+	p, err := s.narrow(ctx, user.IDEQ(k))
+	if err != nil {
+		return nil, err
+	}
 
 	if mod == nil {
 		q := st.Db.User.Query().Where(p)
@@ -369,6 +401,10 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 
 func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*emptypb.Empty, error) {
 	p, err := UserPick(req)
+	if err != nil {
+		return nil, err
+	}
+	p, err = s.narrow(ctx, p)
 	if err != nil {
 		return nil, err
 	}

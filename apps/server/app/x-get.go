@@ -12,13 +12,20 @@ func (w *fileWork) xGet() {
 		/* */ "ctx ", work.IdentContext, ", ",
 		/* */ "req *", w.Src.GoImportPath.Ident(name_x+"GetRequest"),
 		") (*", w.Ident, ", error) {")
-	w.P("	q := s.Db.", name_x, ".Query()")
-	w.P("")
-	w.P("	if p, err := ", name_x, "Pick(req.GetRef()); err != nil {")
+	w.P("	p, err := ", name_x, "Pick(req.GetRef())")
+	w.P("	if err != nil {")
 	w.P("		return nil, err")
-	w.P("	} else {")
-	w.P("		q.Where(p)")
 	w.P("	}")
+	// A row out of scope is one this query does not match, so it is reported
+	// below as NotFound rather than as a refusal -- which is the answer to
+	// give: that a row exists is itself something a caller who may not read it
+	// should not be told.
+	w.P("	p, err = s.narrow(ctx, p)")
+	w.P("	if err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
+	w.P("")
+	w.P("	q := s.Db.", name_x, ".Query().Where(p)")
 	w.P("	", name_x, "SelectInit(q, req.GetSelect())")
 	w.P("")
 	w.P("	v, err := q.Only(ctx)")

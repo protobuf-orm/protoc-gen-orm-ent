@@ -23,6 +23,10 @@ func (w *Work) xServer() {
 	w.P("	// Rec is told about every write these servers make, and nothing is")
 	w.P("	// told if it is nil. See [Recorder].")
 	w.P("	Rec Recorder")
+	w.P("")
+	w.P("	// Scope narrows what these servers can see, and they see everything")
+	w.P("	// it says nothing about. See [Scopes].")
+	w.P("	Scope Scopes")
 	w.P("}")
 	w.P("")
 
@@ -31,7 +35,8 @@ func (w *Work) xServer() {
 	w.P("")
 
 	w.P("// WithRecorder answers with the option that has every write reported to")
-	w.P("// `v`.")
+	w.P("// `v`. Given more than once it adds a recorder rather than replacing the")
+	w.P("// one before it; see [Recorders] for what that costs when one refuses.")
 	w.P("//")
 	w.P("// It is not free. A write and what a recorder makes of it have to be one")
 	w.P("// write, so Add and Erase, which are a single statement without a")
@@ -39,11 +44,28 @@ func (w *Work) xServer() {
 	w.P("// takes; and Erase reads the row it is about to delete, to be able to say")
 	w.P("// which one it was. Nothing of the sort happens while this is unset.")
 	w.P("func WithRecorder(v Recorder) Option {")
-	w.P("	return func(s *Server) { s.Rec = v }")
+	w.P("	return func(s *Server) {")
+	w.P("		switch r := s.Rec.(type) {")
+	w.P("		case nil:")
+	w.P("			s.Rec = v")
+	w.P("		case Recorders:")
+	w.P("			s.Rec = append(r, v)")
+	w.P("		default:")
+	w.P("			s.Rec = Recorders{r, v}")
+	w.P("		}")
+	w.P("	}")
+	w.P("}")
+	w.P("")
+
+	w.P("// WithScope answers with the option that narrows what these servers can")
+	w.P("// see to what `v` says. See [Scopes].")
+	w.P("func WithScope(v Scopes) Option {")
+	w.P("	return func(s *Server) { s.Scope = v }")
 	w.P("}")
 	w.P("")
 
 	w.xRecorder()
+	w.xScopes()
 
 	w.P("// NewServer refuses a client whose dialect this backend does not write")
 	w.P("// SQL for.")
@@ -96,7 +118,7 @@ func (w *Work) xServer() {
 	// store was built with, the recorder included.
 	for _, v := range w.Entities {
 		w.P("func (s Server) ", v.Name(), "() ", w.Package.Ident(v.Name()+"ServiceServer"),
-			" { return ", v.Name(), "ServiceServer{Db: s.Db, Rec: s.Rec} }")
+			" { return ", v.Name(), "ServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.", v.Name(), "} }")
 	}
 	w.P("")
 }

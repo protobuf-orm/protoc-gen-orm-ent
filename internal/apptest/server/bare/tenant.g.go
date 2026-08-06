@@ -29,19 +29,45 @@ type TenantServiceServer struct {
 	// if it is nil. See [Recorder].
 	Rec Recorder
 
+	// Scope narrows every query this server builds, and it sees every row
+	// if it is nil. See [Scopes].
+	Scope func(ctx context.Context) (predicate.Tenant, error)
+
 	apptest.UnimplementedTenantServiceServer
 }
 
 // NewTenantServiceServer answers with a server that runs its queries with `db`.
 //
 // It takes the options of [Server] so that what is built here can be told
-// where to report its writes. Built without that, it reports nowhere.
+// where to report its writes and what it may see. Built without them, it
+// reports nowhere and sees everything.
 func NewTenantServiceServer(db *ent.Client, opts ...Option) apptest.TenantServiceServer {
 	s := Server{Db: db}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return TenantServiceServer{Db: s.Db, Rec: s.Rec}
+	return TenantServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Tenant}
+}
+
+// narrow answers with `p` and whatever [TenantServiceServer.Scope]
+// adds to it, which is `p` itself where nothing is out of scope.
+func (s TenantServiceServer) narrow(ctx context.Context, p predicate.Tenant) (predicate.Tenant, error) {
+	if s.Scope == nil {
+		return p, nil
+	}
+
+	q, err := s.Scope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case q == nil:
+		return p, nil
+	case p == nil:
+		return q, nil
+	default:
+		return tenant.And(p, q), nil
+	}
 }
 
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {
@@ -110,13 +136,16 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 }
 
 func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequest) (*apptest.Tenant, error) {
-	q := s.Db.Tenant.Query()
-
-	if p, err := TenantPick(req.GetRef()); err != nil {
+	p, err := TenantPick(req.GetRef())
+	if err != nil {
 		return nil, err
-	} else {
-		q.Where(p)
 	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.Tenant.Query().Where(p)
 	TenantSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
@@ -264,7 +293,10 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 	}
 	at := &apptest.TenantRef{}
 	at.SetId(k[:])
-	p := tenant.IDEQ(k)
+	p, err := s.narrow(ctx, tenant.IDEQ(k))
+	if err != nil {
+		return nil, err
+	}
 
 	if mod == nil {
 		q := st.Db.Tenant.Query().Where(p)
@@ -325,6 +357,10 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 
 func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) (*emptypb.Empty, error) {
 	p, err := TenantPick(req)
+	if err != nil {
+		return nil, err
+	}
+	p, err = s.narrow(ctx, p)
 	if err != nil {
 		return nil, err
 	}

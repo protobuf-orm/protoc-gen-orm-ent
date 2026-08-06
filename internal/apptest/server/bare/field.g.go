@@ -29,19 +29,45 @@ type ValueFieldServiceServer struct {
 	// if it is nil. See [Recorder].
 	Rec Recorder
 
+	// Scope narrows every query this server builds, and it sees every row
+	// if it is nil. See [Scopes].
+	Scope func(ctx context.Context) (predicate.ValueField, error)
+
 	apptest.UnimplementedValueFieldServiceServer
 }
 
 // NewValueFieldServiceServer answers with a server that runs its queries with `db`.
 //
 // It takes the options of [Server] so that what is built here can be told
-// where to report its writes. Built without that, it reports nowhere.
+// where to report its writes and what it may see. Built without them, it
+// reports nowhere and sees everything.
 func NewValueFieldServiceServer(db *ent.Client, opts ...Option) apptest.ValueFieldServiceServer {
 	s := Server{Db: db}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec}
+	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.ValueField}
+}
+
+// narrow answers with `p` and whatever [ValueFieldServiceServer.Scope]
+// adds to it, which is `p` itself where nothing is out of scope.
+func (s ValueFieldServiceServer) narrow(ctx context.Context, p predicate.ValueField) (predicate.ValueField, error) {
+	if s.Scope == nil {
+		return p, nil
+	}
+
+	q, err := s.Scope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case q == nil:
+		return p, nil
+	case p == nil:
+		return q, nil
+	default:
+		return valuefield.And(p, q), nil
+	}
 }
 
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
@@ -470,13 +496,16 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 }
 
 func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFieldGetRequest) (*apptest.ValueField, error) {
-	q := s.Db.ValueField.Query()
-
-	if p, err := ValueFieldPick(req.GetRef()); err != nil {
+	p, err := ValueFieldPick(req.GetRef())
+	if err != nil {
 		return nil, err
-	} else {
-		q.Where(p)
 	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.ValueField.Query().Where(p)
 	ValueFieldSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
@@ -992,7 +1021,10 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 	}
 	at := &apptest.ValueFieldRef{}
 	at.SetId(k)
-	p := valuefield.IDEQ(k)
+	p, err := s.narrow(ctx, valuefield.IDEQ(k))
+	if err != nil {
+		return nil, err
+	}
 
 	if mod == nil {
 		q := st.Db.ValueField.Query().Where(p)
@@ -1056,6 +1088,10 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 	if err != nil {
 		return nil, err
 	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -1116,19 +1152,45 @@ type MessageFieldServiceServer struct {
 	// if it is nil. See [Recorder].
 	Rec Recorder
 
+	// Scope narrows every query this server builds, and it sees every row
+	// if it is nil. See [Scopes].
+	Scope func(ctx context.Context) (predicate.MessageField, error)
+
 	apptest.UnimplementedMessageFieldServiceServer
 }
 
 // NewMessageFieldServiceServer answers with a server that runs its queries with `db`.
 //
 // It takes the options of [Server] so that what is built here can be told
-// where to report its writes. Built without that, it reports nowhere.
+// where to report its writes and what it may see. Built without them, it
+// reports nowhere and sees everything.
 func NewMessageFieldServiceServer(db *ent.Client, opts ...Option) apptest.MessageFieldServiceServer {
 	s := Server{Db: db}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec}
+	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MessageField}
+}
+
+// narrow answers with `p` and whatever [MessageFieldServiceServer.Scope]
+// adds to it, which is `p` itself where nothing is out of scope.
+func (s MessageFieldServiceServer) narrow(ctx context.Context, p predicate.MessageField) (predicate.MessageField, error) {
+	if s.Scope == nil {
+		return p, nil
+	}
+
+	q, err := s.Scope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case q == nil:
+		return p, nil
+	case p == nil:
+		return q, nil
+	default:
+		return messagefield.And(p, q), nil
+	}
 }
 
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
@@ -1190,13 +1252,16 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 }
 
 func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.MessageFieldGetRequest) (*apptest.MessageField, error) {
-	q := s.Db.MessageField.Query()
-
-	if p, err := MessageFieldPick(req.GetRef()); err != nil {
+	p, err := MessageFieldPick(req.GetRef())
+	if err != nil {
 		return nil, err
-	} else {
-		q.Where(p)
 	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.MessageField.Query().Where(p)
 	MessageFieldSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
@@ -1343,7 +1408,10 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 	}
 	at := &apptest.MessageFieldRef{}
 	at.SetId(k)
-	p := messagefield.IDEQ(k)
+	p, err := s.narrow(ctx, messagefield.IDEQ(k))
+	if err != nil {
+		return nil, err
+	}
 
 	if mod == nil {
 		q := st.Db.MessageField.Query().Where(p)
@@ -1407,6 +1475,10 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 	if err != nil {
 		return nil, err
 	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -1467,19 +1539,45 @@ type MapFieldServiceServer struct {
 	// if it is nil. See [Recorder].
 	Rec Recorder
 
+	// Scope narrows every query this server builds, and it sees every row
+	// if it is nil. See [Scopes].
+	Scope func(ctx context.Context) (predicate.MapField, error)
+
 	apptest.UnimplementedMapFieldServiceServer
 }
 
 // NewMapFieldServiceServer answers with a server that runs its queries with `db`.
 //
 // It takes the options of [Server] so that what is built here can be told
-// where to report its writes. Built without that, it reports nowhere.
+// where to report its writes and what it may see. Built without them, it
+// reports nowhere and sees everything.
 func NewMapFieldServiceServer(db *ent.Client, opts ...Option) apptest.MapFieldServiceServer {
 	s := Server{Db: db}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec}
+	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MapField}
+}
+
+// narrow answers with `p` and whatever [MapFieldServiceServer.Scope]
+// adds to it, which is `p` itself where nothing is out of scope.
+func (s MapFieldServiceServer) narrow(ctx context.Context, p predicate.MapField) (predicate.MapField, error) {
+	if s.Scope == nil {
+		return p, nil
+	}
+
+	q, err := s.Scope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case q == nil:
+		return p, nil
+	case p == nil:
+		return q, nil
+	default:
+		return mapfield.And(p, q), nil
+	}
 }
 
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
@@ -1557,13 +1655,16 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 }
 
 func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGetRequest) (*apptest.MapField, error) {
-	q := s.Db.MapField.Query()
-
-	if p, err := MapFieldPick(req.GetRef()); err != nil {
+	p, err := MapFieldPick(req.GetRef())
+	if err != nil {
 		return nil, err
-	} else {
-		q.Where(p)
 	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.MapField.Query().Where(p)
 	MapFieldSelectInit(q, req.GetSelect())
 
 	v, err := q.Only(ctx)
@@ -1722,7 +1823,10 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 	}
 	at := &apptest.MapFieldRef{}
 	at.SetId(k)
-	p := mapfield.IDEQ(k)
+	p, err := s.narrow(ctx, mapfield.IDEQ(k))
+	if err != nil {
+		return nil, err
+	}
 
 	if mod == nil {
 		q := st.Db.MapField.Query().Where(p)
@@ -1783,6 +1887,10 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 
 func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldRef) (*emptypb.Empty, error) {
 	p, err := MapFieldPick(req)
+	if err != nil {
+		return nil, err
+	}
+	p, err = s.narrow(ctx, p)
 	if err != nil {
 		return nil, err
 	}

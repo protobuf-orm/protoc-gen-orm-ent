@@ -30,6 +30,13 @@ func (w *fileWork) xErase() {
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
+	// Out of scope is out of reach, and erasing what is out of reach succeeds
+	// without erasing anything -- which is the same answer this gives for a
+	// row that was never there, and for the same reason.
+	w.P("	p, err = s.narrow(ctx, p)")
+	w.P("	if err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
 	w.P("")
 
 	// The delete and what a recorder writes about it are one write; see xJoin.
