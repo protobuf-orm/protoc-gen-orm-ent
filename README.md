@@ -51,6 +51,14 @@ plugin does not depend on ent and a consumer of the plugin does not build it:
 | --- | --- |
 | `runtime/entpatch` | renders a compiled patch document as ent statements. |
 | `runtime/enttx`    | lets a transaction stand in for a driver, so a whole server stack shares one. |
+| `runtime/entpage`  | the half of a list that is not about the domain: a keyset cursor, and a size a request cannot blow past. |
+
+`entpage` is the one of those a generated server does not import. Nothing
+generates a list — what a list filters by is the app's, and there is no general
+answer to it — but the paging is the same for every entity and is the half
+people get wrong: offsets that skip a row when something is inserted ahead of
+the page, an order with ties and no tiebreaker, a limit a request can set to a
+million. So the filtering is written out and the paging is borrowed.
 
 It is one module rather than one per package because a generated server imports
 all of it: split up, a consumer would carry a pin per package and would have to
