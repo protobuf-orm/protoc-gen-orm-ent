@@ -190,6 +190,15 @@ erasure would stay taken with nothing anywhere to say so. `NewServer` refuses
 that dialect for a schema in which anything erases softly, beside the refusal
 that is already there for the dialects `Apply` writes no SQL for.
 
+**Both spellings of `unique` free their value.** A field marked `unique` is
+ordinarily a constraint over every row of the table, which would hold the value
+of an erased row for ever while a declared index of the same entity gave it up.
+One of the two behaving differently is worse than either, so for a soft-erasing
+entity the field one is promoted: `.Unique()` comes off the field and a partial
+index goes on beside the declared ones. Nothing above notices -- which props are
+keys, and so what shape their `Ref` has, is `graph`'s to say and it reads the
+field's own `unique`. Only the SQL moves.
+
 **There is no way to read an erased row through these servers**, and no option
 to ask for one. An app that needs to restore something, or to look at what was
 erased, writes that by hand against the client — which is what it does for every

@@ -119,6 +119,11 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	} else {
 		q.SetBody("")
 	}
+	if req.HasSlug() {
+		q.SetSlug(req.GetSlug())
+	} else {
+		q.SetSlug("")
+	}
 	q.SetDateUpdated(time.Now().UTC())
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
@@ -194,6 +199,9 @@ func NoteSelectedFields(m *apptest.NoteSelect) []string {
 	if m.GetBody() {
 		vs = append(vs, note.FieldBody)
 	}
+	if m.GetSlug() {
+		vs = append(vs, note.FieldSlug)
+	}
 	if m.GetDateErased() {
 		vs = append(vs, note.FieldDateErased)
 	}
@@ -268,7 +276,7 @@ func NoteGetKey(ctx context.Context, db *ent.Client, ref *apptest.NoteRef) (uuid
 var noteOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_note_proto, "Note")
 
 var notePatchColumns = entpatch.Columns{
-	1: note.FieldID, 2: note.FieldAlias, 3: note.FieldBody, 13: note.FieldDateErased, 14: note.FieldDateUpdated, 15: note.FieldDateCreated}
+	1: note.FieldID, 2: note.FieldAlias, 3: note.FieldBody, 4: note.FieldSlug, 13: note.FieldDateErased, 14: note.FieldDateUpdated, 15: note.FieldDateCreated}
 
 func (s NoteServiceServer) Apply(ctx context.Context, req *apptest.NoteApplyRequest) (*apptest.Note, error) {
 	if !req.HasPatch() {
@@ -440,6 +448,8 @@ func NotePick(req *apptest.NoteRef) (predicate.Note, error) {
 		} else {
 			return note.IDEQ(v), nil
 		}
+	case apptest.NoteRef_Slug_case:
+		return note.SlugEQ(req.GetSlug()), nil
 	case apptest.NoteRef_Alias_case:
 		k := req.GetAlias()
 		ps := make([]predicate.Note, 0, 1)

@@ -153,6 +153,9 @@ func (x *Note) Ref() *NoteRef {
 	if v := x.GetId(); len(v) > 0 {
 		return NoteById(v)
 	}
+	if v := x.GetSlug(); len(v) > 0 {
+		return NoteBySlug(v)
+	}
 	{
 		v1 := x.GetAlias()
 		if len(v1) > 0 {
@@ -177,6 +180,8 @@ func (x *NoteRef) Picks(v *Note) bool {
 	switch x.WhichKey() {
 	case NoteRef_Id_case:
 		return bytes.Equal(x.GetId(), v.GetId())
+	case NoteRef_Slug_case:
+		return x.GetSlug() == v.GetSlug()
 	case NoteRef_Alias_case:
 		x := x.GetAlias()
 		return (x.GetAlias() == v.GetAlias())
@@ -205,8 +210,18 @@ func NoteById(v []byte) *NoteRef {
 	return x
 }
 
+func NoteBySlug(v string) *NoteRef {
+	x := &NoteRef{}
+	x.SetSlug(v)
+	return x
+}
+
 func NoteGetById(v []byte) *NoteGetRequest {
 	return NoteGetRequest_builder{Ref: NoteById(v)}.Build()
+}
+
+func NoteGetBySlug(v string) *NoteGetRequest {
+	return NoteGetRequest_builder{Ref: NoteBySlug(v)}.Build()
 }
 
 func NoteByAlias(alias string) *NoteRef {

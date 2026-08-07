@@ -78,6 +78,23 @@ func xIndexes(w *work.FileWork) {
 		}
 		w.P(",")
 	}
+
+	// And the fields that said `unique` on themselves, for an entity that
+	// erases softly. They are here rather than on the field because only an
+	// index can be partial; see promotedUniques.
+	if del := w.Entity.GetErasedField(); del != nil {
+		for _, f := range promotedUniques(w.Entity) {
+			w.Pf("		%s(%q)", index.Ident("Fields"), f.Name())
+			w.P(".")
+			w.Pf("			Unique()")
+			w.P(".")
+			w.Pf("			Annotations(%s(%q))",
+				w.QualifiedGoIdent(work.PkgEntSql.Ident("IndexWhere")),
+				del.Name()+" IS NULL")
+			w.P(",")
+		}
+	}
+
 	w.P("	}")
 	w.P("}")
 	w.P("")

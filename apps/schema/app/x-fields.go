@@ -101,7 +101,11 @@ func xFields(w *work.FileWork) {
 		}
 
 		is_key := p == w.Entity.Key()
-		if p.IsUnique() {
+		// Not for a field whose uniqueness had to become a partial index; see
+		// promotedUniques. Written here as well it would be a second, total
+		// constraint over the same column, and the total one is the one that
+		// would refuse the alias of an erased row.
+		if p.IsUnique() && !isPromotedUnique(w.Entity, p) {
 			w.P(".")
 			fmt.Fprint(w, "			Unique()")
 		}

@@ -25,6 +25,8 @@ func (Note) Fields() []ent.Field {
 			Optional(),
 		field.String("body").
 			Optional(),
+		field.String("slug").
+			Optional(),
 		field.Time("date_erased").
 			Nillable().
 			Optional(),
@@ -42,6 +44,9 @@ func (Note) Indexes() []ent.Index {
 			Annotations(entsql.IndexWhere("date_erased IS NULL")),
 		index.Fields("body").
 			Unique(),
+		index.Fields("slug").
+			Unique().
+			Annotations(entsql.IndexWhere("date_erased IS NULL")),
 	}
 }
 

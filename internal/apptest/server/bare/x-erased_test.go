@@ -195,3 +195,50 @@ func mustId(x *require.Assertions, v []byte) uuid.UUID {
 	x.NoError(err)
 	return k
 }
+
+// TestPromotedUnique is the other spelling of the same thing. `slug` says
+// `unique` on the field rather than as an index, and a field's uniqueness is
+// ordinarily a constraint over every row -- which for an entity that erases
+// softly would hold the value of an erased row for ever, while a declared
+// index of the same entity gives it up. One of the two behaving differently is
+// worse than either, so the field one is written as a partial index too.
+func TestPromotedUnique(t *testing.T) {
+	slug := func(ctx context.Context, x *require.Assertions, c *Client, alias, slug string) (*pb.Note, error) {
+		return c.Note().Add(ctx, pb.NoteAddRequest_builder{
+			Alias: z.Ptr(alias),
+			Body:  z.Ptr(alias + "/" + slug),
+			Slug:  z.Ptr(slug),
+		}.Build())
+	}
+
+	t.Run("a unique field gives its value up too", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v, err := slug(ctx, x, c, "a", "s")
+		x.NoError(err)
+
+		_, err = slug(ctx, x, c, "b", "s")
+		x.Equal(codes.AlreadyExists, status.Code(err), "while it is there")
+
+		_, err = c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+
+		u, err := slug(ctx, x, c, "c", "s")
+		x.NoError(err, "and once it is gone")
+		x.NotEqual(v.GetId(), u.GetId())
+	}))
+
+	// And the API did not change shape for it: the Ref of a unique field is
+	// the bare scalar it always was, not the wrapper message a declared index
+	// produces. Which props are keys is `graph`'s to say and it reads the
+	// field's own `unique`; only the SQL moved.
+	t.Run("and is still named by a bare value", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v, err := slug(ctx, x, c, "a", "s")
+		x.NoError(err)
+
+		ref := &pb.NoteRef{}
+		ref.SetSlug("s")
+
+		u, err := c.Note().Get(ctx, pb.NoteGetRequest_builder{Ref: ref}.Build())
+		x.NoError(err)
+		x.Equal(v.GetId(), u.GetId())
+	}))
+}

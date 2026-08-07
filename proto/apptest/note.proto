@@ -25,6 +25,14 @@ message Note {
   string alias = 2 [(orm.field) = {default: ""}];
   string body = 3 [(orm.field) = {default: ""}];
 
+  // Unique on the field rather than as an index, which is the other spelling
+  // of the same thing -- and the one that has to be promoted to an index to be
+  // made partial. Its Ref stays the bare scalar a unique field always gives.
+  string slug = 4 [(orm.field) = {
+    unique: true
+    default: ""
+  }];
+
   // Null for as long as the row is there.
   google.protobuf.Timestamp date_erased = 13 [(orm.field) = {erased: {}}];
 

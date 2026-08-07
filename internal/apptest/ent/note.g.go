@@ -13,6 +13,7 @@ func (e *Note) Proto() *apptest.Note {
 	x.SetId(e.ID[:])
 	x.SetAlias(e.Alias)
 	x.SetBody(e.Body)
+	x.SetSlug(e.Slug)
 	if e.DateErased != nil {
 		x.SetDateErased(timestamppb.New(*e.DateErased))
 	}

@@ -29,6 +29,7 @@ message NoteAddRequest {
 	bytes id = 1;
 	string alias = 2;
 	string body = 3;
+	string slug = 4;
 	google.protobuf.Timestamp date_created = 15;
 }
 
@@ -45,6 +46,7 @@ message NoteRef {
 		bytes id = 1;
 		NoteRefByAlias alias = 2;
 		NoteRefByBody body = 3;
+		string slug = 4;
 	}
 }
 
@@ -52,6 +54,7 @@ message NoteSelect {
 	bool all = 1;
 	bool alias = 2;
 	bool body = 3;
+	bool slug = 4;
 	bool date_erased = 13;
 	bool date_updated = 14;
 	bool date_created = 15;
@@ -66,6 +69,7 @@ message NotePatchRequest {
 	NoteRef ref = 1;
 	string alias = 4;
 	string body = 6;
+	string slug = 8;
 	// The version this update requires the stored date_updated to be.
 	// It is a precondition, not a write: the update applies only if the row
 	// still holds this value, and the server stamps the new version itself.

@@ -80,7 +80,9 @@ func (a *App) doWork(ctx context.Context, w *work.FileWork) error {
 	if w.Entity.HasEdges() {
 		xEdges(w)
 	}
-	if w.Entity.HasIndexes() {
+	// Also when nothing was declared but a unique field had to become one; see
+	// promotedUniques.
+	if w.Entity.HasIndexes() || len(promotedUniques(w.Entity)) > 0 {
 		xIndexes(w)
 	}
 	xAnnotations(w)
