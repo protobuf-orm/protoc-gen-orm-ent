@@ -141,6 +141,60 @@ The server a recorder is handed carries neither hook: it does not record, so a
 trail cannot audit itself into a loop, and it is not narrowed, so it can read
 what it has just been told about.
 
+`<Entity>Narrow` is where the scope is asked, and it is a function of the
+package rather than only a method, because the read most likely to forget is the
+one nothing generates. A `List` is not CRUD, so it is written by hand, and what
+it has at hand is a client and a scope — given only a method it reaches for the
+hook directly and misses whatever narrowing means *besides* the hook.
+
+## Soft deletion
+
+An entity that declares an
+[erased field](https://github.com/protobuf-orm/protobuf-orm#erased-fields-soft-deletion)
+is not deleted. `Erase` stamps the column instead, and everything else follows
+from one line in `<Entity>Narrow`:
+
+```proto
+google.protobuf.Timestamp date_erased = 13 [(orm.field) = {erased: {}}];
+```
+
+```go
+// A row that was erased is not a row a read answers with.
+ps = append(ps, note.DateErasedIsNil())
+```
+
+That predicate is unconditional and deliberately not something the scope was
+asked for. A scope says what *this caller* may see; this says what there is to
+see at all, and an app that could leave it out would be an app that could leave
+it out by accident.
+
+| | |
+| --- | --- |
+| `Get`, `Patch`, `Apply` | `NotFound`, because the row is not matched — no second rule |
+| `Erase` of an erased row | succeeds and stamps nothing, which is what erasing what is not there has always done |
+| `Add` | has no field for it: a row is added alive |
+| a unique index | covers only the rows still there, so an erased row gives up its name |
+
+Two of those are worth a second look.
+
+**The version moves with an erase**, if the entity has one. Nothing can
+compare-and-swap against the row afterwards — it is out of reach — but a row
+brought back by hand would otherwise return holding a version that was current
+before it left, and a client that had read it then would find its test still
+passing across a gap it never saw.
+
+**MySQL is refused.** A unique index that covers only the live rows is a partial
+index; MySQL has none, and `entsql.IndexWhere` is simply not written out for it,
+so the schema would come up with a plain unique index and an alias freed by an
+erasure would stay taken with nothing anywhere to say so. `NewServer` refuses
+that dialect for a schema in which anything erases softly, beside the refusal
+that is already there for the dialects `Apply` writes no SQL for.
+
+**There is no way to read an erased row through these servers**, and no option
+to ask for one. An app that needs to restore something, or to look at what was
+erased, writes that by hand against the client — which is what it does for every
+other RPC nothing generates.
+
 ## Field mapping
 
 `apps/schema/app/x-fields.go` maps each prop's ORM `Type` to an ent field

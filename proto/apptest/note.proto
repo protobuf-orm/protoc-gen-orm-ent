@@ -1,0 +1,68 @@
+edition = "2023";
+
+package apptest;
+
+import "google/protobuf/timestamp.proto";
+import "orm.proto";
+
+option features.field_presence = IMPLICIT;
+option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
+
+// Note is the entity that erases softly: `Erase` stamps it rather than taking
+// the row away, and every read leaves out the rows that carry a stamp.
+//
+// It has a version field as well, because the two interact -- an erase is a
+// write, so it moves the version -- and because that interaction is the sort of
+// thing nobody notices until a client's compare-and-swap starts succeeding
+// against a row that is gone.
+message Note {
+  bytes id = 1 [(orm.field) = {
+    type: TYPE_UUID
+    key: true
+    default: ""
+  }];
+
+  string alias = 2 [(orm.field) = {default: ""}];
+  string body = 3 [(orm.field) = {default: ""}];
+
+  // Null for as long as the row is there.
+  google.protobuf.Timestamp date_erased = 13 [(orm.field) = {erased: {}}];
+
+  google.protobuf.Timestamp date_updated = 14 [(orm.field) = {
+    version: {}
+  }];
+  google.protobuf.Timestamp date_created = 15 [(orm.field) = {
+    immutable: true
+    default: ""
+  }];
+
+  option (orm.message) = {
+    rpc: {crud: true}
+    indexes: [
+      // Unique among the rows that are still there, so the alias of an erased
+      // Note can be used again.
+      {
+        name: "alias"
+        refs: [
+          {
+            name: "alias"
+            number: 2
+          }
+        ]
+        unique: true
+      },
+      // And this one stays taken however the row ends up.
+      {
+        name: "body"
+        refs: [
+          {
+            name: "body"
+            number: 3
+          }
+        ]
+        unique: true
+        includes_erased: true
+      }
+    ]
+  };
+}

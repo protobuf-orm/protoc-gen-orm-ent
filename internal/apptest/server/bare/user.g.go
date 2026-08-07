@@ -52,11 +52,11 @@ func NewUserServiceServer(db *ent.Client, opts ...Option) apptest.UserServiceSer
 }
 
 // UserNarrow answers with `p` and everything else that narrows a
-// read of a User: whatever `scope` says, and nothing besides for now.
+// read of a User, which is whatever `scope` says.
 //
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
-// one that would otherwise answer with rows the caller may not see.
+// one that would otherwise answer with rows nobody should be given.
 func UserNarrow(ctx context.Context, scope func(context.Context) (predicate.User, error), p predicate.User) (predicate.User, error) {
 	ps := make([]predicate.User, 0, 2)
 	if p != nil {

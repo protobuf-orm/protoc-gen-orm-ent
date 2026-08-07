@@ -62,14 +62,33 @@ func (w *fileWork) xNarrow() {
 	p := w.entPkg().Ident(name)
 	scope := "func(" + w.QualifiedGoIdent(work.IdentContext) + ") (" + w.QualifiedGoIdent(p) + ", error)"
 
+	del := w.Entity.GetErasedField()
+
 	w.P("// ", name, "Narrow answers with `p` and everything else that narrows a")
-	w.P("// read of a ", name, ": whatever `scope` says, and nothing besides for now.")
+	if del == nil {
+		w.P("// read of a ", name, ", which is whatever `scope` says.")
+	} else {
+		w.P("// read of a ", name, ": the rows that have not been erased, and whatever")
+		w.P("// `scope` says of those.")
+	}
 	w.P("//")
 	w.P("// Every read this package makes goes through it, and a read written by")
 	w.P("// hand should too -- a List is the one read nothing generates, and so the")
-	w.P("// one that would otherwise answer with rows the caller may not see.")
+	w.P("// one that would otherwise answer with rows nobody should be given.")
 	w.P("func ", name, "Narrow(ctx ", work.IdentContext, ", scope ", scope, ", p ", p, ") (", p, ", error) {")
-	w.P("	ps := make([]", p, ", 0, 2)")
+	if del == nil {
+		w.P("	ps := make([]", p, ", 0, 2)")
+	} else {
+		w.P("	ps := make([]", p, ", 0, 3)")
+		// Unconditional, and deliberately not something the scope was asked
+		// for. A scope says what this caller may see; this says what there is
+		// to see at all. An app that could leave it out would be an app that
+		// could leave it out by accident, in the one place -- a hand-written
+		// list -- where nothing would say so.
+		w.P("")
+		w.P("	// A row that was erased is not a row a read answers with.")
+		w.P("	ps = append(ps, ", w.xEntPkg().Ident(work.Name(del.Name()).Ent()+"IsNil"), "())")
+	}
 	w.P("	if p != nil {")
 	w.P("		ps = append(ps, p)")
 	w.P("	}")

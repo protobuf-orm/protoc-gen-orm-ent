@@ -196,6 +196,7 @@ type Scopes struct {
 	ValueField   func(ctx context.Context) (predicate.ValueField, error)
 	MessageField func(ctx context.Context) (predicate.MessageField, error)
 	MapField     func(ctx context.Context) (predicate.MapField, error)
+	Note         func(ctx context.Context) (predicate.Note, error)
 	Tenant       func(ctx context.Context) (predicate.Tenant, error)
 	User         func(ctx context.Context) (predicate.User, error)
 }
@@ -214,6 +215,14 @@ func NewServer(db *ent.Client, opts ...Option) (Server, error) {
 	}
 	if d := db.Dialect(); !entpatch.Supports(d) {
 		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, d)
+	}
+
+	// Note erases softly, and that is only true where a
+	// unique index can be made partial. MySQL has no such thing, so the
+	// index would come up covering every row and an alias freed by an
+	// erasure would stay taken -- with nothing anywhere to say so.
+	if d := db.Dialect(); d == dialect.MySQL {
+		return Server{}, fmt.Errorf("%s cannot make a unique index partial, which is what an erased row needs to give up its name: %s", d, "Note")
 	}
 	return s, nil
 }
@@ -245,6 +254,9 @@ func (s Server) MessageField() apptest.MessageFieldServiceServer {
 }
 func (s Server) MapField() apptest.MapFieldServiceServer {
 	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MapField}
+}
+func (s Server) Note() apptest.NoteServiceServer {
+	return NoteServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Note}
 }
 func (s Server) Tenant() apptest.TenantServiceServer {
 	return TenantServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Tenant}

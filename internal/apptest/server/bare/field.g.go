@@ -50,11 +50,11 @@ func NewValueFieldServiceServer(db *ent.Client, opts ...Option) apptest.ValueFie
 }
 
 // ValueFieldNarrow answers with `p` and everything else that narrows a
-// read of a ValueField: whatever `scope` says, and nothing besides for now.
+// read of a ValueField, which is whatever `scope` says.
 //
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
-// one that would otherwise answer with rows the caller may not see.
+// one that would otherwise answer with rows nobody should be given.
 func ValueFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.ValueField, error), p predicate.ValueField) (predicate.ValueField, error) {
 	ps := make([]predicate.ValueField, 0, 2)
 	if p != nil {
@@ -1188,11 +1188,11 @@ func NewMessageFieldServiceServer(db *ent.Client, opts ...Option) apptest.Messag
 }
 
 // MessageFieldNarrow answers with `p` and everything else that narrows a
-// read of a MessageField: whatever `scope` says, and nothing besides for now.
+// read of a MessageField, which is whatever `scope` says.
 //
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
-// one that would otherwise answer with rows the caller may not see.
+// one that would otherwise answer with rows nobody should be given.
 func MessageFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.MessageField, error), p predicate.MessageField) (predicate.MessageField, error) {
 	ps := make([]predicate.MessageField, 0, 2)
 	if p != nil {
@@ -1590,11 +1590,11 @@ func NewMapFieldServiceServer(db *ent.Client, opts ...Option) apptest.MapFieldSe
 }
 
 // MapFieldNarrow answers with `p` and everything else that narrows a
-// read of a MapField: whatever `scope` says, and nothing besides for now.
+// read of a MapField, which is whatever `scope` says.
 //
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
-// one that would otherwise answer with rows the caller may not see.
+// one that would otherwise answer with rows nobody should be given.
 func MapFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.MapField, error), p predicate.MapField) (predicate.MapField, error) {
 	ps := make([]predicate.MapField, 0, 2)
 	if p != nil {

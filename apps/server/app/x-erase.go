@@ -66,10 +66,35 @@ func (w *fileWork) xErase() {
 	w.P("	}")
 	w.P("")
 
-	w.P("	n, err := st.Db.", name, ".Delete().Where(p).Exec(ctx)")
-	w.P("	if err != nil {")
-	w.P("		return nil, err")
-	w.P("	}")
+	if del := w.Entity.GetErasedField(); del == nil {
+		w.P("	n, err := st.Db.", name, ".Delete().Where(p).Exec(ctx)")
+		w.P("	if err != nil {")
+		w.P("		return nil, err")
+		w.P("	}")
+	} else {
+		// The row stays and says it is gone, which is the whole of soft
+		// erasure at this end: every read is narrowed by the same column (see
+		// <Entity>Narrow), so the row is out of reach of everything here while
+		// still being there for whatever refers to it.
+		//
+		// The predicate carries that narrowing too, so erasing what is already
+		// erased matches nothing, records nothing and succeeds -- which is what
+		// erasing what was never there has always done.
+		w.P("	u := st.Db.", name, ".Update().Where(p)")
+		w.P("	u.Set", work.Name(del.Name()).Ent(), "(", work.PkgTime.Ident("Now"), "().UTC())")
+		if ver := w.Entity.GetVersionField(); ver != nil {
+			// An erase is a write, so the token moves with it. Nothing can
+			// compare-and-swap against the row afterwards -- it is out of
+			// reach -- but a row brought back by hand would otherwise come
+			// back holding a version that was current before it left, and a
+			// client that had read it then would find its test still passing.
+			w.P("	u.Set", work.Name(ver.Name()).Ent(), "(", work.PkgTime.Ident("Now"), "().UTC())")
+		}
+		w.P("	n, err := u.Save(ctx)")
+		w.P("	if err != nil {")
+		w.P("		return nil, err")
+		w.P("	}")
+	}
 	// Only what the statement actually removed. The row was there a moment ago
 	// -- it was read to be named -- so this is the narrow window in which
 	// somebody else erased it first, and a trail that claimed this request did

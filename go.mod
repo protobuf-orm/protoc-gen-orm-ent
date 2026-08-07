@@ -9,6 +9,8 @@ require (
 )
 
 require (
+	github.com/ettle/strcase v0.2.0 // indirect
+	github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260807033829-df58c6f1abb6 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba // indirect

@@ -83,6 +83,7 @@ func (w *Work) xServer() {
 	w.P("		return Server{}, ", work.PkgFmt.Ident("Errorf"),
 		"(\"%w: %s\", ", work.PkgEntPatch.Ident("ErrDialect"), ", d)")
 	w.P("	}")
+	w.xErasedDialect()
 	w.P("	return s, nil")
 	w.P("}")
 	w.P("")

@@ -145,6 +145,90 @@ func MapFieldGetById(v string) *MapFieldGetRequest {
 	return MapFieldGetRequest_builder{Ref: MapFieldById(v)}.Build()
 }
 
+func (x *NoteRef) Pick() *NoteGetRequest {
+	return NoteGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *Note) Ref() *NoteRef {
+	if v := x.GetId(); len(v) > 0 {
+		return NoteById(v)
+	}
+	{
+		v1 := x.GetAlias()
+		if len(v1) > 0 {
+			return NoteByAlias(v1)
+		}
+	}
+	{
+		v1 := x.GetBody()
+		if len(v1) > 0 {
+			return NoteByBody(v1)
+		}
+	}
+
+	return nil
+}
+
+func (x *Note) Pick() *NoteGetRequest {
+	return x.Ref().Pick()
+}
+
+func (x *NoteRef) Picks(v *Note) bool {
+	switch x.WhichKey() {
+	case NoteRef_Id_case:
+		return bytes.Equal(x.GetId(), v.GetId())
+	case NoteRef_Alias_case:
+		x := x.GetAlias()
+		return (x.GetAlias() == v.GetAlias())
+	case NoteRef_Body_case:
+		x := x.GetBody()
+		return (x.GetBody() == v.GetBody())
+	default:
+		return false
+	}
+}
+
+func (x *NoteGetRequest) WithSelect(f func(s *NoteSelect)) *NoteGetRequest {
+	if !x.HasSelect() {
+		x.SetSelect(&NoteSelect{})
+	}
+	f(x.GetSelect())
+	return x
+}
+
+func (x *Note) MarshalJSON() ([]byte, error) { return protojson.Marshal(x) }
+func (x *Note) UnmarshalJSON(b []byte) error { return protojson.Unmarshal(b, x) }
+
+func NoteById(v []byte) *NoteRef {
+	x := &NoteRef{}
+	x.SetId(v)
+	return x
+}
+
+func NoteGetById(v []byte) *NoteGetRequest {
+	return NoteGetRequest_builder{Ref: NoteById(v)}.Build()
+}
+
+func NoteByAlias(alias string) *NoteRef {
+	x := &NoteRefByAlias{}
+	x.SetAlias(alias)
+	return NoteRef_builder{Alias: x}.Build()
+}
+
+func NoteGetByAlias(alias string) *NoteGetRequest {
+	return NoteGetRequest_builder{Ref: NoteByAlias(alias)}.Build()
+}
+
+func NoteByBody(body string) *NoteRef {
+	x := &NoteRefByBody{}
+	x.SetBody(body)
+	return NoteRef_builder{Body: x}.Build()
+}
+
+func NoteGetByBody(body string) *NoteGetRequest {
+	return NoteGetRequest_builder{Ref: NoteByBody(body)}.Build()
+}
+
 func (x *TenantRef) Pick() *TenantGetRequest {
 	return TenantGetRequest_builder{Ref: x}.Build()
 }

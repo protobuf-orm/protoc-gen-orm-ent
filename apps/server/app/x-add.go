@@ -28,6 +28,21 @@ func (w *fileWork) xAdd() {
 	}
 	w.P("	q := st.Db.", name, ".Create()")
 	for p := range w.Entity.Props() {
+		// A row is added alive, so there is nothing to set: null is alive. The
+		// request has no field for it either -- protoc-gen-orm-service leaves
+		// it out of an AddRequest -- so this skip is what makes the emitted
+		// code compile as much as it is a rule.
+		//
+		// It is here rather than in the switch below, where the version field
+		// is handled, because the erased field is nullable and so optional: by
+		// the time the switch runs, the `if req.HasX() {` that wraps an
+		// optional prop has already been written and a `continue` past it would
+		// leave the brace open. The version field is never optional, so the one
+		// down there is safe.
+		if f, ok := p.(graph.Field); ok && f.IsErased() {
+			continue
+		}
+
 		name := work.Name(p.Name())
 		u := "req.Get" + name.Go() + "()"
 
