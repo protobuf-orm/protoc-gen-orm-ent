@@ -18,6 +18,19 @@ import (
 // hidden is the alias of the User these tests are not allowed to see.
 const hidden = "hidden"
 
+// userScope is a [bare.Scope] with something to say about Users and nothing
+// about anything else, which is what embedding [bare.Unscoped] is for: the
+// other entities go on seeing every row, and so will one added afterwards.
+type userScope struct {
+	bare.Unscoped
+
+	p func(ctx context.Context) (predicate.User, error)
+}
+
+func (s userScope) UserScope(ctx context.Context) (predicate.User, error) {
+	return s.p(ctx)
+}
+
 // S is T for a test served behind a scope. `p` is asked on every query the User
 // server builds; nothing else is scoped, so a test can still arrange whatever
 // state it likes through the other services.
@@ -26,7 +39,7 @@ func S(
 	run func(ctx context.Context, x *require.Assertions, c *Client, s *Server),
 ) func(t *testing.T) {
 	return func(t *testing.T) {
-		s := NewServerWith(t, bare.WithScope(bare.Scopes{User: p}))
+		s := NewServerWith(t, bare.WithScope(userScope{p: p}))
 		defer s.Close()
 
 		c := NewClient(t, s)
@@ -191,6 +204,28 @@ func TestScopeSaysNothing(t *testing.T) {
 		x.NoError(err)
 		x.Equal(v.GetId(), u.GetId())
 	}))
+}
+
+// TestUnscoped pins what the embeddable default is worth on its own: a scope
+// that says nothing about anything is a server that sees every row, so an app
+// that narrows one entity has said nothing about the others.
+func TestUnscoped(t *testing.T) {
+	t.Run("sees every row", func(t *testing.T) {
+		x := require.New(t)
+
+		s := NewServerWith(t, bare.WithScope(bare.Unscoped{}))
+		defer s.Close()
+
+		c := NewClient(t, s)
+		defer c.Close()
+
+		ctx := t.Context()
+		_, v := sow(ctx, x, c)
+
+		u, err := c.User().Get(ctx, pb.UserGetRequest_builder{Ref: v.Ref()}.Build())
+		x.NoError(err)
+		x.Equal(v.GetId(), u.GetId())
+	})
 }
 
 // TestScopeLeavesAddAlone pins the boundary, which is not obvious: what a

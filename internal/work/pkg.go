@@ -23,6 +23,7 @@ var (
 	PkgProtoEmpty     = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
 	PkgProtoTimestamp = protogen.GoImportPath("google.golang.org/protobuf/types/known/timestamppb")
 
+	PkgGrpc       = protogen.GoImportPath("google.golang.org/grpc")
 	PkgGrpcCodes  = protogen.GoImportPath("google.golang.org/grpc/codes")
 	PkgGrpcStatus = protogen.GoImportPath("google.golang.org/grpc/status")
 

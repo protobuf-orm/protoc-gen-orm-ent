@@ -4,16 +4,12 @@ import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 
 func (w *fileWork) xServer() {
 	name := w.Ident.GoName + "ServiceServer"
+	// The whole store, and not a copy of the parts of it this server happens
+	// to use. What it runs with is one decision made once, where the store is
+	// built; a field added there reaches this without a line here, and a
+	// server that arrived missing one is the sort of mistake nothing reports.
 	w.P("type ", name, " struct {")
-	w.P("	Db *", w.ent.Ident("Client"))
-	w.P("")
-	w.P("	// Rec is told about every write this server makes, and nothing is told")
-	w.P("	// if it is nil. See [Recorder].")
-	w.P("	Rec Recorder")
-	w.P("")
-	w.P("	// Scope narrows every query this server builds, and it sees every row")
-	w.P("	// if it is nil. See [Scopes].")
-	w.P("	Scope func(ctx ", work.IdentContext, ") (", w.entPkg().Ident(w.Ident.GoName), ", error)")
+	w.P("	Store")
 	w.P("")
 	w.P("	", w.Src.GoImportPath.Ident("Unimplemented"+name))
 	w.P("}")
@@ -30,11 +26,11 @@ func (w *fileWork) xServer() {
 	w.P("// reports nowhere and sees everything.")
 	w.P("func New", name, "(db *", w.ent.Ident("Client"), ", opts ...Option) ",
 		w.Src.GoImportPath.Ident(name), "{")
-	w.P("	s := Server{Db: db}")
+	w.P("	s := Server{Store: Store{Db: db}}")
 	w.P("	for _, opt := range opts {")
 	w.P("		opt(&s)")
 	w.P("	}")
-	w.P("	return ", name, "{Db: s.Db, Rec: s.Rec, Scope: s.Scope.", w.Ident.GoName, "}")
+	w.P("	return ", name, "{Store: s.Store}")
 	w.P("}")
 	w.P("")
 
@@ -60,7 +56,6 @@ func (w *fileWork) xServer() {
 func (w *fileWork) xNarrow() {
 	name := w.Ident.GoName
 	p := w.entPkg().Ident(name)
-	scope := "func(" + w.QualifiedGoIdent(work.IdentContext) + ") (" + w.QualifiedGoIdent(p) + ", error)"
 
 	del := w.Entity.GetErasedField()
 
@@ -75,7 +70,7 @@ func (w *fileWork) xNarrow() {
 	w.P("// Every read this package makes goes through it, and a read written by")
 	w.P("// hand should too -- a List is the one read nothing generates, and so the")
 	w.P("// one that would otherwise answer with rows nobody should be given.")
-	w.P("func ", name, "Narrow(ctx ", work.IdentContext, ", scope ", scope, ", p ", p, ") (", p, ", error) {")
+	w.P("func ", name, "Narrow(ctx ", work.IdentContext, ", scope Scope, p ", p, ") (", p, ", error) {")
 	if del == nil {
 		w.P("	ps := make([]", p, ", 0, 2)")
 	} else {
@@ -93,7 +88,7 @@ func (w *fileWork) xNarrow() {
 	w.P("		ps = append(ps, p)")
 	w.P("	}")
 	w.P("	if scope != nil {")
-	w.P("		q, err := scope(ctx)")
+	w.P("		q, err := scope.", name, "Scope(ctx)")
 	w.P("		if err != nil {")
 	w.P("			return nil, err")
 	w.P("		}")

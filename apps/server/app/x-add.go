@@ -180,7 +180,7 @@ func (w *fileWork) xAdd() {
 	// may leave it out, and then the one that exists is the one the database
 	// or the branch above settled on.
 	w.P("	if err := record(ctx, s.Rec, st.Db, Change{")
-	w.P("		Method: ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ",")
+	w.P("		By: ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ",")
 	w.P("		Key: u.ID,")
 	w.P("	}); err != nil {")
 	w.P("		return nil, err")

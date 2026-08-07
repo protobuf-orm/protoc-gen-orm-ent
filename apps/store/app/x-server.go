@@ -17,16 +17,37 @@ import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 // its driver unexported, so the asking is possible only because this generator
 // also writes a file inside that package; see apps/ent/app/x-client.go.
 func (w *Work) xServer() {
-	w.P("type Server struct {")
+	// Store is a type of its own rather than fields on [Server], and the
+	// reason is what a Server is: the thing that hands out one service server
+	// per entity. A service server that embedded it would answer for every
+	// entity too, and would satisfy the app's own Server interface by
+	// accident. Naming what they all run with lets each of them embed exactly
+	// that -- and lets a field added here reach every one of them without a
+	// line being written at each place one is built.
+	w.P("// Store is what every server of this package runs with: the client its")
+	w.P("// queries are built on, what it tells about a write, and what narrows")
+	w.P("// what it can see.")
+	w.P("//")
+	w.P("// It is handed over whole. Copying the parts across would be a line per")
+	w.P("// field per entity, and forgetting one fails quietly -- a server built")
+	w.P("// without the recorder writes rows that nothing records.")
+	w.P("type Store struct {")
 	w.P("	Db *", w.Ent.Ident("Client"))
 	w.P("")
 	w.P("	// Rec is told about every write these servers make, and nothing is")
 	w.P("	// told if it is nil. See [Recorder].")
 	w.P("	Rec Recorder")
 	w.P("")
-	w.P("	// Scope narrows what these servers can see, and they see everything")
-	w.P("	// it says nothing about. See [Scopes].")
-	w.P("	Scope Scopes")
+	w.P("	// Scope narrows what these servers can see, and they see every row")
+	w.P("	// if it is nil. See [Scope].")
+	w.P("	Scope Scope")
+	w.P("}")
+	w.P("")
+
+	w.P("// Server hands out one service server per entity, every one of them")
+	w.P("// running with the same [Store].")
+	w.P("type Server struct {")
+	w.P("	Store")
 	w.P("}")
 	w.P("")
 
@@ -58,8 +79,8 @@ func (w *Work) xServer() {
 	w.P("")
 
 	w.P("// WithScope answers with the option that narrows what these servers can")
-	w.P("// see to what `v` says. See [Scopes].")
-	w.P("func WithScope(v Scopes) Option {")
+	w.P("// see to what `v` says. See [Scope].")
+	w.P("func WithScope(v Scope) Option {")
 	w.P("	return func(s *Server) { s.Scope = v }")
 	w.P("}")
 	w.P("")
@@ -74,8 +95,9 @@ func (w *Work) xServer() {
 	w.P("// name -- a PostgreSQL-compatible server -- is named when the connection")
 	w.P("// is opened, which is where saying so belongs: everything the client does")
 	w.P("// is rendered for that dialect, not just what this server writes.")
+	w.xErasedDialect()
 	w.P("func NewServer(db *", w.Ent.Ident("Client"), ", opts ...Option) (Server, error) {")
-	w.P("	s := Server{Db: db}")
+	w.P("	s := Server{Store: Store{Db: db}}")
 	w.P("	for _, opt := range opts {")
 	w.P("		opt(&s)")
 	w.P("	}")
@@ -83,7 +105,6 @@ func (w *Work) xServer() {
 	w.P("		return Server{}, ", work.PkgFmt.Ident("Errorf"),
 		"(\"%w: %s\", ", work.PkgEntPatch.Ident("ErrDialect"), ", d)")
 	w.P("	}")
-	w.xErasedDialect()
 	w.P("	return s, nil")
 	w.P("}")
 	w.P("")
@@ -119,7 +140,7 @@ func (w *Work) xServer() {
 	// store was built with, the recorder included.
 	for _, v := range w.Entities {
 		w.P("func (s Server) ", v.Name(), "() ", w.Package.Ident(v.Name()+"ServiceServer"),
-			" { return ", v.Name(), "ServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.", v.Name(), "} }")
+			" { return ", v.Name(), "ServiceServer{Store: s.Store} }")
 	}
 	w.P("")
 }

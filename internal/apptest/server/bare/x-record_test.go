@@ -12,6 +12,7 @@ import (
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -489,5 +490,66 @@ func TestRecorders(t *testing.T) {
 		n, err := s.Db.Tenant.Query().Count(t.Context())
 		x.NoError(err)
 		x.Zero(n, "the row was written and then taken back")
+	})
+}
+
+// fakeStream is the little of a server transport stream that [grpc.Method]
+// reads, so that a test can hand a server the context gRPC would have.
+type fakeStream struct {
+	grpc.ServerTransportStream
+
+	method string
+}
+
+func (s fakeStream) Method() string { return s.method }
+
+// asIfCalled answers with `ctx` looking the way it looks inside the handler
+// gRPC dispatched for `method`.
+func asIfCalled(ctx context.Context, method string) context.Context {
+	return grpc.NewContextWithServerTransportStream(ctx, fakeStream{method: method})
+}
+
+// TestRecordMethod is about the difference between the two names a write has:
+// what somebody asked for, and what this server did about it.
+//
+// They are the same for a request that reached this server as itself, which is
+// every test above. They come apart for the request an app actually writes --
+// an RPC of its own that ends in one of these -- and that is the case a trail
+// is read for.
+func TestRecordMethod(t *testing.T) {
+	const asked = "/apptest.UserService/Rename"
+
+	t.Run("the request says what was asked for", func(t *testing.T) {
+		x := require.New(t)
+		r := &recorder{}
+
+		s := NewServer(t)
+		defer s.Close()
+
+		v := bare.NewTenantServiceServer(s.Db, bare.WithRecorder(r))
+		_, err := v.Add(asIfCalled(t.Context(), asked), pb.TenantAddRequest_builder{}.Build())
+		x.NoError(err)
+
+		u := r.Only(x)
+		x.Equal(asked, u.Method, "what gRPC dispatched, whatever leg of it this was")
+		x.Equal(pb.TenantService_Add_FullMethodName, u.By, "and what this server did")
+	})
+
+	t.Run("a write nobody called is its own", func(t *testing.T) {
+		x := require.New(t)
+		r := &recorder{}
+
+		s := NewServer(t)
+		defer s.Close()
+
+		// The deployment writing to itself before it serves anything. There is
+		// no dispatched RPC to name, and the honest answer is what happened.
+		v := bare.NewTenantServiceServer(s.Db, bare.WithRecorder(r))
+		_, err := v.Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
+		x.NoError(err)
+
+		u := r.Only(x)
+		x.Equal(pb.TenantService_Add_FullMethodName, u.Method)
+		x.Equal(u.By, u.Method)
 	})
 }

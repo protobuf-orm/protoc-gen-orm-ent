@@ -25,15 +25,7 @@ import (
 )
 
 type UserServiceServer struct {
-	Db *ent.Client
-
-	// Rec is told about every write this server makes, and nothing is told
-	// if it is nil. See [Recorder].
-	Rec Recorder
-
-	// Scope narrows every query this server builds, and it sees every row
-	// if it is nil. See [Scopes].
-	Scope func(ctx context.Context) (predicate.User, error)
+	Store
 
 	apptest.UnimplementedUserServiceServer
 }
@@ -44,11 +36,11 @@ type UserServiceServer struct {
 // where to report its writes and what it may see. Built without them, it
 // reports nowhere and sees everything.
 func NewUserServiceServer(db *ent.Client, opts ...Option) apptest.UserServiceServer {
-	s := Server{Db: db}
+	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return UserServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.User}
+	return UserServiceServer{Store: s.Store}
 }
 
 // UserNarrow answers with `p` and everything else that narrows a
@@ -57,13 +49,13 @@ func NewUserServiceServer(db *ent.Client, opts ...Option) apptest.UserServiceSer
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
 // one that would otherwise answer with rows nobody should be given.
-func UserNarrow(ctx context.Context, scope func(context.Context) (predicate.User, error), p predicate.User) (predicate.User, error) {
+func UserNarrow(ctx context.Context, scope Scope, p predicate.User) (predicate.User, error) {
 	ps := make([]predicate.User, 0, 2)
 	if p != nil {
 		ps = append(ps, p)
 	}
 	if scope != nil {
-		q, err := scope(ctx)
+		q, err := scope.UserScope(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -153,8 +145,8 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	}
 
 	if err := record(ctx, s.Rec, st.Db, Change{
-		Method: apptest.UserService_Add_FullMethodName,
-		Key:    u.ID,
+		By:  apptest.UserService_Add_FullMethodName,
+		Key: u.ID,
 	}); err != nil {
 		return nil, err
 	}
@@ -313,7 +305,7 @@ func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequ
 	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.UserService_Apply_FullMethodName)
 }
 
-func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc *patchpb.Patch, method string) (*apptest.User, error) {
+func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc *patchpb.Patch, by string) (*apptest.User, error) {
 	plan := &ormpatch.Plan{Entity: userOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(userOrmEntity, doc)
@@ -396,9 +388,9 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 
 	if mod != nil {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: method,
-			Key:    k,
-			Patch:  doc,
+			By:    by,
+			Key:   k,
+			Patch: doc,
 		}); err != nil {
 			return nil, err
 		}
@@ -453,8 +445,8 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*em
 	}
 	if n > 0 {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: apptest.UserService_Erase_FullMethodName,
-			Key:    k,
+			By:  apptest.UserService_Erase_FullMethodName,
+			Key: k,
 		}); err != nil {
 			return nil, err
 		}

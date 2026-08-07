@@ -77,6 +77,15 @@ var ErrDialect = errors.New("entpatch: no SQL is written for this dialect")
 // dialects is every dialect this package renders. Adding one means adding its
 // arm to each branch below and its name here; nothing infers a spelling from
 // another dialect's.
+//
+// It carries one promise that is not about patches at all, because the
+// generated servers take this set for their whole answer about an engine:
+// **a dialect added here must be able to make a unique index partial.** An
+// entity that erases softly frees the names it held, which is an index over
+// the rows that are still there; MySQL has none, and ent writes the annotation
+// out for it rather than refusing, so a name a row gave up would stay taken
+// with nothing anywhere to say so. Both dialects below have one, which is why
+// the generated NewServer asks this and nothing else.
 var dialects = map[string]bool{
 	dialect.SQLite:   true,
 	dialect.Postgres: true,

@@ -1,14 +1,9 @@
 package app
 
-import (
-	"slices"
+import "slices"
 
-	"github.com/protobuf-orm/protobuf-orm/graph"
-	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
-)
-
-// xErasedDialect emits the refusal of an engine that cannot keep the promise a
-// soft erasure makes.
+// xErasedDialect writes down what a soft erasure needs of the engine, and why
+// nothing here checks it.
 //
 // An entity that erases softly frees the names it held: its unique indexes
 // cover only the rows that are still there, which a backend writes as a partial
@@ -18,40 +13,38 @@ import (
 // a wrong answer with nothing to say it is wrong, which is the kind worth
 // refusing at the start.
 //
-// It is a runtime check because it is the connection that says which engine
-// this is, and the connection is not there when a schema is written. It sits
-// beside the dialect check that is already here, for the same reason: what a
-// server cannot do it should say before it serves, not at the first request
-// that needs it.
+// It used to be refused here, by a branch of its own beside the dialect check.
+// The branch could not run: entpatch renders SQL for the two dialects that do
+// have partial indexes and refuses everything else, so the check above had
+// already returned by the time it was reached. A refusal that cannot happen is
+// not a safeguard, it is a comment that looks like one -- so this is a comment.
+//
+// What keeps it true is written where it could stop being true: the dialect set
+// in runtime/entpatch says that a dialect added to it must be able to make a
+// unique index partial, because these servers take that check for the whole
+// answer.
 //
 // Nothing is emitted for a schema in which nothing erases softly.
 func (w *Work) xErasedDialect() {
-	vs := []graph.Entity{}
+	vs := []string{}
 	for _, v := range w.Entities {
 		if v.HasErasedField() {
-			vs = append(vs, v)
+			vs = append(vs, v.Name())
 		}
 	}
 	if len(vs) == 0 {
 		return
 	}
+	slices.Sort(vs)
 
-	names := make([]string, len(vs))
-	for i, v := range vs {
-		names[i] = v.Name()
-	}
-	slices.Sort(names)
-
-	w.P("")
-	w.P("	// ", join(names), " erase", plural(len(names)), " softly, and that is only true where a")
-	w.P("	// unique index can be made partial. MySQL has no such thing, so the")
-	w.P("	// index would come up covering every row and an alias freed by an")
-	w.P("	// erasure would stay taken -- with nothing anywhere to say so.")
-	w.P("	if d := db.Dialect(); d == ", work.PkgEntDialect.Ident("MySQL"), " {")
-	w.P("		return Server{}, ", work.PkgFmt.Ident("Errorf"),
-		"(\"%s cannot make a unique index partial, which is what an erased row needs to give up its name: %s\", d, ",
-		quoteJoin(names), ")")
-	w.P("	}")
+	w.P("//")
+	w.P("// That set is also what a soft erasure needs, so this is the whole")
+	w.P("// check. ", join(vs), " free", plural(len(vs)), " the names ", they(len(vs)), " held when a row")
+	w.P("// is erased, which is a unique index covering only the rows that are")
+	w.P("// still there -- a partial index, and the dialects above are the ones")
+	w.P("// that have one. MySQL does not, and ent writes the annotation out for")
+	w.P("// it rather than refusing, so the index would come up covering every")
+	w.P("// row and a freed name would stay taken with nothing to say so.")
 }
 
 func plural(n int) string {
@@ -59,6 +52,13 @@ func plural(n int) string {
 		return "s"
 	}
 	return ""
+}
+
+func they(n int) string {
+	if n == 1 {
+		return "it"
+	}
+	return "they"
 }
 
 func join(vs []string) string {
@@ -78,8 +78,4 @@ func join(vs []string) string {
 	}
 
 	return out + " and " + vs[len(vs)-1]
-}
-
-func quoteJoin(vs []string) string {
-	return `"` + join(vs) + `"`
 }

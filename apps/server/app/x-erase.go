@@ -101,7 +101,7 @@ func (w *fileWork) xErase() {
 	// it would be wrong about who.
 	w.P("	if n > 0 {")
 	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
-	w.P("			Method: ", w.Src.GoImportPath.Ident(name+"Service_Erase_FullMethodName"), ",")
+	w.P("			By: ", w.Src.GoImportPath.Ident(name+"Service_Erase_FullMethodName"), ",")
 	w.P("			Key: k,")
 	w.P("		}); err != nil {")
 	w.P("			return nil, err")

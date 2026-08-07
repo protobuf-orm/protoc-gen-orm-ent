@@ -23,15 +23,7 @@ import (
 )
 
 type ValueFieldServiceServer struct {
-	Db *ent.Client
-
-	// Rec is told about every write this server makes, and nothing is told
-	// if it is nil. See [Recorder].
-	Rec Recorder
-
-	// Scope narrows every query this server builds, and it sees every row
-	// if it is nil. See [Scopes].
-	Scope func(ctx context.Context) (predicate.ValueField, error)
+	Store
 
 	apptest.UnimplementedValueFieldServiceServer
 }
@@ -42,11 +34,11 @@ type ValueFieldServiceServer struct {
 // where to report its writes and what it may see. Built without them, it
 // reports nowhere and sees everything.
 func NewValueFieldServiceServer(db *ent.Client, opts ...Option) apptest.ValueFieldServiceServer {
-	s := Server{Db: db}
+	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.ValueField}
+	return ValueFieldServiceServer{Store: s.Store}
 }
 
 // ValueFieldNarrow answers with `p` and everything else that narrows a
@@ -55,13 +47,13 @@ func NewValueFieldServiceServer(db *ent.Client, opts ...Option) apptest.ValueFie
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
 // one that would otherwise answer with rows nobody should be given.
-func ValueFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.ValueField, error), p predicate.ValueField) (predicate.ValueField, error) {
+func ValueFieldNarrow(ctx context.Context, scope Scope, p predicate.ValueField) (predicate.ValueField, error) {
 	ps := make([]predicate.ValueField, 0, 2)
 	if p != nil {
 		ps = append(ps, p)
 	}
 	if scope != nil {
-		q, err := scope(ctx)
+		q, err := scope.ValueFieldScope(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -498,8 +490,8 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	}
 
 	if err := record(ctx, s.Rec, st.Db, Change{
-		Method: apptest.ValueFieldService_Add_FullMethodName,
-		Key:    u.ID,
+		By:  apptest.ValueFieldService_Add_FullMethodName,
+		Key: u.ID,
 	}); err != nil {
 		return nil, err
 	}
@@ -1000,7 +992,7 @@ func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFi
 	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.ValueFieldService_Apply_FullMethodName)
 }
 
-func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFieldRef, doc *patchpb.Patch, method string) (*apptest.ValueField, error) {
+func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFieldRef, doc *patchpb.Patch, by string) (*apptest.ValueField, error) {
 	plan := &ormpatch.Plan{Entity: valueFieldOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(valueFieldOrmEntity, doc)
@@ -1080,9 +1072,9 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 
 	if mod != nil {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: method,
-			Key:    k,
-			Patch:  doc,
+			By:    by,
+			Key:   k,
+			Patch: doc,
 		}); err != nil {
 			return nil, err
 		}
@@ -1137,8 +1129,8 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 	}
 	if n > 0 {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: apptest.ValueFieldService_Erase_FullMethodName,
-			Key:    k,
+			By:  apptest.ValueFieldService_Erase_FullMethodName,
+			Key: k,
 		}); err != nil {
 			return nil, err
 		}
@@ -1161,15 +1153,7 @@ func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
 }
 
 type MessageFieldServiceServer struct {
-	Db *ent.Client
-
-	// Rec is told about every write this server makes, and nothing is told
-	// if it is nil. See [Recorder].
-	Rec Recorder
-
-	// Scope narrows every query this server builds, and it sees every row
-	// if it is nil. See [Scopes].
-	Scope func(ctx context.Context) (predicate.MessageField, error)
+	Store
 
 	apptest.UnimplementedMessageFieldServiceServer
 }
@@ -1180,11 +1164,11 @@ type MessageFieldServiceServer struct {
 // where to report its writes and what it may see. Built without them, it
 // reports nowhere and sees everything.
 func NewMessageFieldServiceServer(db *ent.Client, opts ...Option) apptest.MessageFieldServiceServer {
-	s := Server{Db: db}
+	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MessageField}
+	return MessageFieldServiceServer{Store: s.Store}
 }
 
 // MessageFieldNarrow answers with `p` and everything else that narrows a
@@ -1193,13 +1177,13 @@ func NewMessageFieldServiceServer(db *ent.Client, opts ...Option) apptest.Messag
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
 // one that would otherwise answer with rows nobody should be given.
-func MessageFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.MessageField, error), p predicate.MessageField) (predicate.MessageField, error) {
+func MessageFieldNarrow(ctx context.Context, scope Scope, p predicate.MessageField) (predicate.MessageField, error) {
 	ps := make([]predicate.MessageField, 0, 2)
 	if p != nil {
 		ps = append(ps, p)
 	}
 	if scope != nil {
-		q, err := scope(ctx)
+		q, err := scope.MessageFieldScope(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1269,8 +1253,8 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	}
 
 	if err := record(ctx, s.Rec, st.Db, Change{
-		Method: apptest.MessageFieldService_Add_FullMethodName,
-		Key:    u.ID,
+		By:  apptest.MessageFieldService_Add_FullMethodName,
+		Key: u.ID,
 	}); err != nil {
 		return nil, err
 	}
@@ -1402,7 +1386,7 @@ func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.Messa
 	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.MessageFieldService_Apply_FullMethodName)
 }
 
-func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.MessageFieldRef, doc *patchpb.Patch, method string) (*apptest.MessageField, error) {
+func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.MessageFieldRef, doc *patchpb.Patch, by string) (*apptest.MessageField, error) {
 	plan := &ormpatch.Plan{Entity: messageFieldOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(messageFieldOrmEntity, doc)
@@ -1482,9 +1466,9 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 
 	if mod != nil {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: method,
-			Key:    k,
-			Patch:  doc,
+			By:    by,
+			Key:   k,
+			Patch: doc,
 		}); err != nil {
 			return nil, err
 		}
@@ -1539,8 +1523,8 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 	}
 	if n > 0 {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: apptest.MessageFieldService_Erase_FullMethodName,
-			Key:    k,
+			By:  apptest.MessageFieldService_Erase_FullMethodName,
+			Key: k,
 		}); err != nil {
 			return nil, err
 		}
@@ -1563,15 +1547,7 @@ func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, err
 }
 
 type MapFieldServiceServer struct {
-	Db *ent.Client
-
-	// Rec is told about every write this server makes, and nothing is told
-	// if it is nil. See [Recorder].
-	Rec Recorder
-
-	// Scope narrows every query this server builds, and it sees every row
-	// if it is nil. See [Scopes].
-	Scope func(ctx context.Context) (predicate.MapField, error)
+	Store
 
 	apptest.UnimplementedMapFieldServiceServer
 }
@@ -1582,11 +1558,11 @@ type MapFieldServiceServer struct {
 // where to report its writes and what it may see. Built without them, it
 // reports nowhere and sees everything.
 func NewMapFieldServiceServer(db *ent.Client, opts ...Option) apptest.MapFieldServiceServer {
-	s := Server{Db: db}
+	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MapField}
+	return MapFieldServiceServer{Store: s.Store}
 }
 
 // MapFieldNarrow answers with `p` and everything else that narrows a
@@ -1595,13 +1571,13 @@ func NewMapFieldServiceServer(db *ent.Client, opts ...Option) apptest.MapFieldSe
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
 // one that would otherwise answer with rows nobody should be given.
-func MapFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.MapField, error), p predicate.MapField) (predicate.MapField, error) {
+func MapFieldNarrow(ctx context.Context, scope Scope, p predicate.MapField) (predicate.MapField, error) {
 	ps := make([]predicate.MapField, 0, 2)
 	if p != nil {
 		ps = append(ps, p)
 	}
 	if scope != nil {
-		q, err := scope(ctx)
+		q, err := scope.MapFieldScope(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1687,8 +1663,8 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	}
 
 	if err := record(ctx, s.Rec, st.Db, Change{
-		Method: apptest.MapFieldService_Add_FullMethodName,
-		Key:    u.ID,
+		By:  apptest.MapFieldService_Add_FullMethodName,
+		Key: u.ID,
 	}); err != nil {
 		return nil, err
 	}
@@ -1832,7 +1808,7 @@ func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldA
 	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.MapFieldService_Apply_FullMethodName)
 }
 
-func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldRef, doc *patchpb.Patch, method string) (*apptest.MapField, error) {
+func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldRef, doc *patchpb.Patch, by string) (*apptest.MapField, error) {
 	plan := &ormpatch.Plan{Entity: mapFieldOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(mapFieldOrmEntity, doc)
@@ -1912,9 +1888,9 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 
 	if mod != nil {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: method,
-			Key:    k,
-			Patch:  doc,
+			By:    by,
+			Key:   k,
+			Patch: doc,
 		}); err != nil {
 			return nil, err
 		}
@@ -1969,8 +1945,8 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 	}
 	if n > 0 {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: apptest.MapFieldService_Erase_FullMethodName,
-			Key:    k,
+			By:  apptest.MapFieldService_Erase_FullMethodName,
+			Key: k,
 		}); err != nil {
 			return nil, err
 		}

@@ -11,20 +11,34 @@ import (
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
+	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 )
 
-type Server struct {
+// Store is what every server of this package runs with: the client its
+// queries are built on, what it tells about a write, and what narrows
+// what it can see.
+//
+// It is handed over whole. Copying the parts across would be a line per
+// field per entity, and forgetting one fails quietly -- a server built
+// without the recorder writes rows that nothing records.
+type Store struct {
 	Db *ent.Client
 
 	// Rec is told about every write these servers make, and nothing is
 	// told if it is nil. See [Recorder].
 	Rec Recorder
 
-	// Scope narrows what these servers can see, and they see everything
-	// it says nothing about. See [Scopes].
-	Scope Scopes
+	// Scope narrows what these servers can see, and they see every row
+	// if it is nil. See [Scope].
+	Scope Scope
+}
+
+// Server hands out one service server per entity, every one of them
+// running with the same [Store].
+type Server struct {
+	Store
 }
 
 // Option adjusts a [Server] as it is built.
@@ -53,31 +67,45 @@ func WithRecorder(v Recorder) Option {
 }
 
 // WithScope answers with the option that narrows what these servers can
-// see to what `v` says. See [Scopes].
-func WithScope(v Scopes) Option {
+// see to what `v` says. See [Scope].
+func WithScope(v Scope) Option {
 	return func(s *Server) { s.Scope = v }
 }
 
-// Change is one write, described the way the server that made it saw it.
+// Change is one write: what was asked for, and what this server did about
+// it.
 type Change struct {
-	// Method is the RPC of this server that made the write, by the name
-	// gRPC knows it by, such as "/pkg.HolderService/Apply".
+	// Method is what the caller asked for -- the RPC gRPC dispatched, by
+	// the name it knows it by, such as "/pkg.HolderService/Rename".
 	//
-	// It says the whole of what happened, which is why it is the only field
-	// here that says any of it. A service is named for the entity it is
-	// about, so the name carries that; and it is always one of the four this
-	// server has, so it carries what the write did as well -- an Add adds
-	// and an Erase erases, and Patch and Apply are one write by two roads.
-	// A field beside it naming the entity, or classifying the operation,
-	// would be a second copy of something already written down.
+	// It is the whole request's and not this leg of it, which is the
+	// difference that makes it worth carrying. One call writes through
+	// several of these servers -- adding a Tenant writes the admin Holder
+	// that comes with it -- and an RPC written by hand ends in an Apply that
+	// nobody called by that name. A trail that said [Change.By] here would
+	// answer "who renamed this" with a method the caller has never heard
+	// of.
 	//
-	// It is not necessarily what a client called, and a recorder that wants
-	// that should ask the context for it. These servers are also called in
-	// process, where there is no RPC at all, and one call to a server in
-	// front of them can write several rows through several of these --
-	// adding a tenant that comes with an admin writes a row here under the
-	// name of the Holder service.
+	// A write nobody called over the wire has no such thing, and then this
+	// is [Change.By]. That is the honest answer rather than a fallback: the
+	// deployment writing to itself at startup did call it, in the only sense
+	// in which anything called it.
 	Method string
+
+	// By is the RPC of *this* server that made the write, which is what
+	// actually happened to the row.
+	//
+	// It says which entity and which kind of write without a field for
+	// either: a service is named for the entity it is about, and it is
+	// always one of the four this server has -- an Add adds and an Erase
+	// erases, and Patch and Apply are one write by two roads.
+	//
+	// So the two answer different questions and a recorder wants the one it
+	// is for. A trail is read by somebody asking what was asked for, and
+	// takes Method. Anything that acts on the row itself -- a cache to drop,
+	// an event to publish -- has to know which row and which write, and
+	// takes this.
+	By string
 
 	// Key is the row, as Go holds the key of this entity: a uuid.UUID, a
 	// string, whatever the schema declared. It is the key and never the
@@ -88,7 +116,7 @@ type Change struct {
 	// Patch is the document the write was compiled from, and nil for a
 	// write that was not one. A Patch request converts into a document, so
 	// both RPCs arrive with the same thing to say and a recorder does not
-	// have to know which one it was -- Method still says.
+	// have to know which one it was -- [Change.By] still says.
 	//
 	// It is what was asked for and not a redo log. What the server settled
 	// on itself is not in it: the version stamp of an Apply, and the key and
@@ -162,24 +190,34 @@ func (rs Recorders) Record(ctx context.Context, s Server, c Change) error {
 // looking for an entity that is already there does, would act on a
 // conflict that was never its own. Keeping the trail is this server's
 // job, so failing to is this server's fault.
+//
+// It is also where [Change.Method] is filled in. The write sites know
+// which RPC of this server they are, and the request knows what it was
+// asked for; asking gRPC once here is what keeps the two from being
+// spelled out at every one of them.
 func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
 	if rec == nil {
 		return nil
 	}
-	if err := rec.Record(ctx, Server{Db: db}, c); err != nil {
-		return status.Errorf(codes.Internal, "record the write by %s: %s", c.Method, err)
+	if v, ok := grpc.Method(ctx); ok {
+		c.Method = v
+	} else {
+		c.Method = c.By
+	}
+	if err := rec.Record(ctx, Server{Store: Store{Db: db}}, c); err != nil {
+		return status.Errorf(codes.Internal, "record the write by %s: %s", c.By, err)
 	}
 	return nil
 }
 
-// Scopes narrows what the servers of a [Server] can see, one entity at a
-// time. A nil hook, or one that answers with a nil predicate, narrows
-// nothing: every row is in scope.
+// Scope narrows what the servers of a [Server] can see, one entity at a
+// time. A nil Scope, and a method that answers with a nil predicate,
+// narrow nothing: every row is in scope.
 //
-// A hook is asked once per query and is handed the context of the call,
-// which is where whatever it needs to decide has to be -- who is calling,
-// what they are allowed. An error it answers with is the caller's answer,
-// so it may be a status.
+// A method is called once per query and is handed the context of the
+// call, which is where whatever it needs to decide has to be -- who is
+// calling, what they are allowed. An error it answers with is the
+// caller's answer, so it may be a status.
 //
 // Narrowing is not refusing, and the difference is the point. A row out
 // of scope is a row the query does not match, so a Get of it is NotFound
@@ -189,16 +227,50 @@ func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
 //
 // A call with nothing in its context to decide by -- a deployment writing
 // to itself before anybody exists, a job with no request behind it -- is
-// the case to be deliberate about. A hook that answers `nil, nil` there
+// the case to be deliberate about. A method that answers `nil, nil` there
 // lets that call see everything, which is usually right and is never
 // safe to arrive at by accident.
-type Scopes struct {
-	ValueField   func(ctx context.Context) (predicate.ValueField, error)
-	MessageField func(ctx context.Context) (predicate.MessageField, error)
-	MapField     func(ctx context.Context) (predicate.MapField, error)
-	Note         func(ctx context.Context) (predicate.Note, error)
-	Tenant       func(ctx context.Context) (predicate.Tenant, error)
-	User         func(ctx context.Context) (predicate.User, error)
+//
+// Embed [Unscoped] to write out only the entities there is something to
+// say about.
+type Scope interface {
+	ValueFieldScope(ctx context.Context) (predicate.ValueField, error)
+	MessageFieldScope(ctx context.Context) (predicate.MessageField, error)
+	MapFieldScope(ctx context.Context) (predicate.MapField, error)
+	NoteScope(ctx context.Context) (predicate.Note, error)
+	TenantScope(ctx context.Context) (predicate.Tenant, error)
+	UserScope(ctx context.Context) (predicate.User, error)
+}
+
+// Unscoped is a [Scope] that narrows nothing. Embed it and write out the
+// entities there is something to say about; the rest go on seeing every
+// row, and so does an entity added to the schema afterwards.
+//
+// That last part is what it is really for. Without it, every app that
+// narrows anything would stop compiling the day an entity is declared,
+// and the fix would be a method that says "no opinion" -- which is this,
+// written out by hand once per app.
+type Unscoped struct{}
+
+var _ Scope = Unscoped{}
+
+func (Unscoped) ValueFieldScope(_ context.Context) (predicate.ValueField, error) {
+	return nil, nil
+}
+func (Unscoped) MessageFieldScope(_ context.Context) (predicate.MessageField, error) {
+	return nil, nil
+}
+func (Unscoped) MapFieldScope(_ context.Context) (predicate.MapField, error) {
+	return nil, nil
+}
+func (Unscoped) NoteScope(_ context.Context) (predicate.Note, error) {
+	return nil, nil
+}
+func (Unscoped) TenantScope(_ context.Context) (predicate.Tenant, error) {
+	return nil, nil
+}
+func (Unscoped) UserScope(_ context.Context) (predicate.User, error) {
+	return nil, nil
 }
 
 // NewServer refuses a client whose dialect this backend does not write
@@ -208,21 +280,21 @@ type Scopes struct {
 // name -- a PostgreSQL-compatible server -- is named when the connection
 // is opened, which is where saying so belongs: everything the client does
 // is rendered for that dialect, not just what this server writes.
+//
+// That set is also what a soft erasure needs, so this is the whole
+// check. Note frees the names it held when a row
+// is erased, which is a unique index covering only the rows that are
+// still there -- a partial index, and the dialects above are the ones
+// that have one. MySQL does not, and ent writes the annotation out for
+// it rather than refusing, so the index would come up covering every
+// row and a freed name would stay taken with nothing to say so.
 func NewServer(db *ent.Client, opts ...Option) (Server, error) {
-	s := Server{Db: db}
+	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
 		opt(&s)
 	}
 	if d := db.Dialect(); !entpatch.Supports(d) {
 		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, d)
-	}
-
-	// Note erases softly, and that is only true where a
-	// unique index can be made partial. MySQL has no such thing, so the
-	// index would come up covering every row and an alias freed by an
-	// erasure would stay taken -- with nothing anywhere to say so.
-	if d := db.Dialect(); d == dialect.MySQL {
-		return Server{}, fmt.Errorf("%s cannot make a unique index partial, which is what an erased row needs to give up its name: %s", d, "Note")
 	}
 	return s, nil
 }
@@ -247,20 +319,14 @@ func (s Server) WithDriver(drv dialect.Driver) (apptest.Server, error) {
 }
 
 func (s Server) ValueField() apptest.ValueFieldServiceServer {
-	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.ValueField}
+	return ValueFieldServiceServer{Store: s.Store}
 }
 func (s Server) MessageField() apptest.MessageFieldServiceServer {
-	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MessageField}
+	return MessageFieldServiceServer{Store: s.Store}
 }
 func (s Server) MapField() apptest.MapFieldServiceServer {
-	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MapField}
+	return MapFieldServiceServer{Store: s.Store}
 }
-func (s Server) Note() apptest.NoteServiceServer {
-	return NoteServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Note}
-}
-func (s Server) Tenant() apptest.TenantServiceServer {
-	return TenantServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Tenant}
-}
-func (s Server) User() apptest.UserServiceServer {
-	return UserServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.User}
-}
+func (s Server) Note() apptest.NoteServiceServer     { return NoteServiceServer{Store: s.Store} }
+func (s Server) Tenant() apptest.TenantServiceServer { return TenantServiceServer{Store: s.Store} }
+func (s Server) User() apptest.UserServiceServer     { return UserServiceServer{Store: s.Store} }

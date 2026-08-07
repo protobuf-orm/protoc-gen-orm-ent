@@ -53,12 +53,14 @@ func (w *fileWork) xApply() {
 	// the time the write happens there is nothing left to work it out from --
 	// the document is the same either way, which is the point of converting.
 	// It is the RPC's own name rather than a word this generator made up,
-	// which is the only spelling of it that outlives this package.
+	// which is the only spelling of it that outlives this package. It becomes
+	// [Change.By]; what the caller asked for is a different question and is
+	// answered in `record`.
 	w.P("func (s ", name_x, "ServiceServer) apply(",
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "ref *", w.Src.GoImportPath.Ident(name_x+"Ref"), ",",
 		/* */ "doc *", work.PkgPatchPb.Ident("Patch"), ",",
-		/* */ "method string",
+		/* */ "by string",
 		") (*", w.Ident, ", error) {")
 
 	// No document means no delta -- a request that asked for nothing. It is
@@ -197,7 +199,7 @@ func (w *fileWork) xApply() {
 	// the strength of a request that read it.
 	w.P("	if mod != nil {")
 	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
-	w.P("			Method: method,")
+	w.P("			By: by,")
 	w.P("			Key: k,")
 	w.P("			Patch: doc,")
 	w.P("		}); err != nil {")

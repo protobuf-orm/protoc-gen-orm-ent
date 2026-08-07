@@ -108,14 +108,19 @@ So both are hooks on the generated server.
 | | | |
 | --- | --- | --- |
 | `Recorder` | told about every write | inside the transaction that makes it, before it is committed |
-| `Scopes`   | asked before every read | and its predicate goes into the query |
+| `Scope`    | asked before every read | and its predicate goes into the query |
 
 ```go
+// A Scope with something to say about one entity and nothing about the others.
+// Embedding Unscoped is what keeps that from being a method per entity -- and
+// what keeps an entity added to the schema later from being a compile error.
+type wall struct{ bare.Unscoped }
+
+func (wall) HolderScope(ctx context.Context) (predicate.Holder, error) { ... }
+
 s, err := bare.NewServer(db,
     bare.WithRecorder(trail),        // given twice it adds, rather than replacing
-    bare.WithScope(bare.Scopes{
-        Holder: func(ctx context.Context) (predicate.Holder, error) { ... },
-    }),
+    bare.WithScope(wall{}),
 )
 ```
 
@@ -136,6 +141,14 @@ Three things follow from where they are:
 - **Neither applies to `Add`.** It builds a row rather than finding one. Whether
   a caller may create something, or point an edge at something they cannot see,
   is not a predicate, and it belongs in front.
+
+A `Change` carries two names, and they answer different questions. `Method` is
+what the caller asked for — the RPC gRPC dispatched, which is the whole
+request's and not this leg of it, so an RPC written by hand that ends in an
+`Apply` is on the trail under its own name. `By` is the RPC of *this* server
+that made the write, which says which entity and which kind of write without a
+field for either. A trail takes `Method`; anything that acts on the row — a
+cache to drop, an event to publish — takes `By`.
 
 The server a recorder is handed carries neither hook: it does not record, so a
 trail cannot audit itself into a loop, and it is not narrowed, so it can read

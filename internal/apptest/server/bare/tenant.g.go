@@ -23,15 +23,7 @@ import (
 )
 
 type TenantServiceServer struct {
-	Db *ent.Client
-
-	// Rec is told about every write this server makes, and nothing is told
-	// if it is nil. See [Recorder].
-	Rec Recorder
-
-	// Scope narrows every query this server builds, and it sees every row
-	// if it is nil. See [Scopes].
-	Scope func(ctx context.Context) (predicate.Tenant, error)
+	Store
 
 	apptest.UnimplementedTenantServiceServer
 }
@@ -42,11 +34,11 @@ type TenantServiceServer struct {
 // where to report its writes and what it may see. Built without them, it
 // reports nowhere and sees everything.
 func NewTenantServiceServer(db *ent.Client, opts ...Option) apptest.TenantServiceServer {
-	s := Server{Db: db}
+	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
 		opt(&s)
 	}
-	return TenantServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Tenant}
+	return TenantServiceServer{Store: s.Store}
 }
 
 // TenantNarrow answers with `p` and everything else that narrows a
@@ -55,13 +47,13 @@ func NewTenantServiceServer(db *ent.Client, opts ...Option) apptest.TenantServic
 // Every read this package makes goes through it, and a read written by
 // hand should too -- a List is the one read nothing generates, and so the
 // one that would otherwise answer with rows nobody should be given.
-func TenantNarrow(ctx context.Context, scope func(context.Context) (predicate.Tenant, error), p predicate.Tenant) (predicate.Tenant, error) {
+func TenantNarrow(ctx context.Context, scope Scope, p predicate.Tenant) (predicate.Tenant, error) {
 	ps := make([]predicate.Tenant, 0, 2)
 	if p != nil {
 		ps = append(ps, p)
 	}
 	if scope != nil {
-		q, err := scope(ctx)
+		q, err := scope.TenantScope(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -138,8 +130,8 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	}
 
 	if err := record(ctx, s.Rec, st.Db, Change{
-		Method: apptest.TenantService_Add_FullMethodName,
-		Key:    u.ID,
+		By:  apptest.TenantService_Add_FullMethodName,
+		Key: u.ID,
 	}); err != nil {
 		return nil, err
 	}
@@ -272,7 +264,7 @@ func (s TenantServiceServer) Apply(ctx context.Context, req *apptest.TenantApply
 	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.TenantService_Apply_FullMethodName)
 }
 
-func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, doc *patchpb.Patch, method string) (*apptest.Tenant, error) {
+func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, doc *patchpb.Patch, by string) (*apptest.Tenant, error) {
 	plan := &ormpatch.Plan{Entity: tenantOrmEntity}
 	if doc != nil {
 		v, err := ormpatch.Compile(tenantOrmEntity, doc)
@@ -352,9 +344,9 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 
 	if mod != nil {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: method,
-			Key:    k,
-			Patch:  doc,
+			By:    by,
+			Key:   k,
+			Patch: doc,
 		}); err != nil {
 			return nil, err
 		}
@@ -409,8 +401,8 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 	}
 	if n > 0 {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			Method: apptest.TenantService_Erase_FullMethodName,
-			Key:    k,
+			By:  apptest.TenantService_Erase_FullMethodName,
+			Key: k,
 		}); err != nil {
 			return nil, err
 		}
