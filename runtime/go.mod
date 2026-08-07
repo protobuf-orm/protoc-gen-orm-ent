@@ -16,7 +16,7 @@ go 1.26.2
 require (
 	entgo.io/ent v0.14.5
 	github.com/google/uuid v1.6.0
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20260803175457-3d185635f291
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
 	google.golang.org/protobuf v1.36.11
 )
 

@@ -41,36 +41,65 @@ func (w *fileWork) xServer() {
 	w.xNarrow()
 }
 
-// xNarrow emits the one place the scope is asked, so that every query this
-// server builds narrows the same way and none of them can be the one that
-// forgot.
+// xNarrow emits the one place a read of this entity is narrowed, so that every
+// query narrows the same way and none of them can be the one that forgot.
 //
-// It takes the predicate the request already produced and answers with both
-// together, rather than answering with the scope for a caller to combine: a
-// caller that combined them would be a caller that could leave one out.
+// It takes the predicate the request already produced and answers with
+// everything together, rather than answering with the parts for a caller to
+// combine: a caller that combined them would be a caller that could leave one
+// out.
+//
+// It is a function of the package and not only a method of the server, because
+// the read most likely to forget is the one this generator does not write. A
+// List is not a CRUD operation, so it is written by hand, and what it has at
+// hand is a client and a scope rather than a service server. Given only the
+// method, such a list reaches for the scope hook directly and gets whatever
+// this function does *besides* calling it -- today nothing, tomorrow the rows
+// that have not been erased -- silently wrong in the one place nobody
+// generated.
 func (w *fileWork) xNarrow() {
 	name := w.Ident.GoName
 	p := w.entPkg().Ident(name)
+	scope := "func(" + w.QualifiedGoIdent(work.IdentContext) + ") (" + w.QualifiedGoIdent(p) + ", error)"
 
-	w.P("// narrow answers with `p` and whatever [", name, "ServiceServer.Scope]")
-	w.P("// adds to it, which is `p` itself where nothing is out of scope.")
-	w.P("func (s ", name, "ServiceServer) narrow(ctx ", work.IdentContext, ", p ", p, ") (", p, ", error) {")
-	w.P("	if s.Scope == nil {")
-	w.P("		return p, nil")
+	w.P("// ", name, "Narrow answers with `p` and everything else that narrows a")
+	w.P("// read of a ", name, ": whatever `scope` says, and nothing besides for now.")
+	w.P("//")
+	w.P("// Every read this package makes goes through it, and a read written by")
+	w.P("// hand should too -- a List is the one read nothing generates, and so the")
+	w.P("// one that would otherwise answer with rows the caller may not see.")
+	w.P("func ", name, "Narrow(ctx ", work.IdentContext, ", scope ", scope, ", p ", p, ") (", p, ", error) {")
+	w.P("	ps := make([]", p, ", 0, 2)")
+	w.P("	if p != nil {")
+	w.P("		ps = append(ps, p)")
+	w.P("	}")
+	w.P("	if scope != nil {")
+	w.P("		q, err := scope(ctx)")
+	w.P("		if err != nil {")
+	w.P("			return nil, err")
+	w.P("		}")
+	w.P("		if q != nil {")
+	w.P("			ps = append(ps, q)")
+	w.P("		}")
 	w.P("	}")
 	w.P("")
-	w.P("	q, err := s.Scope(ctx)")
-	w.P("	if err != nil {")
-	w.P("		return nil, err")
-	w.P("	}")
-	w.P("	switch {")
-	w.P("	case q == nil:")
-	w.P("		return p, nil")
-	w.P("	case p == nil:")
-	w.P("		return q, nil")
+	// Answering with And of one is not the same as answering with the one: the
+	// SQL grows a pair of parentheses per read for nothing. Answering with And
+	// of none would be worse -- ent renders it as a predicate that holds.
+	w.P("	switch len(ps) {")
+	w.P("	case 0:")
+	w.P("		return nil, nil")
+	w.P("	case 1:")
+	w.P("		return ps[0], nil")
 	w.P("	default:")
-	w.P("		return ", w.xEntPkg().Ident("And"), "(p, q), nil")
+	w.P("		return ", w.xEntPkg().Ident("And"), "(ps...), nil")
 	w.P("	}")
+	w.P("}")
+	w.P("")
+
+	w.P("// narrow is [", name, "Narrow] with this server's own scope.")
+	w.P("func (s ", name, "ServiceServer) narrow(ctx ", work.IdentContext, ", p ", p, ") (", p, ", error) {")
+	w.P("	return ", name, "Narrow(ctx, s.Scope, p)")
 	w.P("}")
 	w.P("")
 }

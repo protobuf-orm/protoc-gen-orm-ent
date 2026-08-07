@@ -49,25 +49,40 @@ func NewTenantServiceServer(db *ent.Client, opts ...Option) apptest.TenantServic
 	return TenantServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.Tenant}
 }
 
-// narrow answers with `p` and whatever [TenantServiceServer.Scope]
-// adds to it, which is `p` itself where nothing is out of scope.
-func (s TenantServiceServer) narrow(ctx context.Context, p predicate.Tenant) (predicate.Tenant, error) {
-	if s.Scope == nil {
-		return p, nil
+// TenantNarrow answers with `p` and everything else that narrows a
+// read of a Tenant: whatever `scope` says, and nothing besides for now.
+//
+// Every read this package makes goes through it, and a read written by
+// hand should too -- a List is the one read nothing generates, and so the
+// one that would otherwise answer with rows the caller may not see.
+func TenantNarrow(ctx context.Context, scope func(context.Context) (predicate.Tenant, error), p predicate.Tenant) (predicate.Tenant, error) {
+	ps := make([]predicate.Tenant, 0, 2)
+	if p != nil {
+		ps = append(ps, p)
+	}
+	if scope != nil {
+		q, err := scope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if q != nil {
+			ps = append(ps, q)
+		}
 	}
 
-	q, err := s.Scope(ctx)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case q == nil:
-		return p, nil
-	case p == nil:
-		return q, nil
+	switch len(ps) {
+	case 0:
+		return nil, nil
+	case 1:
+		return ps[0], nil
 	default:
-		return tenant.And(p, q), nil
+		return tenant.And(ps...), nil
 	}
+}
+
+// narrow is [TenantNarrow] with this server's own scope.
+func (s TenantServiceServer) narrow(ctx context.Context, p predicate.Tenant) (predicate.Tenant, error) {
+	return TenantNarrow(ctx, s.Scope, p)
 }
 
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {

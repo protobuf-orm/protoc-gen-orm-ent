@@ -49,25 +49,40 @@ func NewValueFieldServiceServer(db *ent.Client, opts ...Option) apptest.ValueFie
 	return ValueFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.ValueField}
 }
 
-// narrow answers with `p` and whatever [ValueFieldServiceServer.Scope]
-// adds to it, which is `p` itself where nothing is out of scope.
-func (s ValueFieldServiceServer) narrow(ctx context.Context, p predicate.ValueField) (predicate.ValueField, error) {
-	if s.Scope == nil {
-		return p, nil
+// ValueFieldNarrow answers with `p` and everything else that narrows a
+// read of a ValueField: whatever `scope` says, and nothing besides for now.
+//
+// Every read this package makes goes through it, and a read written by
+// hand should too -- a List is the one read nothing generates, and so the
+// one that would otherwise answer with rows the caller may not see.
+func ValueFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.ValueField, error), p predicate.ValueField) (predicate.ValueField, error) {
+	ps := make([]predicate.ValueField, 0, 2)
+	if p != nil {
+		ps = append(ps, p)
+	}
+	if scope != nil {
+		q, err := scope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if q != nil {
+			ps = append(ps, q)
+		}
 	}
 
-	q, err := s.Scope(ctx)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case q == nil:
-		return p, nil
-	case p == nil:
-		return q, nil
+	switch len(ps) {
+	case 0:
+		return nil, nil
+	case 1:
+		return ps[0], nil
 	default:
-		return valuefield.And(p, q), nil
+		return valuefield.And(ps...), nil
 	}
+}
+
+// narrow is [ValueFieldNarrow] with this server's own scope.
+func (s ValueFieldServiceServer) narrow(ctx context.Context, p predicate.ValueField) (predicate.ValueField, error) {
+	return ValueFieldNarrow(ctx, s.Scope, p)
 }
 
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
@@ -1172,25 +1187,40 @@ func NewMessageFieldServiceServer(db *ent.Client, opts ...Option) apptest.Messag
 	return MessageFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MessageField}
 }
 
-// narrow answers with `p` and whatever [MessageFieldServiceServer.Scope]
-// adds to it, which is `p` itself where nothing is out of scope.
-func (s MessageFieldServiceServer) narrow(ctx context.Context, p predicate.MessageField) (predicate.MessageField, error) {
-	if s.Scope == nil {
-		return p, nil
+// MessageFieldNarrow answers with `p` and everything else that narrows a
+// read of a MessageField: whatever `scope` says, and nothing besides for now.
+//
+// Every read this package makes goes through it, and a read written by
+// hand should too -- a List is the one read nothing generates, and so the
+// one that would otherwise answer with rows the caller may not see.
+func MessageFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.MessageField, error), p predicate.MessageField) (predicate.MessageField, error) {
+	ps := make([]predicate.MessageField, 0, 2)
+	if p != nil {
+		ps = append(ps, p)
+	}
+	if scope != nil {
+		q, err := scope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if q != nil {
+			ps = append(ps, q)
+		}
 	}
 
-	q, err := s.Scope(ctx)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case q == nil:
-		return p, nil
-	case p == nil:
-		return q, nil
+	switch len(ps) {
+	case 0:
+		return nil, nil
+	case 1:
+		return ps[0], nil
 	default:
-		return messagefield.And(p, q), nil
+		return messagefield.And(ps...), nil
 	}
+}
+
+// narrow is [MessageFieldNarrow] with this server's own scope.
+func (s MessageFieldServiceServer) narrow(ctx context.Context, p predicate.MessageField) (predicate.MessageField, error) {
+	return MessageFieldNarrow(ctx, s.Scope, p)
 }
 
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
@@ -1559,25 +1589,40 @@ func NewMapFieldServiceServer(db *ent.Client, opts ...Option) apptest.MapFieldSe
 	return MapFieldServiceServer{Db: s.Db, Rec: s.Rec, Scope: s.Scope.MapField}
 }
 
-// narrow answers with `p` and whatever [MapFieldServiceServer.Scope]
-// adds to it, which is `p` itself where nothing is out of scope.
-func (s MapFieldServiceServer) narrow(ctx context.Context, p predicate.MapField) (predicate.MapField, error) {
-	if s.Scope == nil {
-		return p, nil
+// MapFieldNarrow answers with `p` and everything else that narrows a
+// read of a MapField: whatever `scope` says, and nothing besides for now.
+//
+// Every read this package makes goes through it, and a read written by
+// hand should too -- a List is the one read nothing generates, and so the
+// one that would otherwise answer with rows the caller may not see.
+func MapFieldNarrow(ctx context.Context, scope func(context.Context) (predicate.MapField, error), p predicate.MapField) (predicate.MapField, error) {
+	ps := make([]predicate.MapField, 0, 2)
+	if p != nil {
+		ps = append(ps, p)
+	}
+	if scope != nil {
+		q, err := scope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if q != nil {
+			ps = append(ps, q)
+		}
 	}
 
-	q, err := s.Scope(ctx)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case q == nil:
-		return p, nil
-	case p == nil:
-		return q, nil
+	switch len(ps) {
+	case 0:
+		return nil, nil
+	case 1:
+		return ps[0], nil
 	default:
-		return mapfield.And(p, q), nil
+		return mapfield.And(ps...), nil
 	}
+}
+
+// narrow is [MapFieldNarrow] with this server's own scope.
+func (s MapFieldServiceServer) narrow(ctx context.Context, p predicate.MapField) (predicate.MapField, error) {
+	return MapFieldNarrow(ctx, s.Scope, p)
 }
 
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
