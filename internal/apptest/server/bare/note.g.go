@@ -92,14 +92,18 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	st.Db = tx.Db
 
 	q := st.Db.Note.Create()
+	var k uuid.UUID
 	if req.HasId() {
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
-			q.SetID(v)
+			k = v
 		}
+	}
+	if v, err := mint(ctx, s.Mint, "apptest.Note", k, req.HasId()); err != nil {
+		return nil, err
 	} else {
-		q.SetID(uuid.New())
+		q.SetID(v)
 	}
 	if req.HasAlias() {
 		q.SetAlias(req.GetAlias())

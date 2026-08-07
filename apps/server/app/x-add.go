@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
@@ -40,6 +41,19 @@ func (w *fileWork) xAdd() {
 		// leave the brace open. The version field is never optional, so the one
 		// down there is safe.
 		if f, ok := p.(graph.Field); ok && f.IsErased() {
+			continue
+		}
+
+		// The key of a uuid-keyed entity is the one prop an app is given a say
+		// in, since it is the one the server would otherwise make up out of
+		// nothing. See the Minter hook in apps/store.
+		//
+		// Only when the schema said the server may make one up. A key declared
+		// without a default is one the request has to carry, and handing that
+		// case to a minter would turn a missing key into a made-up one.
+		if f, ok := p.(graph.Field); ok && p.HasDefault() &&
+			f.Type() == ormpb.Type_TYPE_UUID && p.Name() == w.Entity.Key().Name() {
+			w.xAddKey(f)
 			continue
 		}
 
@@ -201,4 +215,32 @@ func (w *fileWork) xAdd() {
 	}
 	w.P("}")
 	w.P("")
+}
+
+// xAddKey emits how the key of a uuid-keyed entity is decided, which is the one
+// value in an Add that the server would otherwise invent with nobody able to
+// say otherwise.
+//
+// What the request named, if it named one, is read first and only then handed
+// over. So a minter is asked about a key that is already sixteen bytes -- the
+// "these are not sixteen bytes" refusal stays here, where it always was, and a
+// minter is left with the question that is actually its own: whether this key
+// is one this app should store a row of this kind under.
+func (w *fileWork) xAddKey(f graph.Field) {
+	name := work.Name(f.Name())
+	has := "req.Has" + name.Go() + "()"
+
+	w.P("	var k ", work.IdentUuid)
+	w.P("	if ", has, " {")
+	w.P("		if v, err := ", work.PkgUuid.Ident("FromBytes"), "(req.Get", name.Go(), "()); err != nil {")
+	w.P("			return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", f.Name(), ": %s\", err)")
+	w.P("		} else {")
+	w.P("			k = v")
+	w.P("		}")
+	w.P("	}")
+	w.P("	if v, err := mint(ctx, s.Mint, ", strconv.Quote(string(w.Entity.FullName())), ", k, ", has, "); err != nil {")
+	w.P("		return nil, err")
+	w.P("	} else {")
+	w.P("		q.Set", name.Ent(), "(v)")
+	w.P("	}")
 }

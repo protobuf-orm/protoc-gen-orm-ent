@@ -103,12 +103,17 @@ overriding `Get`, `Patch`, `Apply` and `Erase`, once per entity, forever. It is
 the same override written out again and again, and the copies drift: a rule
 fixed in one of them stays wrong in the next.
 
-So both are hooks on the generated server.
+**And a key is made up out of nothing**, which is the third place with the
+same shape: something has to decide, the decision is the same for every entity,
+and an app that wants a say has nowhere to have it.
+
+So all three are hooks on the generated server.
 
 | | | |
 | --- | --- | --- |
 | `Recorder` | told about every write | inside the transaction that makes it, before it is committed |
 | `Scope`    | asked before every read | and its predicate goes into the query |
+| `Minter`   | asked for the key of every `Add` | for an entity keyed by a uuid, and only for those |
 
 ```go
 // A Scope with something to say about one entity and nothing about the others.
@@ -121,12 +126,35 @@ func (wall) HolderScope(ctx context.Context) (predicate.Holder, error) { ... }
 s, err := bare.NewServer(db,
     bare.WithRecorder(trail),        // given twice it adds, rather than replacing
     bare.WithScope(wall{}),
+    bare.WithMinter(mint),
 )
 ```
 
-Neither hook teaches this generator what it is for. It emits them and calls
-them; whether the predicate is about tenancy, ownership or a soft delete, and
-whether the recorder writes a trail or drops a cache, is the app's to say.
+`Minter` is one method rather than one per entity, and the difference says
+which is which. A predicate is typed per entity and no single signature can
+carry them all; a key is the same type for every entity keyed by a uuid, and
+the only thing that varies is which entity is being asked about -- so that
+arrives as its full name, `"app.Holder"`.
+
+```go
+bare.MinterFunc(func(ctx context.Context, entity string, given uuid.UUID, ok bool) (uuid.UUID, error) {
+    if ok {
+        return given, nil   // ...or refuse it; an error here is the caller's answer
+    }
+    return mintFor(entity), nil
+})
+```
+
+It is asked *after* the bytes a request carried were read, so it never sees
+something that is not already a key -- "that is not sixteen bytes" is refused
+where it always was. A nil `Minter` keeps what a request named and makes up a
+v4 for a request that named nothing, which is what these servers did before
+there was anywhere to say otherwise.
+
+No hook teaches this generator what it is for. It emits them and calls them;
+whether the predicate is about tenancy, ownership or a soft delete, whether the
+recorder writes a trail or drops a cache, and what makes a key worth having, is
+the app's to say.
 
 Three things follow from where they are:
 

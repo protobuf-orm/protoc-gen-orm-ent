@@ -41,6 +41,10 @@ func (w *Work) xServer() {
 	w.P("	// Scope narrows what these servers can see, and they see every row")
 	w.P("	// if it is nil. See [Scope].")
 	w.P("	Scope Scope")
+	w.P("")
+	w.P("	// Mint decides the key of a row about to be added, for an entity")
+	w.P("	// keyed by a uuid. A nil Minter makes one up. See [Minter].")
+	w.P("	Mint Minter")
 	w.P("}")
 	w.P("")
 
@@ -85,8 +89,16 @@ func (w *Work) xServer() {
 	w.P("}")
 	w.P("")
 
+	w.P("// WithMinter answers with the option that has `v` decide the key of every")
+	w.P("// row these servers add. See [Minter].")
+	w.P("func WithMinter(v Minter) Option {")
+	w.P("	return func(s *Server) { s.Mint = v }")
+	w.P("}")
+	w.P("")
+
 	w.xRecorder()
 	w.xScopes()
+	w.xMinter()
 
 	w.P("// NewServer refuses a client whose dialect this backend does not write")
 	w.P("// SQL for.")

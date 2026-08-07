@@ -91,14 +91,18 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 
 	ds := make([]func(v *apptest.User), 0, 1)
 	q := st.Db.User.Create()
+	var k uuid.UUID
 	if req.HasId() {
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
-			q.SetID(v)
+			k = v
 		}
+	}
+	if v, err := mint(ctx, s.Mint, "apptest.User", k, req.HasId()); err != nil {
+		return nil, err
 	} else {
-		q.SetID(uuid.New())
+		q.SetID(v)
 	}
 	if k, err := TenantGetKey(ctx, st.Db, req.GetTenant()); err != nil {
 		return nil, err

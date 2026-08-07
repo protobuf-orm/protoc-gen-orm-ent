@@ -6,6 +6,7 @@ import (
 	context "context"
 	dialect "entgo.io/ent/dialect"
 	fmt "fmt"
+	uuid "github.com/google/uuid"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
@@ -33,6 +34,10 @@ type Store struct {
 	// Scope narrows what these servers can see, and they see every row
 	// if it is nil. See [Scope].
 	Scope Scope
+
+	// Mint decides the key of a row about to be added, for an entity
+	// keyed by a uuid. A nil Minter makes one up. See [Minter].
+	Mint Minter
 }
 
 // Server hands out one service server per entity, every one of them
@@ -70,6 +75,12 @@ func WithRecorder(v Recorder) Option {
 // see to what `v` says. See [Scope].
 func WithScope(v Scope) Option {
 	return func(s *Server) { s.Scope = v }
+}
+
+// WithMinter answers with the option that has `v` decide the key of every
+// row these servers add. See [Minter].
+func WithMinter(v Minter) Option {
+	return func(s *Server) { s.Mint = v }
 }
 
 // Change is one write: what was asked for, and what this server did about
@@ -271,6 +282,44 @@ func (Unscoped) TenantScope(_ context.Context) (predicate.Tenant, error) {
 }
 func (Unscoped) UserScope(_ context.Context) (predicate.User, error) {
 	return nil, nil
+}
+
+// Minter decides the key a row is stored under. It is asked once per Add,
+// for an entity whose key is a uuid, and only for those.
+//
+// `given` is the key the request named and `ok` says whether it named
+// one. A minter is free to refuse what it was given -- an error it
+// answers with is the caller's answer, so it may be a status -- and free
+// to ignore it, though a request whose key is quietly replaced is a
+// request that was answered with something it did not ask for.
+//
+// `entity` is the full name of the message, such as "app.Robot".
+//
+// A nil Minter keeps what a request named and makes up a v4 for a request
+// that named nothing, which is what these servers did before there was
+// anywhere to say otherwise.
+type Minter interface {
+	Mint(ctx context.Context, entity string, given uuid.UUID, ok bool) (uuid.UUID, error)
+}
+
+// MinterFunc is a [Minter] written as a function.
+type MinterFunc func(ctx context.Context, entity string, given uuid.UUID, ok bool) (uuid.UUID, error)
+
+func (f MinterFunc) Mint(ctx context.Context, entity string, given uuid.UUID, ok bool) (uuid.UUID, error) {
+	return f(ctx, entity, given, ok)
+}
+
+// mint is what the generated Add asks. It is here rather than at each
+// call site so that the answer to a nil Minter is written once.
+func mint(ctx context.Context, m Minter, entity string, given uuid.UUID, ok bool) (uuid.UUID, error) {
+	if m == nil {
+		if ok {
+			return given, nil
+		}
+		return uuid.New(), nil
+	}
+
+	return m.Mint(ctx, entity, given, ok)
 }
 
 // NewServer refuses a client whose dialect this backend does not write
