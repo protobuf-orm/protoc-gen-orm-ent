@@ -35,6 +35,7 @@ func (User) Fields() []ent.Field {
 		field.Time("date_created").
 			Immutable().
 			Optional(),
+		field.UUID("tenant_id", uuid.UUID{}),
 	}
 }
 
@@ -42,6 +43,7 @@ func (User) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("tenant", Tenant.Type).
 			Unique().
+			Field("tenant_id").
 			Required(),
 	}
 }

@@ -23,6 +23,13 @@ func xEdges(w *work.FileWork) {
 		if !p.IsList() {
 			w.P(".")
 			fmt.Fprint(w, "			Unique()")
+
+			// Bound to the field [xEdgeFields] wrote, which is what makes the
+			// key readable at all. Without it ent keeps the same column in an
+			// unexported member, and `Proto()` can then only answer with an
+			// edge somebody eagerly loaded.
+			w.P(".")
+			fmt.Fprintf(w, "			Field(%q)", work.EdgeField(name_edge))
 		}
 		if !p.IsNullable() {
 			w.P(".")

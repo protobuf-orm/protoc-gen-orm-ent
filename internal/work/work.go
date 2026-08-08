@@ -47,6 +47,17 @@ func NewFileWork(root *Work, src *protogen.File, entity graph.Entity, out *proto
 	return fw
 }
 
+// Ident is the Go type of an entity's message, wherever it was declared.
+//
+// Read from what every message registered rather than guessed from the file
+// being written: an edge may point at an entity in another proto file, and
+// therefore in another Go package.
+func (w *Work) Ident(e graph.Entity) protogen.GoIdent {
+	name := e.FullName()
+
+	return w.Imports[name].Ident(string(name.Name()))
+}
+
 func (w *FileWork) Pf(format string, vs ...any) {
 	ws := make([]any, len(vs))
 	for i, v := range vs {

@@ -51,6 +51,39 @@ func xProto(w *work.FileWork) {
 		case graph.Edge:
 			w.P("	if v := e.Edges.", name.Ent(), "; v != nil {")
 			w.P("		x.Set", name.Go(), "(v.Proto())")
+
+			// And when nobody loaded it, the key -- which this row is holding
+			// either way, in the column the edge is kept in.
+			//
+			// It answers with a **reference**: the neighbour's identifier and
+			// nothing else. That is not a half-loaded row pretending to be one.
+			// It is the only thing this row actually knows about its neighbour,
+			// and it is what a client that keeps its own copy of both needs in
+			// order to join them without asking again.
+			//
+			// A list edge has no key here -- it is kept on the other table --
+			// so there is nothing to answer with and the loaded case is all
+			// there is.
+			if !p.IsList() {
+				to := p.Target()
+				key := to.Key()
+
+				// `*new(T)` rather than a literal, because the key's type is
+				// whatever the target declared and only its zero value is the
+				// same question in every one of them.
+				zero := fmt.Sprintf("*new(%s)", graph.GoTypeOf(key, w.QualifiedGoIdent))
+
+				v := "v"
+				if key.Type() == ormpb.Type_TYPE_UUID {
+					v = "v[:]"
+				}
+
+				w.P("	} else if v := e.", work.EdgeFieldGo(p.Name()), "; v != ", zero, " {")
+				w.P("		r := &", w.Root.Ident(to), "{}")
+				w.P("		r.Set", work.Name(key.Name()).Go(), "(", v, ")")
+				w.P("		x.Set", name.Go(), "(r)")
+			}
+
 			w.P("	}")
 		default:
 			panic("unknown type of graph prop")

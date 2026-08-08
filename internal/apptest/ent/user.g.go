@@ -4,6 +4,7 @@
 package ent
 
 import (
+	uuid "github.com/google/uuid"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -13,6 +14,10 @@ func (e *User) Proto() *apptest.User {
 	x.SetId(e.ID[:])
 	if v := e.Edges.Tenant; v != nil {
 		x.SetTenant(v.Proto())
+	} else if v := e.TenantID; v != *new(uuid.UUID) {
+		r := &apptest.Tenant{}
+		r.SetId(v[:])
+		x.SetTenant(r)
 	}
 	x.SetAlias(e.Alias)
 	x.SetName(e.Name)
