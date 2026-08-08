@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"text/template"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
@@ -87,22 +86,20 @@ func (a *App) doWork(ctx context.Context, w *work.FileWork) error {
 }
 
 func (a *App) newGeneratedSchemaFile(p *protogen.Plugin, f *protogen.File) (*protogen.GeneratedFile, string, error) {
-	dir, name := filepath.Split(f.GeneratedFilenamePrefix)
+	dir, name := work.Split(f.GeneratedFilenamePrefix)
 
 	var b bytes.Buffer
 	if err := a.namer.Execute(&b, struct{ Name string }{Name: name}); err != nil {
 		return nil, "", fmt.Errorf("name %s: %w", f.GeneratedFilenamePrefix, err)
 	}
-	name = b.String()
-	path := filepath.Join(dir, name)
+
+	path := string(work.At(protogen.GoImportPath(dir), b.String()))
 
 	gf, ok := a.gfs[path]
 	if ok {
 		return gf, path, nil
 	} else {
-		d, _ := filepath.Split(name)
-
-		gf = p.NewGeneratedFile(path, f.GoImportPath+protogen.GoImportPath(d))
+		gf = p.NewGeneratedFile(path, work.Dir(path))
 		a.gfs[path] = gf
 	}
 
