@@ -1,6 +1,12 @@
 package app
 
-import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
+import (
+	"strings"
+
+	"google.golang.org/protobuf/compiler/protogen"
+
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
+)
 
 // xScopes emits what narrows the reads, which is the read-side counterpart of
 // [Work.xRecorder].
@@ -92,4 +98,66 @@ func (w *Work) xScopes() {
 		w.P("}")
 	}
 	w.P("")
+
+	w.xScopesMeet(pkg)
+}
+
+// xScopesMeet emits the plural, which is how an app says two narrowings apply
+// at once.
+//
+// It exists because [WithScope] refuses to be given twice, and it is the half
+// of that refusal that makes it usable rather than merely strict: the answer to
+// "I want the wall **and** my own rule" has to be somewhere, and here it is one
+// value an app writes out in the order it means.
+//
+// The reason it is worth generating rather than leaving to each app is the nil.
+// A scope says "narrows nothing" by answering a nil predicate, so combining two
+// is not `And(a, b)` -- it is And of whichever are not nil, and nil when none
+// are. Every app that wrapped a scope by hand would write that four-line dance
+// once per entity, and the one that gets it wrong turns "narrows nothing" into
+// a predicate that matches nothing, or the other way about. The first hides
+// every row, which is noticed. The second shows every row, which is not.
+func (w *Work) xScopesMeet(pkg protogen.GoImportPath) {
+	w.P("// Scopes is several [Scope]s at once: a row is in scope when every one of")
+	w.P("// them says so.")
+	w.P("//")
+	w.P("// It is what [WithScope] refuses to guess. Given twice, that option")
+	w.P("// answers with an error rather than picking one of them or combining them")
+	w.P("// in the order they happened to be written, because losing a narrowing and")
+	w.P("// inventing one are both silent. This is where an app says which it meant:")
+	w.P("//")
+	w.P("//	bare.WithScope(bare.Scopes{app.Wall(), app.OnlyPublished()})")
+	w.P("//")
+	w.P("// A scope that narrows nothing answers nil, so what this does is And of")
+	w.P("// whichever answered something -- and nil when none did, which is the one")
+	w.P("// thing a hand-written wrapper reliably gets wrong. An empty Scopes")
+	w.P("// narrows nothing, which is what \"every one of them says so\" comes to")
+	w.P("// when there are none.")
+	w.P("type Scopes []Scope")
+	w.P("")
+	w.P("var _ Scope = Scopes{}")
+	w.P("")
+
+	for _, v := range w.Entities {
+		w.P("func (ss Scopes) ", v.Name(), "Scope(ctx ", work.IdentContext, ") (", pkg.Ident(v.Name()), ", error) {")
+		w.P("	ps := make([]", pkg.Ident(v.Name()), ", 0, len(ss))")
+		w.P("	for _, s := range ss {")
+		w.P("		p, err := s.", v.Name(), "Scope(ctx)")
+		w.P("		if err != nil {")
+		w.P("			return nil, err")
+		w.P("		}")
+		w.P("		if p == nil {")
+		w.P("			continue")
+		w.P("		}")
+		w.P("")
+		w.P("		ps = append(ps, p)")
+		w.P("	}")
+		w.P("	if len(ps) == 0 {")
+		w.P("		return nil, nil")
+		w.P("	}")
+		w.P("")
+		w.P("	return ", (w.Ent + "/" + protogen.GoImportPath(strings.ToLower(v.Name()))).Ident("And"), "(ps...), nil")
+		w.P("}")
+		w.P("")
+	}
 }

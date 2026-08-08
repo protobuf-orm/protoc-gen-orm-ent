@@ -5,12 +5,19 @@ package bare
 import (
 	context "context"
 	dialect "entgo.io/ent/dialect"
+	errors "errors"
 	fmt "fmt"
 	uuid "github.com/google/uuid"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	mapfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/mapfield"
+	messagefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/messagefield"
+	note "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/note"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
+	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
+	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
+	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -47,11 +54,30 @@ type Server struct {
 }
 
 // Option adjusts a [Server] as it is built.
-type Option func(*Server)
+//
+// An option that sets a hook refuses to be given twice, and the whole of
+// the reason is that neither answer to "what did you mean" is safe to
+// pick. Replacing silently loses one -- a recorder that was going to write
+// the trail, a scope that was the tenant wall -- and neither failure says
+// anything at the time. Combining silently is a rule nobody wrote, in an
+// order nobody chose, which is the same thing later.
+//
+// So it is refused, and how they compose is said where it can be read:
+// [Recorders] and [Scopes] are what that looks like.
+//
+// A nil hook is not a hook. Passing one is the same as not passing --
+// a nil Scope narrows nothing and a nil Recorder is told nothing, which
+// is what a server with neither already does -- so it neither sets nor
+// collides. Refusing it would be refusing somebody for saying the
+// default out loud.
+type Option func(*Server) error
+
+// ErrTwice is an option that sets the same hook as one already given.
+var ErrTwice = errors.New("given twice; say how they compose")
 
 // WithRecorder answers with the option that has every write reported to
-// `v`. Given more than once it adds a recorder rather than replacing the
-// one before it; see [Recorders] for what that costs when one refuses.
+// `v`. Several recorders are [Recorders], written out where the order and
+// what a refusal costs can both be read.
 //
 // It is not free. A write and what a recorder makes of it have to be one
 // write, so Add and Erase, which are a single statement without a
@@ -59,28 +85,46 @@ type Option func(*Server)
 // takes; and Erase reads the row it is about to delete, to be able to say
 // which one it was. Nothing of the sort happens while this is unset.
 func WithRecorder(v Recorder) Option {
-	return func(s *Server) {
-		switch r := s.Rec.(type) {
-		case nil:
-			s.Rec = v
-		case Recorders:
-			s.Rec = append(r, v)
-		default:
-			s.Rec = Recorders{r, v}
+	return func(s *Server) error {
+		if s.Rec != nil {
+			return fmt.Errorf("recorder: %w with Recorders{...}", ErrTwice)
 		}
+
+		s.Rec = v
+
+		return nil
 	}
 }
 
 // WithScope answers with the option that narrows what these servers can
-// see to what `v` says. See [Scope].
+// see to what `v` says. Several scopes are [Scopes], which meet.
 func WithScope(v Scope) Option {
-	return func(s *Server) { s.Scope = v }
+	return func(s *Server) error {
+		if s.Scope != nil {
+			return fmt.Errorf("scope: %w with Scopes{...}", ErrTwice)
+		}
+
+		s.Scope = v
+
+		return nil
+	}
 }
 
 // WithMinter answers with the option that has `v` decide the key of every
 // row these servers add. See [Minter].
+//
+// There is no plural of this and there will not be: a row has one key, so
+// two minters is not a composition, it is a disagreement.
 func WithMinter(v Minter) Option {
-	return func(s *Server) { s.Mint = v }
+	return func(s *Server) error {
+		if s.Mint != nil {
+			return fmt.Errorf("minter: %w, and they do not", ErrTwice)
+		}
+
+		s.Mint = v
+
+		return nil
+	}
 }
 
 // Change is one write: what was asked for, and what this server did about
@@ -284,6 +328,145 @@ func (Unscoped) UserScope(_ context.Context) (predicate.User, error) {
 	return nil, nil
 }
 
+// Scopes is several [Scope]s at once: a row is in scope when every one of
+// them says so.
+//
+// It is what [WithScope] refuses to guess. Given twice, that option
+// answers with an error rather than picking one of them or combining them
+// in the order they happened to be written, because losing a narrowing and
+// inventing one are both silent. This is where an app says which it meant:
+//
+//	bare.WithScope(bare.Scopes{app.Wall(), app.OnlyPublished()})
+//
+// A scope that narrows nothing answers nil, so what this does is And of
+// whichever answered something -- and nil when none did, which is the one
+// thing a hand-written wrapper reliably gets wrong. An empty Scopes
+// narrows nothing, which is what "every one of them says so" comes to
+// when there are none.
+type Scopes []Scope
+
+var _ Scope = Scopes{}
+
+func (ss Scopes) ValueFieldScope(ctx context.Context) (predicate.ValueField, error) {
+	ps := make([]predicate.ValueField, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.ValueFieldScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return valuefield.And(ps...), nil
+}
+
+func (ss Scopes) MessageFieldScope(ctx context.Context) (predicate.MessageField, error) {
+	ps := make([]predicate.MessageField, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.MessageFieldScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return messagefield.And(ps...), nil
+}
+
+func (ss Scopes) MapFieldScope(ctx context.Context) (predicate.MapField, error) {
+	ps := make([]predicate.MapField, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.MapFieldScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return mapfield.And(ps...), nil
+}
+
+func (ss Scopes) NoteScope(ctx context.Context) (predicate.Note, error) {
+	ps := make([]predicate.Note, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.NoteScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return note.And(ps...), nil
+}
+
+func (ss Scopes) TenantScope(ctx context.Context) (predicate.Tenant, error) {
+	ps := make([]predicate.Tenant, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.TenantScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return tenant.And(ps...), nil
+}
+
+func (ss Scopes) UserScope(ctx context.Context) (predicate.User, error) {
+	ps := make([]predicate.User, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.UserScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return user.And(ps...), nil
+}
+
 // Minter decides the key a row is stored under. It is asked once per Add,
 // for an entity whose key is a uuid, and only for those.
 //
@@ -340,7 +523,9 @@ func mint(ctx context.Context, m Minter, entity string, given uuid.UUID, ok bool
 func NewServer(db *ent.Client, opts ...Option) (Server, error) {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			return Server{}, err
+		}
 	}
 	if d := db.Dialect(); !entpatch.Supports(d) {
 		return Server{}, fmt.Errorf("%w: %s", entpatch.ErrDialect, d)

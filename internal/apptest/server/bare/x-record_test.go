@@ -414,15 +414,16 @@ func TestRecordIsPartOfTheWrite(t *testing.T) {
 	}))
 }
 
-// TestRecorders is what WithRecorder does when it is given a second one: it
-// adds rather than replaces, because a recorder that was silently dropped is
-// the failure of this that nobody would notice.
+// TestRecorders is several recorders at once, said as one value.
+//
+// It is a value rather than the option being given twice, and that is the whole
+// of what changed here: neither answer to "you gave it twice, what did you
+// mean" is safe to pick. Replacing loses the one that was going to write the
+// trail; adding invents an order nobody chose. So the option refuses, and this
+// is where the order and what a refusal costs are both written down.
 func TestRecorders(t *testing.T) {
 	build := func(t *testing.T, rs ...bare.Recorder) (*Server, *Client) {
-		opts := make([]bare.Option, len(rs))
-		for i, r := range rs {
-			opts[i] = bare.WithRecorder(r)
-		}
+		opts := []bare.Option{bare.WithRecorder(bare.Recorders(rs))}
 
 		s := NewServerWith(t, opts...)
 		t.Cleanup(func() { s.Close() })
