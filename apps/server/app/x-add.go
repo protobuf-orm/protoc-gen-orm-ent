@@ -79,8 +79,7 @@ func (w *fileWork) xAdd() {
 			if p.IsVersion() {
 				switch t {
 				case ormpb.Type_TYPE_TIME:
-					now := work.PkgTime.Ident("Now")
-					set(fmt.Sprintf("%s().UTC()", w.QualifiedGoIdent(now)))
+					set("st.now()")
 
 				default:
 					panic("version with type other than time not supported yet")
@@ -144,7 +143,7 @@ func (w *fileWork) xAdd() {
 				case ormpb.Type_TYPE_UUID:
 					w.Pf("%s()", work.PkgUuid.Ident("New"))
 				case ormpb.Type_TYPE_TIME:
-					w.Pf("%s().UTC()", work.PkgTime.Ident("Now"))
+					w.Pf("st.now()")
 				default:
 					switch t.Decay() {
 					case ormpb.Type_TYPE_FLOAT,

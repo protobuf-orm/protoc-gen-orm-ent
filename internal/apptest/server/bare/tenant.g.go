@@ -19,7 +19,6 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	time "time"
 )
 
 type TenantServiceServer struct {
@@ -117,7 +116,7 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
 	} else {
-		q.SetDateCreated(time.Now().UTC())
+		q.SetDateCreated(st.now())
 	}
 
 	u, err := q.Save(ctx)

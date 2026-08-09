@@ -3,6 +3,7 @@ package bare_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -47,6 +48,13 @@ func TestAHookGivenTwiceIsRefused(t *testing.T) {
 		what: "two minters",
 		opts: []bare.Option{bare.WithMinter(mint), bare.WithMinter(mint)},
 		says: "and they do not",
+	}, {
+		// Two clocks is two answers to "now", and a write that stamped
+		// `date_created` from one and the version from the other would be a row
+		// whose own two times disagree.
+		what: "two clocks",
+		opts: []bare.Option{bare.WithClock(time.Now), bare.WithClock(time.Now)},
+		says: "there is one now",
 	}} {
 		t.Run(tt.what, func(t *testing.T) {
 			x := require.New(t)

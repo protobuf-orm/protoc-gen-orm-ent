@@ -22,6 +22,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	time "time"
 )
 
 // Store is what every server of this package runs with: the client its
@@ -45,6 +46,10 @@ type Store struct {
 	// Mint decides the key of a row about to be added, for an entity
 	// keyed by a uuid. A nil Minter makes one up. See [Minter].
 	Mint Minter
+
+	// Now is what these servers stamp a time with, and is `time.Now` when
+	// it is nil. See [Clock].
+	Now Clock
 }
 
 // Server hands out one service server per entity, every one of them
@@ -122,6 +127,25 @@ func WithMinter(v Minter) Option {
 		}
 
 		s.Mint = v
+
+		return nil
+	}
+}
+
+// WithClock answers with the option that has `v` say what time it is
+// wherever these servers stamp one. See [Clock].
+//
+// No plural, for the reason [WithMinter] has none and a sharper one: two
+// clocks is two answers to "now", and a write that stamped `date_created`
+// from one and `date_updated` from the other would be a row whose own two
+// times disagree.
+func WithClock(v Clock) Option {
+	return func(s *Server) error {
+		if s.Now != nil {
+			return fmt.Errorf("clock: %w, and there is one now", ErrTwice)
+		}
+
+		s.Now = v
 
 		return nil
 	}
@@ -503,6 +527,39 @@ func mint(ctx context.Context, m Minter, entity string, given uuid.UUID, ok bool
 	}
 
 	return m.Mint(ctx, entity, given, ok)
+}
+
+// Clock is what these servers ask when they stamp a time -- `date_created`,
+// the version field, the one an erase marks.
+//
+// It exists so that a test can say what time it is, the way [Minter] lets
+// one say what a key is. Those two are the whole of what makes a generated
+// server's answer unpredictable, and an answer that cannot be predicted is
+// one a test has to take apart field by field.
+//
+// It is **not** about clock skew. What a deployment's clocks say to each
+// other is the deployment's business, and nothing here corrects it.
+//
+// A nil Clock is `time.Now`, which is the difference between this and
+// [Minter]: a row has to be stamped with something, so there is no state
+// in which answering nothing is right.
+//
+//	s, err := bare.NewServer(db, bare.WithClock(func() time.Time { return at }))
+type Clock func() time.Time
+
+// now is what a stamp reads, and `time.Now` when nothing was handed in.
+//
+// UTC because a stamp is compared and ordered rather than shown, and a
+// time carrying a zone is one that compares equal to itself written
+// another way -- which is true and is not what anybody reading the
+// comparison expects. A Clock is free to answer in any zone; this is
+// what is stored.
+func (s Store) now() time.Time {
+	if s.Now == nil {
+		return time.Now().UTC()
+	}
+
+	return s.Now().UTC()
 }
 
 // NewServer refuses a client whose dialect this backend does not write

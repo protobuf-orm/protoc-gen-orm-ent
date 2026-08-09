@@ -181,7 +181,7 @@ func (w *fileWork) xApply() {
 		// PostgreSQL rejects the pair as a duplicate assignment, and SQLite
 		// silently keeps one.
 		w.Pf("		if !plan.WritesTo(%d) {", ver.Number())
-		w.P("			q.Set", work.Name(ver.Name()).Ent(), "(", w.QualifiedGoIdent(work.PkgTime.Ident("Now")), "().UTC())")
+		w.P("			q.Set", work.Name(ver.Name()).Ent(), "(st.now())")
 		w.P("		}")
 	}
 

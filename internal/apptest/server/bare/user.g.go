@@ -21,7 +21,6 @@ import (
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	time "time"
 )
 
 type UserServiceServer struct {
@@ -128,11 +127,11 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	if req.HasLock() {
 		q.SetLock(req.GetLock())
 	}
-	q.SetDateUpdated(time.Now().UTC())
+	q.SetDateUpdated(st.now())
 	if req.HasDateCreated() {
 		q.SetDateCreated(req.GetDateCreated().AsTime())
 	} else {
-		q.SetDateCreated(time.Now().UTC())
+		q.SetDateCreated(st.now())
 	}
 
 	u, err := q.Save(ctx)
@@ -374,7 +373,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		}
 		q.Modify(mod)
 		if !plan.WritesTo(14) {
-			q.SetDateUpdated(time.Now().UTC())
+			q.SetDateUpdated(st.now())
 		}
 		if n, err := q.Save(ctx); err != nil {
 			return nil, err

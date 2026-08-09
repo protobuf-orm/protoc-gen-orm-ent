@@ -81,14 +81,14 @@ func (w *fileWork) xErase() {
 		// erased matches nothing, records nothing and succeeds -- which is what
 		// erasing what was never there has always done.
 		w.P("	u := st.Db.", name, ".Update().Where(p)")
-		w.P("	u.Set", work.Name(del.Name()).Ent(), "(", work.PkgTime.Ident("Now"), "().UTC())")
+		w.P("	u.Set", work.Name(del.Name()).Ent(), "(st.now())")
 		if ver := w.Entity.GetVersionField(); ver != nil {
 			// An erase is a write, so the token moves with it. Nothing can
 			// compare-and-swap against the row afterwards -- it is out of
 			// reach -- but a row brought back by hand would otherwise come
 			// back holding a version that was current before it left, and a
 			// client that had read it then would find its test still passing.
-			w.P("	u.Set", work.Name(ver.Name()).Ent(), "(", work.PkgTime.Ident("Now"), "().UTC())")
+			w.P("	u.Set", work.Name(ver.Name()).Ent(), "(st.now())")
 		}
 		w.P("	n, err := u.Save(ctx)")
 		w.P("	if err != nil {")
