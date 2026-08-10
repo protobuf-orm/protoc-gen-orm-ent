@@ -5,6 +5,7 @@ package schema
 
 import (
 	ent "entgo.io/ent"
+	dialect "entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/entsql"
 	schema "entgo.io/ent/schema"
 	field "entgo.io/ent/schema/field"
@@ -362,13 +363,13 @@ func (MessageField) Fields() []ent.Field {
 			Immutable(),
 		field.JSON("explicit", &structpb.Struct{}).
 			Optional(),
-		field.String("held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
+		field.String("held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).SchemaType(map[string]string{dialect.Postgres: "jsonb", dialect.MySQL: "json"}).
 			Optional(),
 		field.JSON("repeated", []*structpb.Struct{}).
 			Optional(),
 		field.JSON("nullable", &structpb.Struct{}).
 			Optional(),
-		field.String("nullable_held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
+		field.String("nullable_held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).SchemaType(map[string]string{dialect.Postgres: "jsonb", dialect.MySQL: "json"}).
 			Optional(),
 		field.JSON("explicit_with_default", &structpb.Struct{}).
 			Optional(),

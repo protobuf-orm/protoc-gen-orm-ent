@@ -53,9 +53,28 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 			// [entpb.ValueScanner]. A string rather than JSON because ent hangs
 			// `ValueScanner` off the string and bytes builders and not off the
 			// JSON one -- there is no way to give `field.JSON` a codec.
+			//
+			// And then the column type is put back to what `field.JSON` would
+			// have given it. That is not a new feature: a message field was
+			// `jsonb` on postgres and `json` on mysql before this, holding
+			// `{}`, and leaving it a string would **narrow an existing
+			// column**. The generator decides this for every app that has ever
+			// generated, and `migrate.Check` refuses to serve a database that
+			// does not match -- so getting it wrong here is not a thing one app
+			// fixes later, it is a table rewrite every deployment has to do
+			// before it can start.
+			//
+			// It is also what the field is: the value in there is JSON, and
+			// `labels` in the same table is already `jsonb`. Two columns
+			// carrying JSON with different types, for a reason the schema does
+			// not state, is a thing somebody has to explain later.
 			id = "String"
 			vs := w.QualifiedGoIdent(work.PkgEntPb.Ident("ValueScanner"))
-			chain = fmt.Sprintf(".GoType(&%s{}).ValueScanner(%s[*%s]{})", m, vs, m)
+			pg := w.QualifiedGoIdent(work.PkgEntDialect.Ident("Postgres"))
+			my := w.QualifiedGoIdent(work.PkgEntDialect.Ident("MySQL"))
+			chain = fmt.Sprintf(
+				".GoType(&%s{}).ValueScanner(%s[*%s]{}).SchemaType(map[string]string{%s: %q, %s: %q})",
+				m, vs, m, pg, "jsonb", my, "json")
 			ctor = ""
 		} else {
 			ctor = "&" + ctor + "{}"
