@@ -13,9 +13,9 @@ plugins:
     out: .
     opt:
       - module=github.com/protobuf-orm/protoc-gen-orm-ent
-  - local: [go, run, github.com/protobuf-orm/protoc-gen-orm-service]
+  - local: [go, tool, github.com/protobuf-orm/protoc-gen-orm-service]
     out: ./proto
-  - local: [go, run, github.com/protobuf-orm/protoc-gen-orm-go]
+  - local: [go, tool, github.com/protobuf-orm/protoc-gen-orm-go]
     out: .
     opt:
       - module=github.com/protobuf-orm/protoc-gen-orm-ent

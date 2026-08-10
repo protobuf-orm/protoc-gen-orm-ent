@@ -1,0 +1,96 @@
+# The generated code is not committed -- see `.gitignore` -- so there is only
+# one honest way to test this repository: generate it, then run it. That is also
+# the check worth having, because the thing this repository *is* is the
+# generator.
+#
+# It did not exist before, and the cost of that was concrete: a message field
+# generated `field.JSON`, which marshals with `encoding/json`, which cannot see
+# the fields of a message generated with the opaque API. Every such value
+# round-tripped as `{}` -- no error, no failing test, nothing. It survived
+# because nobody ran it.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+
+      # Twice, and not by mistake. The first pass writes the service contracts
+      # (`*_svc.g.proto`) and the second generates Go from them: the plugins in
+      # one invocation all read the inputs as they were when it started, so a
+      # contract written by this run is only compiled by the next.
+      - run: buf generate
+      - run: buf generate
+
+      - run: bash gen-ent.sh
+
+      # Sixteen generated files **are** committed -- the service contracts, the
+      # bare servers, `query.g.go` -- and this says a commit carried them. A
+      # generated file that was not regenerated compiles perfectly and is wrong,
+      # which is the failure this repository exists to produce in other people's
+      # code and is no less true of its own.
+      #
+      # The rest is gitignored and covered by having just been built and tested.
+      - run: git diff --exit-code
+
+      - run: go build ./...
+      - run: go test ./... -count=1
+
+      - run: go test ./... -count=1
+        working-directory: runtime
+
+      - run: go test ./... -count=1
+        working-directory: internal/apptest
+
+  # The same suite on the database people deploy on. SQLite is what the tests
+  # use by default and should stay that way -- it needs no server -- but it is
+  # permissive in the directions that hide mistakes, and a value scanner writing
+  # to a `jsonb` column is not a thing it can have an opinion about.
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: apptest
+        ports: ["5432:5432"]
+        # Without this the container is up before the database accepts, and the
+        # first test is the one that finds out.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+
+      - run: buf generate
+      - run: buf generate
+      - run: bash gen-ent.sh
+
+      - run: go test ./... -count=1
+        working-directory: internal/apptest
+        env:
+          APPTEST_POSTGRES: postgres://app:app@127.0.0.1:5432/apptest?sslmode=disable
