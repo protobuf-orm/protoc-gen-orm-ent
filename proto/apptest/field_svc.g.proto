@@ -725,8 +725,10 @@ service MessageFieldService {
 message MessageFieldAddRequest {
 	string id = 1;
 	google.protobuf.Struct explicit = 48;
+	Held held = 49;
 	repeated google.protobuf.Struct repeated = 80;
 	google.protobuf.Struct nullable = 112;
+	Held nullable_held = 113;
 	google.protobuf.Struct explicit_with_default = 176;
 	google.protobuf.Struct explicit_immutable = 240;
 }
@@ -740,8 +742,10 @@ message MessageFieldRef {
 message MessageFieldSelect {
 	bool all = 1;
 	bool explicit = 48;
+	bool held = 49;
 	bool repeated = 80;
 	bool nullable = 112;
+	bool nullable_held = 113;
 	bool explicit_with_default = 176;
 	bool explicit_immutable = 240;
 }
@@ -759,6 +763,12 @@ message MessageFieldPatchRequest {
 	// "leave it alone", so no value could have meant NULL. It wins
 	// outright: setting both this and explicit clears.
 	bool explicit_null = 97;
+	Held held = 98;
+	// Clear held instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and held clears.
+	bool held_null = 99;
 	repeated google.protobuf.Struct repeated = 160;
 	google.protobuf.Struct nullable = 224;
 	// Clear nullable instead of writing it.
@@ -766,6 +776,12 @@ message MessageFieldPatchRequest {
 	// "leave it alone", so no value could have meant NULL. It wins
 	// outright: setting both this and nullable clears.
 	bool nullable_null = 225;
+	Held nullable_held = 226;
+	// Clear nullable_held instead of writing it.
+	// It takes a field of its own because an unset value already means
+	// "leave it alone", so no value could have meant NULL. It wins
+	// outright: setting both this and nullable_held clears.
+	bool nullable_held_null = 227;
 	google.protobuf.Struct explicit_with_default = 352;
 	// Clear explicit_with_default instead of writing it.
 	// It takes a field of its own because an unset value already means

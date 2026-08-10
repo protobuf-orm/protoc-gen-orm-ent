@@ -1224,11 +1224,17 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	if req.HasExplicit() {
 		q.SetExplicit(req.GetExplicit())
 	}
+	if req.HasHeld() {
+		q.SetHeld(req.GetHeld())
+	}
 	if u := req.GetRepeated(); len(u) > 0 {
 		q.SetRepeated(u)
 	}
 	if req.HasNullable() {
 		q.SetNullable(req.GetNullable())
+	}
+	if req.HasNullableHeld() {
+		q.SetNullableHeld(req.GetNullableHeld())
 	}
 	if req.HasExplicitWithDefault() {
 		q.SetExplicitWithDefault(req.GetExplicitWithDefault())
@@ -1304,11 +1310,17 @@ func MessageFieldSelectedFields(m *apptest.MessageFieldSelect) []string {
 	if m.GetExplicit() {
 		vs = append(vs, messagefield.FieldExplicit)
 	}
+	if m.GetHeld() {
+		vs = append(vs, messagefield.FieldHeld)
+	}
 	if m.GetRepeated() {
 		vs = append(vs, messagefield.FieldRepeated)
 	}
 	if m.GetNullable() {
 		vs = append(vs, messagefield.FieldNullable)
+	}
+	if m.GetNullableHeld() {
+		vs = append(vs, messagefield.FieldNullableHeld)
 	}
 	if m.GetExplicitWithDefault() {
 		vs = append(vs, messagefield.FieldExplicitWithDefault)
@@ -1377,7 +1389,7 @@ func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.Messag
 var messageFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "MessageField")
 
 var messageFieldPatchColumns = entpatch.Columns{
-	1: messagefield.FieldID, 48: messagefield.FieldExplicit, 80: messagefield.FieldRepeated, 112: messagefield.FieldNullable, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
+	1: messagefield.FieldID, 48: messagefield.FieldExplicit, 49: messagefield.FieldHeld, 80: messagefield.FieldRepeated, 112: messagefield.FieldNullable, 113: messagefield.FieldNullableHeld, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
 
 func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.MessageFieldApplyRequest) (*apptest.MessageField, error) {
 	if !req.HasPatch() {

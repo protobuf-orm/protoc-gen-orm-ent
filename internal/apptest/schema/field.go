@@ -9,6 +9,7 @@ import (
 	schema "entgo.io/ent/schema"
 	field "entgo.io/ent/schema/field"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
+	entpb "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -361,9 +362,13 @@ func (MessageField) Fields() []ent.Field {
 			Immutable(),
 		field.JSON("explicit", &structpb.Struct{}).
 			Optional(),
+		field.String("held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
+			Optional(),
 		field.JSON("repeated", []*structpb.Struct{}).
 			Optional(),
 		field.JSON("nullable", &structpb.Struct{}).
+			Optional(),
+		field.String("nullable_held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
 			Optional(),
 		field.JSON("explicit_with_default", &structpb.Struct{}).
 			Optional(),

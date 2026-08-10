@@ -351,12 +351,28 @@ message ValueField {
   };
 }
 
+// Held is a message stored **in** a row rather than as one: no key, no
+// lifecycle of its own, written and read with whoever holds it.
+//
+// It is here because every message field below used to be a
+// `google.protobuf.Struct`, which is the one message type that never broke:
+// the well-known types are generated with the open API, so `encoding/json` can
+// see their fields. Anything generated the way this repository generates --
+// `API_OPAQUE` -- has no exported fields, and `field.JSON` stored `{}` for it
+// with nothing failing anywhere. The coverage was of the case that worked.
+message Held {
+  string what = 1;
+  int32 how_many = 2;
+}
+
 message MessageField {
   string id = 1 [(orm.field) = {key: true}];
 
   google.protobuf.Struct explicit = 0x30;
+  Held held = 0x31;
   repeated google.protobuf.Struct repeated = 0x50;
   google.protobuf.Struct nullable = 0x70 [(orm.field) = {nullable: true}];
+  Held nullable_held = 0x71 [(orm.field) = {nullable: true}];
   google.protobuf.Struct explicit_with_default = 0xB0 [(orm.field) = {default: ""}];
   google.protobuf.Struct explicit_immutable = 0xF0 [(orm.field) = {immutable: true}];
 
@@ -384,3 +400,4 @@ message MapField {
     rpc: {crud: true}
   };
 }
+

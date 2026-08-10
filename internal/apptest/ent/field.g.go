@@ -274,9 +274,15 @@ func (e *MessageField) Proto() *apptest.MessageField {
 	if e.Explicit != nil {
 		x.SetExplicit(e.Explicit)
 	}
+	if e.Held != nil {
+		x.SetHeld(e.Held)
+	}
 	x.SetRepeated(e.Repeated)
 	if e.Nullable != nil {
 		x.SetNullable(e.Nullable)
+	}
+	if e.NullableHeld != nil {
+		x.SetNullableHeld(e.NullableHeld)
 	}
 	if e.ExplicitWithDefault != nil {
 		x.SetExplicitWithDefault(e.ExplicitWithDefault)

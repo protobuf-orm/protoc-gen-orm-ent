@@ -11,14 +11,16 @@ import (
 )
 
 // fieldBuilder is the ent field builder for one declared field: the name of the
-// `field.X` constructor, and the argument it takes when it takes one.
+// `field.X` constructor, the argument it takes when it takes one, and whatever
+// has to be chained onto it before the modifiers.
 //
 // Lifted out of the loop below because an edge needs it too -- the foreign key
 // this table holds for an edge is a field of the **target's key** type, and
 // there is one right answer per type rather than two.
-func fieldBuilder(w *work.FileWork, p graph.Field) (string, string) {
+func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 	id := "" // Name of builder
 	ctor := ""
+	chain := "" // Calls between the constructor and the modifiers
 
 	t := p.Type()
 	switch p.Type() {
@@ -40,6 +42,21 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string) {
 			ctor += "{}"
 		} else if p.IsList() {
 			ctor = "*" + ctor
+		} else if m := messageOf(w, p); m != "" {
+			// One message, held as a value of the row rather than as a row of
+			// its own. `field.JSON` cannot store it: that marshals with
+			// `encoding/json`, and a message generated with the opaque API has
+			// no exported fields, so every such value round-tripped as `{}`
+			// with nothing failing anywhere.
+			//
+			// So it is a string carrying the canonical protobuf JSON, through
+			// [entpb.ValueScanner]. A string rather than JSON because ent hangs
+			// `ValueScanner` off the string and bytes builders and not off the
+			// JSON one -- there is no way to give `field.JSON` a codec.
+			id = "String"
+			vs := w.QualifiedGoIdent(work.PkgEntPb.Ident("ValueScanner"))
+			chain = fmt.Sprintf(".GoType(&%s{}).ValueScanner(%s[*%s]{})", m, vs, m)
+			ctor = ""
 		} else {
 			ctor = "&" + ctor + "{}"
 		}
@@ -95,22 +112,45 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string) {
 		}
 	}
 
-	return id, ctor
+	return id, ctor, chain
+}
+
+// messageOf is the Go type of a field that is one message, and empty for
+// anything else.
+//
+// "Anything else" is a map, a list, a scalar -- and the two well-known messages
+// that `DeduceType` also calls JSON. Those are excluded deliberately:
+// `structpb.Struct` and `structpb.Value` are generated with the open API, so
+// `encoding/json` can already see them and `field.JSON` has always worked.
+// Moving them would change the bytes in every column that already holds one,
+// which is a migration for no gain.
+func messageOf(w *work.FileWork, p graph.Field) string {
+	d := p.Descriptor()
+	if d.Kind() != protoreflect.MessageKind || d.IsMap() || d.IsList() {
+		return ""
+	}
+
+	switch d.Message().FullName() {
+	case "google.protobuf.Struct", "google.protobuf.Value":
+		return ""
+	}
+
+	return graph.GoTypeOf(p, w.QualifiedGoIdent)
 }
 
 func xFields(w *work.FileWork) {
 	w.P("func (", w.Ident.GoName, ") Fields() []", work.PkgEnt.Ident("Field"), " {")
 	w.P("	return []", work.PkgEnt.Ident("Field"), "{")
 	for p := range w.Entity.Fields() {
-		id, ctor := fieldBuilder(w, p)
+		id, ctor, chain := fieldBuilder(w, p)
 		t := p.Type()
 
 		name := p.Name()
 		builder := w.QualifiedGoIdent(work.PkgField.Ident(id))
 		if ctor == "" {
-			fmt.Fprintf(w, "		%s(%q)", builder, name)
+			fmt.Fprintf(w, "		%s(%q)%s", builder, name, chain)
 		} else {
-			fmt.Fprintf(w, "		%s(%q, %s)", builder, name, ctor)
+			fmt.Fprintf(w, "		%s(%q, %s)%s", builder, name, ctor, chain)
 		}
 
 		is_key := p == w.Entity.Key()
@@ -180,13 +220,13 @@ func xEdgeFields(w *work.FileWork) {
 		}
 
 		key := p.Target().Key()
-		id, ctor := fieldBuilder(w, key)
+		id, ctor, chain := fieldBuilder(w, key)
 
 		builder := w.QualifiedGoIdent(work.PkgField.Ident(id))
 		if ctor == "" {
-			fmt.Fprintf(w, "		%s(%q)", builder, name)
+			fmt.Fprintf(w, "		%s(%q)%s", builder, name, chain)
 		} else {
-			fmt.Fprintf(w, "		%s(%q, %s)", builder, name, ctor)
+			fmt.Fprintf(w, "		%s(%q, %s)%s", builder, name, ctor, chain)
 		}
 
 		// The edge's own nullability, because they are the same fact said
