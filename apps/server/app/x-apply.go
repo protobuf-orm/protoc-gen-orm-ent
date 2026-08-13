@@ -185,7 +185,13 @@ func (w *fileWork) xApply() {
 		w.P("		}")
 	}
 
+	// The same answers Add gives, because a constraint belongs to the schema
+	// and not to the statement that ran into one. Without this an update that
+	// broke a unique index answered `Unknown` with the index name in it, while
+	// the identical conflict on an Add answered `AlreadyExists`. See
+	// [fileWork.xConstraintError].
 	w.P("		if n, err := q.Save(ctx); err != nil {")
+	w.xConstraintError()
 	w.P("			return nil, err")
 	w.P("		} else if n == 0 {")
 	w.P("			return nil, ", w.xNoRowError())

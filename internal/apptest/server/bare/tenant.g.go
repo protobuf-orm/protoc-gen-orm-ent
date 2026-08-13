@@ -332,6 +332,14 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		}
 		q.Modify(mod)
 		if n, err := q.Save(ctx); err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Errorf(codes.AlreadyExists, "Tenant already exists: %s", err.Unwrap())
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Errorf(codes.NotFound, "Tenant: referenced entity not found: %s", err.Unwrap())
+				}
+			}
 			return nil, err
 		} else if n == 0 {
 			return nil, func() error {

@@ -1057,6 +1057,14 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		}
 		q.Modify(mod)
 		if n, err := q.Save(ctx); err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Errorf(codes.AlreadyExists, "ValueField already exists: %s", err.Unwrap())
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Errorf(codes.NotFound, "ValueField: referenced entity not found: %s", err.Unwrap())
+				}
+			}
 			return nil, err
 		} else if n == 0 {
 			return nil, func() error {
@@ -1463,6 +1471,14 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		}
 		q.Modify(mod)
 		if n, err := q.Save(ctx); err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Errorf(codes.AlreadyExists, "MessageField already exists: %s", err.Unwrap())
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Errorf(codes.NotFound, "MessageField: referenced entity not found: %s", err.Unwrap())
+				}
+			}
 			return nil, err
 		} else if n == 0 {
 			return nil, func() error {
@@ -1885,6 +1901,14 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		}
 		q.Modify(mod)
 		if n, err := q.Save(ctx); err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Errorf(codes.AlreadyExists, "MapField already exists: %s", err.Unwrap())
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Errorf(codes.NotFound, "MapField: referenced entity not found: %s", err.Unwrap())
+				}
+			}
 			return nil, err
 		} else if n == 0 {
 			return nil, func() error {

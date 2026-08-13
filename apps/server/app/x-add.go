@@ -174,17 +174,7 @@ func (w *fileWork) xAdd() {
 	w.P("")
 	w.P("	u, err := q.Save(ctx)")
 	w.P("	if err != nil {")
-	w.P("		if err, ok := err.(*", w.ent.Ident("ConstraintError"), "); ok {")
-	w.P("			if ", work.PkgEntSqlGraph.Ident("IsUniqueConstraintError"), "(err) {")
-	w.P("				return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("AlreadyExists"), ", \"", name, " already exists: %s\", err.Unwrap())")
-	w.P("			}")
-	// A foreign-key violation here means a referenced edge target does not
-	// exist; report it as NotFound, consistent with resolving an edge ref by a
-	// unique index (which queries and returns NotFound).
-	w.P("			if ", work.PkgEntSqlGraph.Ident("IsForeignKeyConstraintError"), "(err) {")
-	w.P("				return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("NotFound"), ", \"", name, ": referenced entity not found: %s\", err.Unwrap())")
-	w.P("			}")
-	w.P("		}")
+	w.xConstraintError()
 	w.P("		return nil, err")
 	w.P("	}")
 	w.P("")
