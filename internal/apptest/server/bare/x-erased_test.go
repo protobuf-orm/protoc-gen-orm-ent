@@ -10,6 +10,7 @@ import (
 	"github.com/lesomnus/z"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/note"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -186,6 +187,52 @@ func TestAddIsAlive(t *testing.T) {
 
 		_, err = c.Note().Get(ctx, pb.NoteGetRequest_builder{Ref: v.Ref()}.Build())
 		x.NoError(err, "and so it is there to be read")
+	}))
+}
+
+// TestPickIsAlive pins that a **reference** does not reach an erased row.
+//
+// Narrowing a read is not enough on its own, because a reference is composed
+// into another entity's: a unique index that names an edge asks `NotePick` for
+// a predicate and puts it inside `HasNoteWith`, and what the read narrows there
+// is the child. So the erased row is reachable by naming it as somebody's
+// parent -- through whatever scope the child is behind, since a scope narrows
+// the child's path and not the parent's liveness. `NoteId`, which is how an Add
+// resolves an edge, has the same shape.
+func TestPickIsAlive(t *testing.T) {
+	t.Run("a reference by a name stops matching once the row is gone", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v := note_(ctx, x, c, "a")
+
+		byAlias := &pb.NoteRef{}
+		byAlias.SetAlias(pb.NoteRefByAlias_builder{Alias: z.Ptr("a")}.Build())
+
+		p, err := bare.NotePick(byAlias)
+		x.NoError(err)
+
+		n, err := c.Server.Db.Note.Query().Where(p).Count(ctx)
+		x.NoError(err)
+		x.Equal(1, n, "while it is there")
+
+		_, err = c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+
+		n, err = c.Server.Db.Note.Query().Where(p).Count(ctx)
+		x.NoError(err)
+		x.Equal(0, n, "and the predicate itself is what stops matching, not the read that used it")
+	}))
+
+	t.Run("and the key is the same answer", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v := note_(ctx, x, c, "a")
+
+		p, err := bare.NotePick(v.Ref())
+		x.NoError(err)
+
+		_, err = c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+
+		n, err := c.Server.Db.Note.Query().Where(p).Count(ctx)
+		x.NoError(err)
+		x.Equal(0, n)
 	}))
 }
 

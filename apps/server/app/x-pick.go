@@ -17,7 +17,45 @@ func (w *fileWork) xPick() {
 	x := w.ent + "/" + protogen.GoImportPath(strings.ToLower(name_x))
 	predicate := (w.ent + "/predicate").Ident(name_x)
 
-	w.P("func ", name_x, "Pick(",
+	// A reference is composed **into** another entity's, which is why the
+	// erased predicate is here as well as in <Entity>Narrow. A unique index
+	// that names an edge emits `Has<Target>With(<Target>Pick(...))`, and that
+	// read never reaches a Narrow of the target -- so without this, a child of
+	// an erased row is found by naming its parent, and found through the wall,
+	// because a wall narrows the child's tenancy path and not the parent's
+	// liveness. <Entity>Id has the same shape and the same hole.
+	//
+	// Narrow keeps its own copy rather than deferring to this one: it is "the
+	// one place a read is narrowed" for reads that name the row directly, and
+	// a predicate that holds twice costs a pair of parentheses.
+	del := w.Entity.GetErasedField()
+	name_pick := name_x + "Pick"
+	if del != nil {
+		name_pick = "pick" + name_x
+
+		w.P("// ", name_x, "Pick answers with the predicate this reference selects on,")
+		w.P("// among the rows that are still here.")
+		w.P("//")
+		w.P("// Erasure is part of the reference and not only part of a read's scope,")
+		w.P("// because a reference to a ", name_x, " is composed into the reference of")
+		w.P("// whatever names one: an index over an edge asks this for a predicate and")
+		w.P("// puts it inside `Has", name_x, "With`, where no narrowing of a ", name_x)
+		w.P("// is ever applied. A child of an erased row would otherwise be readable by")
+		w.P("// naming its parent.")
+		w.P("func ", name_x, "Pick(",
+			/* */ "req *", pkg.Ident(name_x), "Ref",
+			") (", predicate, ", error) {")
+		w.P("	p, err := ", name_pick, "(req)")
+		w.P("	if err != nil {")
+		w.P("		return nil, err")
+		w.P("	}")
+		w.P("")
+		w.P("	return ", x.Ident("And"), "(", x.Ident(work.Name(del.Name()).Ent()+"IsNil"), "(), p), nil")
+		w.P("}")
+		w.P("")
+	}
+
+	w.P("func ", name_pick, "(",
 		/* */ "req *", pkg.Ident(name_x), "Ref",
 		") (", predicate, ", error) {")
 	w.P("	switch req.WhichKey() {")

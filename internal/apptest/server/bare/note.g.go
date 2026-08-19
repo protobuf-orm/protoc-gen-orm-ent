@@ -443,7 +443,25 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*em
 	return &emptypb.Empty{}, nil
 }
 
+// NotePick answers with the predicate this reference selects on,
+// among the rows that are still here.
+//
+// Erasure is part of the reference and not only part of a read's scope,
+// because a reference to a Note is composed into the reference of
+// whatever names one: an index over an edge asks this for a predicate and
+// puts it inside `HasNoteWith`, where no narrowing of a Note
+// is ever applied. A child of an erased row would otherwise be readable by
+// naming its parent.
 func NotePick(req *apptest.NoteRef) (predicate.Note, error) {
+	p, err := pickNote(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return note.And(note.DateErasedIsNil(), p), nil
+}
+
+func pickNote(req *apptest.NoteRef) (predicate.Note, error) {
 	switch req.WhichKey() {
 	case apptest.NoteRef_Id_case:
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
