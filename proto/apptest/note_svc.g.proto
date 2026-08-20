@@ -6,7 +6,6 @@ edition = "2023";
 package apptest;
 
 import "apptest/note.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "patch/patch.proto";
 
@@ -22,7 +21,7 @@ service NoteService {
 	// Apply applies a patch document to an existing Note
 	rpc Apply(NoteApplyRequest) returns (Note);
 	// Erase deletes a Note
-	rpc Erase(NoteRef) returns (google.protobuf.Empty);
+	rpc Erase(NoteRef) returns (NoteEraseResponse);
 }
 
 message NoteAddRequest {
@@ -89,4 +88,13 @@ message NotePatchRequest {
 message NoteApplyRequest {
 	NoteRef ref = 1;
 	patch.Patch patch = 2;
+}
+
+message NoteEraseResponse {
+	// Erased is whether this call is the one that erased the row.
+	// 
+	// False for a row that was already gone, was never there, or is out
+	// of this caller's reach -- which are one answer on purpose, and the
+	// reason the RPC does not fail instead.
+	bool erased = 1;
 }

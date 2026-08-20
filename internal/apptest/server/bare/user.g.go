@@ -20,7 +20,6 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type UserServiceServer struct {
@@ -417,7 +416,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 	return out, nil
 }
 
-func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*emptypb.Empty, error) {
+func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*apptest.UserEraseResponse, error) {
 	p, err := UserPick(req)
 	if err != nil {
 		return nil, err
@@ -441,13 +440,13 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*em
 		v, err := st.Db.User.Query().Where(p).OnlyID(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				return &emptypb.Empty{}, nil
+				return &apptest.UserEraseResponse{}, nil
 			}
 			return nil, err
 		}
 
 		k = v
-		p = user.IDEQ(v)
+		p = user.And(p, user.IDEQ(v))
 	}
 
 	n, err := st.Db.User.Delete().Where(p).Exec(ctx)
@@ -465,7 +464,10 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*em
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	res := &apptest.UserEraseResponse{}
+	res.SetErased(n > 0)
+
+	return res, nil
 }
 
 func UserPick(req *apptest.UserRef) (predicate.User, error) {

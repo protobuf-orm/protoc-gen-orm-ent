@@ -6,7 +6,6 @@ edition = "2023";
 package apptest;
 
 import "apptest/field.proto";
-import "google/protobuf/empty.proto";
 import "patch/patch.proto";
 import "google/protobuf/struct.proto";
 
@@ -22,7 +21,7 @@ service ValueFieldService {
 	// Apply applies a patch document to an existing ValueField
 	rpc Apply(ValueFieldApplyRequest) returns (ValueField);
 	// Erase deletes a ValueField
-	rpc Erase(ValueFieldRef) returns (google.protobuf.Empty);
+	rpc Erase(ValueFieldRef) returns (ValueFieldEraseResponse);
 }
 
 message ValueFieldAddRequest {
@@ -709,6 +708,15 @@ message ValueFieldApplyRequest {
 	patch.Patch patch = 2;
 }
 
+message ValueFieldEraseResponse {
+	// Erased is whether this call is the one that erased the row.
+	// 
+	// False for a row that was already gone, was never there, or is out
+	// of this caller's reach -- which are one answer on purpose, and the
+	// reason the RPC does not fail instead.
+	bool erased = 1;
+}
+
 service MessageFieldService {
 	// Add creates a new MessageField
 	rpc Add(MessageFieldAddRequest) returns (MessageField);
@@ -719,7 +727,7 @@ service MessageFieldService {
 	// Apply applies a patch document to an existing MessageField
 	rpc Apply(MessageFieldApplyRequest) returns (MessageField);
 	// Erase deletes a MessageField
-	rpc Erase(MessageFieldRef) returns (google.protobuf.Empty);
+	rpc Erase(MessageFieldRef) returns (MessageFieldEraseResponse);
 }
 
 message MessageFieldAddRequest {
@@ -795,6 +803,15 @@ message MessageFieldApplyRequest {
 	patch.Patch patch = 2;
 }
 
+message MessageFieldEraseResponse {
+	// Erased is whether this call is the one that erased the row.
+	// 
+	// False for a row that was already gone, was never there, or is out
+	// of this caller's reach -- which are one answer on purpose, and the
+	// reason the RPC does not fail instead.
+	bool erased = 1;
+}
+
 service MapFieldService {
 	// Add creates a new MapField
 	rpc Add(MapFieldAddRequest) returns (MapField);
@@ -805,7 +822,7 @@ service MapFieldService {
 	// Apply applies a patch document to an existing MapField
 	rpc Apply(MapFieldApplyRequest) returns (MapField);
 	// Erase deletes a MapField
-	rpc Erase(MapFieldRef) returns (google.protobuf.Empty);
+	rpc Erase(MapFieldRef) returns (MapFieldEraseResponse);
 }
 
 message MapFieldAddRequest {
@@ -858,4 +875,13 @@ message MapFieldPatchRequest {
 message MapFieldApplyRequest {
 	MapFieldRef ref = 1;
 	patch.Patch patch = 2;
+}
+
+message MapFieldEraseResponse {
+	// Erased is whether this call is the one that erased the row.
+	// 
+	// False for a row that was already gone, was never there, or is out
+	// of this caller's reach -- which are one answer on purpose, and the
+	// reason the RPC does not fail instead.
+	bool erased = 1;
 }

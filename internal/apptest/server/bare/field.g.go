@@ -19,7 +19,6 @@ import (
 	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type ValueFieldServiceServer struct {
@@ -1098,7 +1097,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 	return out, nil
 }
 
-func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFieldRef) (*emptypb.Empty, error) {
+func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFieldRef) (*apptest.ValueFieldEraseResponse, error) {
 	p, err := ValueFieldPick(req)
 	if err != nil {
 		return nil, err
@@ -1122,13 +1121,13 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		v, err := st.Db.ValueField.Query().Where(p).OnlyID(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				return &emptypb.Empty{}, nil
+				return &apptest.ValueFieldEraseResponse{}, nil
 			}
 			return nil, err
 		}
 
 		k = v
-		p = valuefield.IDEQ(v)
+		p = valuefield.And(p, valuefield.IDEQ(v))
 	}
 
 	n, err := st.Db.ValueField.Delete().Where(p).Exec(ctx)
@@ -1146,7 +1145,10 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	res := &apptest.ValueFieldEraseResponse{}
+	res.SetErased(n > 0)
+
+	return res, nil
 }
 
 func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
@@ -1512,7 +1514,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 	return out, nil
 }
 
-func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.MessageFieldRef) (*emptypb.Empty, error) {
+func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.MessageFieldRef) (*apptest.MessageFieldEraseResponse, error) {
 	p, err := MessageFieldPick(req)
 	if err != nil {
 		return nil, err
@@ -1536,13 +1538,13 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		v, err := st.Db.MessageField.Query().Where(p).OnlyID(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				return &emptypb.Empty{}, nil
+				return &apptest.MessageFieldEraseResponse{}, nil
 			}
 			return nil, err
 		}
 
 		k = v
-		p = messagefield.IDEQ(v)
+		p = messagefield.And(p, messagefield.IDEQ(v))
 	}
 
 	n, err := st.Db.MessageField.Delete().Where(p).Exec(ctx)
@@ -1560,7 +1562,10 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	res := &apptest.MessageFieldEraseResponse{}
+	res.SetErased(n > 0)
+
+	return res, nil
 }
 
 func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, error) {
@@ -1942,7 +1947,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 	return out, nil
 }
 
-func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldRef) (*emptypb.Empty, error) {
+func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldRef) (*apptest.MapFieldEraseResponse, error) {
 	p, err := MapFieldPick(req)
 	if err != nil {
 		return nil, err
@@ -1966,13 +1971,13 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		v, err := st.Db.MapField.Query().Where(p).OnlyID(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				return &emptypb.Empty{}, nil
+				return &apptest.MapFieldEraseResponse{}, nil
 			}
 			return nil, err
 		}
 
 		k = v
-		p = mapfield.IDEQ(v)
+		p = mapfield.And(p, mapfield.IDEQ(v))
 	}
 
 	n, err := st.Db.MapField.Delete().Where(p).Exec(ctx)
@@ -1990,7 +1995,10 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	res := &apptest.MapFieldEraseResponse{}
+	res.SetErased(n > 0)
+
+	return res, nil
 }
 
 func MapFieldPick(req *apptest.MapFieldRef) (predicate.MapField, error) {

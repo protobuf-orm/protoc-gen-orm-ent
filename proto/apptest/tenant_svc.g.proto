@@ -6,7 +6,6 @@ edition = "2023";
 package apptest;
 
 import "apptest/tenant.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "patch/patch.proto";
 
@@ -22,7 +21,7 @@ service TenantService {
 	// Apply applies a patch document to an existing Tenant
 	rpc Apply(TenantApplyRequest) returns (Tenant);
 	// Erase deletes a Tenant
-	rpc Erase(TenantRef) returns (google.protobuf.Empty);
+	rpc Erase(TenantRef) returns (TenantEraseResponse);
 }
 
 message TenantAddRequest {
@@ -62,4 +61,13 @@ message TenantPatchRequest {
 message TenantApplyRequest {
 	TenantRef ref = 1;
 	patch.Patch patch = 2;
+}
+
+message TenantEraseResponse {
+	// Erased is whether this call is the one that erased the row.
+	// 
+	// False for a row that was already gone, was never there, or is out
+	// of this caller's reach -- which are one answer on purpose, and the
+	// reason the RPC does not fail instead.
+	bool erased = 1;
 }

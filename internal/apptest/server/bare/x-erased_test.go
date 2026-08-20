@@ -289,3 +289,111 @@ func TestPromotedUnique(t *testing.T) {
 		x.Equal(v.GetId(), u.GetId())
 	}))
 }
+
+// TestEraseSaysWhetherItErased is what once-only is built on.
+//
+// Erasing what is not there **succeeds**, and has to: a caller cancelling
+// something that may already be gone should not have to tell a race from a
+// mistake. So the RPC cannot say "this call did it" by failing -- and it used
+// to answer `Empty`, which meant it could not say it at all.
+//
+// Anything single-use is spent by erasing it. Without this answer every
+// concurrent presenter of one handle is told exactly what the winner is told:
+// the server did the right thing at the row and then said nothing about it.
+func TestEraseSaysWhetherItErased(t *testing.T) {
+	t.Run("the one that did, and the one that did not", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v := note_(ctx, x, c, "a")
+
+		res, err := c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+		x.True(res.GetErased(), "the call that erased the row said it had not")
+
+		res, err = c.Note().Erase(ctx, v.Ref())
+		x.NoError(err, "erasing what is gone is not a failure")
+		x.False(res.GetErased(), "a second erase claimed the row")
+	}))
+
+	t.Run("and a row that was never there", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		ref := &pb.NoteRef{}
+		ref.SetAlias(pb.NoteRefByAlias_builder{Alias: z.Ptr("never-existed")}.Build())
+
+		res, err := c.Note().Erase(ctx, ref)
+		x.NoError(err)
+		x.False(res.GetErased())
+	}))
+
+	// With no recorder the early read is skipped entirely, so the answer comes
+	// from the statement rather than from a lookup before it. Both paths have
+	// to agree, because which one runs is a deployment's choice and not a
+	// caller's.
+	t.Run("with no recorder installed, which is the other path", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		v := note_(ctx, x, c, "a")
+
+		res, err := c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+		x.True(res.GetErased())
+
+		res, err = c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+		x.False(res.GetErased())
+	}))
+}
+
+// TestErasingWhatIsAlreadyErasedRecordsNothing is the invariant `x-erase.go`
+// states about itself.
+//
+// Its own words: *the predicate carries that narrowing too, so erasing what is
+// already erased matches nothing, records nothing and succeeds -- which is what
+// erasing what was never there has always done.*
+//
+// It did not carry it. With a recorder installed -- and only then, which is why
+// this was invisible in every test that did not use one -- the predicate was
+// **replaced** with `IDEQ(v)` rather than narrowed by it, throwing away both
+// the liveness narrowing `Pick` had put on and the scope `narrow` had added.
+//
+// So a second erase matched, moved the timestamp again, and recorded a second
+// Change saying it had erased the row. Two entries in a trail for one thing
+// that happened once -- and `n > 0` stopped being the "did **this** call do it"
+// signal the code around it reads it as, which is the property anything wanting
+// once-only semantics has to build on.
+func TestErasingWhatIsAlreadyErasedRecordsNothing(t *testing.T) {
+	t.Run("a second erase is a no-op that succeeds", R(func(ctx context.Context, x *require.Assertions, c *Client, r *recorder) {
+		v := note_(ctx, x, c, "a")
+
+		r.mu.Lock()
+		r.Changes = nil
+		r.mu.Unlock()
+
+		_, err := c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+		x.Equal(1, r.Len(), "the erase that did it recorded nothing")
+
+		// Succeeds, because erasing what is out of reach has always succeeded
+		// and `keys.Undelegate`-shaped callers depend on it.
+		_, err = c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+
+		x.Equal(1, r.Len(), "a second erase recorded a Change saying it erased the row")
+	}))
+
+	t.Run("and the row keeps the moment it was actually erased", R(func(ctx context.Context, x *require.Assertions, c *Client, r *recorder) {
+		v := note_(ctx, x, c, "a")
+
+		_, err := c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+
+		was, err := c.Server.Db.Note.Get(ctx, mustId(x, v.GetId()))
+		x.NoError(err)
+		x.NotNil(was.DateErased)
+
+		_, err = c.Note().Erase(ctx, v.Ref())
+		x.NoError(err)
+
+		// A second erase that matched would move it, and a row would then
+		// answer with a time nothing happened at.
+		now, err := c.Server.Db.Note.Get(ctx, mustId(x, v.GetId()))
+		x.NoError(err)
+		x.Equal(was.DateErased, now.DateErased,
+			"a second erase moved the moment the row was erased at")
+	}))
+}

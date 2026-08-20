@@ -18,7 +18,6 @@ import (
 	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type NoteServiceServer struct {
@@ -389,7 +388,7 @@ func (s NoteServiceServer) apply(ctx context.Context, ref *apptest.NoteRef, doc 
 	return out, nil
 }
 
-func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*emptypb.Empty, error) {
+func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*apptest.NoteEraseResponse, error) {
 	p, err := NotePick(req)
 	if err != nil {
 		return nil, err
@@ -413,13 +412,13 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*em
 		v, err := st.Db.Note.Query().Where(p).OnlyID(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				return &emptypb.Empty{}, nil
+				return &apptest.NoteEraseResponse{}, nil
 			}
 			return nil, err
 		}
 
 		k = v
-		p = note.IDEQ(v)
+		p = note.And(p, note.IDEQ(v))
 	}
 
 	u := st.Db.Note.Update().Where(p)
@@ -440,7 +439,10 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*em
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	res := &apptest.NoteEraseResponse{}
+	res.SetErased(n > 0)
+
+	return res, nil
 }
 
 // NotePick answers with the predicate this reference selects on,

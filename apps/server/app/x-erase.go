@@ -25,7 +25,7 @@ func (w *fileWork) xErase() {
 	w.P("func (s ", name, "ServiceServer) Erase(",
 		/* */ "ctx ", work.IdentContext, ", ",
 		/* */ "req *", w.Src.GoImportPath.Ident(name+"Ref"),
-		") (*", work.IdentEmpty, ", error) {")
+		") (*", w.Src.GoImportPath.Ident(name+"EraseResponse"), ", error) {")
 	w.P("	p, err := ", name, "Pick(req)")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
@@ -53,16 +53,32 @@ func (w *fileWork) xErase() {
 	w.P("		v, err := st.Db.", name, ".Query().Where(p).OnlyID(ctx)")
 	w.P("		if err != nil {")
 	w.P("			if ", w.ent.Ident("IsNotFound"), "(err) {")
-	w.P("				return &", work.IdentEmpty, "{}, nil")
+	// Gone already, or never there, or out of reach: one answer, and it is not
+	// a failure -- a caller cancelling something that may already be cancelled
+	// should not have to tell a race from a mistake. What it is **not** is
+	// silent about which happened, which is what `erased` is for.
+	w.P("				return &", w.Src.GoImportPath.Ident(name+"EraseResponse"), "{}, nil")
 	w.P("			}")
 	w.P("			return nil, err")
 	w.P("		}")
 	w.P("")
-	// Narrowed to the row that was found, so the statement that runs is about
-	// the row that will be recorded and not about whatever the reference would
-	// select a moment later.
+	// Narrowed **further**, to the row that was found -- so the statement that
+	// runs is about the row that will be recorded and not about whatever the
+	// reference would select a moment later.
+	//
+	// Conjoined and not assigned, which is the whole of the difference. This
+	// read `p = IDEQ(v)`, which threw away the narrowing `Pick` and `narrow`
+	// had just put on it -- so a second erase of an already-erased row still
+	// matched, still moved the timestamp, and still recorded a Change saying it
+	// had erased it. Two requests, two entries in the trail, one row: the trail
+	// said a thing happened twice that happened once, and `n > 0` stopped being
+	// the "did this call do it" signal the code below reads it as.
+	//
+	// It also threw away the **scope**. The row was in scope a moment earlier,
+	// so that window is narrow, and a window is not a reason to leave a
+	// predicate off.
 	w.P("		k = v")
-	w.P("		p = ", w.xEntPkg().Ident("IDEQ"), "(v)")
+	w.P("		p = ", w.xEntPkg().Ident("And"), "(p, ", w.xEntPkg().Ident("IDEQ"), "(v))")
 	w.P("	}")
 	w.P("")
 
@@ -110,7 +126,14 @@ func (w *fileWork) xErase() {
 	w.P("	if err := tx.Commit(); err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
-	w.P("	return &", work.IdentEmpty, "{}, nil")
+	// What the statement did, and it is the same `n` the trail is written from.
+	// Anything that has to be done once -- a nonce, a second-factor attempt, a
+	// magic link -- is spent by erasing it, and this is the only place that can
+	// say whether **this** call is the one that spent it.
+	w.P("	res := &", w.Src.GoImportPath.Ident(name+"EraseResponse"), "{}")
+	w.P("	res.SetErased(n > 0)")
+	w.P("")
+	w.P("	return res, nil")
 	w.P("}")
 	w.P("")
 }
