@@ -3,6 +3,8 @@ package app
 import (
 	"strings"
 
+	"github.com/protobuf-orm/protobuf-orm/graph"
+
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/ent"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 	"google.golang.org/protobuf/compiler/protogen"
@@ -63,12 +65,49 @@ func (w *fileWork) xSelect() {
 		name_y := p.Target().Name()
 		w.P("	if m.Has", name_p, "() {")
 		w.P("		q.With", name_p, "(func(q *", w.ent.Ident(name_y+"Query"), ") {")
+		w.emitSelectLive(p)
 		w.P("			", name_y, "Select(q, m.Get", name_p, "())")
 		w.P("		})")
 		w.P("	}")
 	}
 	w.P("}")
 	w.P("")
+}
+
+// emitSelectLive keeps an erased row out of an edge a select asks for.
+//
+// # The same hole as [fileWork.xSelectKey]'s, one door along
+//
+// `<Entity>Pick` answers among the rows that are still here, because a
+// reference to a row is composed into the reference of whatever names one and
+// no narrowing of the parent is applied there. A **select** is the other way to
+// reach a parent, and it went through nothing at all: the edge is loaded with
+// the target's own `Select` and no predicate, so the parent of any row a caller
+// may read came back whole, whatever state it was in.
+//
+// What that costs is an erased person read entire through a row that outlived
+// them. Nothing cascades on an erase, deliberately -- so their address and
+// their external identity survive them -- and asking for `select.holder.all` on
+// the way past a child answered their alias, their name, their profile, their
+// provider subject: everything the entity's own `Get` answers NotFound to, for
+// the same caller, one call later.
+//
+// It is the parent's liveness and not the caller's scope. A wall narrows the
+// child's path to a tenant and has nothing to say about whether the row at the
+// other end of an edge is still there, which is why this is here rather than in
+// whatever composed the query.
+func (w *fileWork) emitSelectLive(p graph.Edge) {
+	y := p.Target()
+
+	del := y.GetErasedField()
+	if del == nil {
+		// An entity erased hard leaves no row, so there is nothing for an edge
+		// to reach that a read should not see.
+		return
+	}
+
+	pkg := w.ent + "/" + protogen.GoImportPath(strings.ToLower(y.Name()))
+	w.P("			q.Where(", pkg.Ident(work.Name(del.Name()).Ent()+"IsNil"), "())")
 }
 
 func (w *fileWork) xSelectInit() {
