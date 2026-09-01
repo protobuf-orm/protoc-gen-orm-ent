@@ -44,38 +44,26 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 			ctor = "*" + ctor
 		} else if m := messageOf(w, p); m != "" {
 			// One message, held as a value of the row rather than as a row of
-			// its own. `field.JSON` cannot store it: that marshals with
-			// `encoding/json`, and a message generated with the opaque API has
+			// its own. `encoding/json`, which is what a JSON column is written
+			// with, cannot read it: a message generated with the opaque API has
 			// no exported fields, so every such value round-tripped as `{}`
 			// with nothing failing anywhere.
 			//
-			// So it is a string carrying the canonical protobuf JSON, through
-			// [entpb.ValueScanner]. A string rather than JSON because ent hangs
-			// `ValueScanner` off the string and bytes builders and not off the
-			// JSON one -- there is no way to give `field.JSON` a codec.
+			// So the column carries the canonical protobuf JSON instead,
+			// through [entpb.ValueScanner], which ent hands the value to on the
+			// way in and out. It stays a `field.JSON`: the value in there is
+			// JSON, `labels` in the same table is already `jsonb`, and two
+			// columns carrying JSON with different types, for a reason the
+			// schema does not state, is a thing somebody has to explain later.
 			//
-			// And then the column type is put back to what `field.JSON` would
-			// have given it. That is not a new feature: a message field was
-			// `jsonb` on postgres and `json` on mysql before this, holding
-			// `{}`, and leaving it a string would **narrow an existing
-			// column**. The generator decides this for every app that has ever
-			// generated, and `migrate.Check` refuses to serve a database that
-			// does not match -- so getting it wrong here is not a thing one app
-			// fixes later, it is a table rewrite every deployment has to do
-			// before it can start.
-			//
-			// It is also what the field is: the value in there is JSON, and
-			// `labels` in the same table is already `jsonb`. Two columns
-			// carrying JSON with different types, for a reason the schema does
-			// not state, is a thing somebody has to explain later.
-			id = "String"
+			// The column type comes from `field.JSON` itself -- `jsonb` on
+			// postgres, `json` on mysql -- which is what a message field has
+			// always had. Narrowing it would not be one app's problem to fix:
+			// `migrate.Check` refuses to serve a database that does not match,
+			// so it is a table rewrite every deployment has to do first.
 			vs := w.QualifiedGoIdent(work.PkgEntPb.Ident("ValueScanner"))
-			pg := w.QualifiedGoIdent(work.PkgEntDialect.Ident("Postgres"))
-			my := w.QualifiedGoIdent(work.PkgEntDialect.Ident("MySQL"))
-			chain = fmt.Sprintf(
-				".GoType(&%s{}).ValueScanner(%s[*%s]{}).SchemaType(map[string]string{%s: %q, %s: %q})",
-				m, vs, m, pg, "jsonb", my, "json")
-			ctor = ""
+			chain = fmt.Sprintf(".ValueScanner(%s[*%s]{})", vs, m)
+			ctor = "&" + ctor + "{}"
 		} else {
 			ctor = "&" + ctor + "{}"
 		}

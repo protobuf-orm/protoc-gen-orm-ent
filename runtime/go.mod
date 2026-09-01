@@ -15,7 +15,7 @@ go 1.27.0
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/protobuf-orm/ent v0.0.0-20260901163751-c97834a2392d
+	github.com/protobuf-orm/ent v0.0.0-20260901165429-fc2386a28455
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.11

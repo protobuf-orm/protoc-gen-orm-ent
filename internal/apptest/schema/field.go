@@ -5,7 +5,6 @@ package schema
 
 import (
 	ent "github.com/protobuf-orm/ent"
-	dialect "github.com/protobuf-orm/ent/dialect"
 	entsql "github.com/protobuf-orm/ent/dialect/entsql"
 	schema "github.com/protobuf-orm/ent/schema"
 	field "github.com/protobuf-orm/ent/schema/field"
@@ -363,13 +362,13 @@ func (MessageField) Fields() []ent.Field {
 			Immutable(),
 		field.JSON("explicit", &structpb.Struct{}).
 			Optional(),
-		field.String("held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).SchemaType(map[string]string{dialect.Postgres: "jsonb", dialect.MySQL: "json"}).
+		field.JSON("held", &apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
 			Optional(),
 		field.JSON("repeated", []*structpb.Struct{}).
 			Optional(),
 		field.JSON("nullable", &structpb.Struct{}).
 			Optional(),
-		field.String("nullable_held").GoType(&apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).SchemaType(map[string]string{dialect.Postgres: "jsonb", dialect.MySQL: "json"}).
+		field.JSON("nullable_held", &apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
 			Optional(),
 		field.JSON("explicit_with_default", &structpb.Struct{}).
 			Optional(),
