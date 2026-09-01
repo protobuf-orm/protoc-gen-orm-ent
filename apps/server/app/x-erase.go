@@ -78,7 +78,7 @@ func (w *fileWork) xErase() {
 	// so that window is narrow, and a window is not a reason to leave a
 	// predicate off.
 	w.P("		k = v")
-	w.P("		p = ", w.xEntPkg().Ident("And"), "(p, ", w.xEntPkg().Ident("IDEQ"), "(v))")
+	w.P("		p = ", w.xEntPkg().Ident("And"), "(p, ", w.xEntPkg().Ident("IdEQ"), "(v))")
 	w.P("	}")
 	w.P("")
 

@@ -19,14 +19,14 @@ type User struct {
 
 func (User) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("id", uuid.UUID{}).
+		field.Uuid("id", uuid.UUID{}).
 			Unique().
 			Immutable(),
 		field.String("alias").
 			Optional(),
 		field.String("name").
 			Optional(),
-		field.JSON("labels", map[string]string{}).
+		field.Json("labels", map[string]string{}).
 			Optional(),
 		field.String("lock").
 			Nillable().
@@ -35,7 +35,7 @@ func (User) Fields() []ent.Field {
 		field.Time("date_created").
 			Immutable().
 			Optional(),
-		field.UUID("tenant_id", uuid.UUID{}),
+		field.Uuid("tenant_id", uuid.UUID{}),
 	}
 }
 

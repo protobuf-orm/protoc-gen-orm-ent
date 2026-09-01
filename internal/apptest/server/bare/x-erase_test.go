@@ -38,7 +38,7 @@ func TestErase(t *testing.T) {
 	// This test pins the current behavior; change it if the service contract
 	// should make Erase report NotFound.
 	t.Run("erase of a non-existent entity is idempotent (success)", T(func(ctx context.Context, x *require.Assertions, c *Client) {
-		_, err := c.User().Erase(ctx, pb.UserById(newID()))
+		_, err := c.User().Erase(ctx, pb.UserById(newId()))
 		x.NoError(err)
 	}))
 }

@@ -86,37 +86,37 @@ func (ValueField) Fields() []ent.Field {
 		field.Int32("explicit_enum").
 			Nillable().
 			Optional(),
-		field.JSON("implicit_f64s", []float64{}).
+		field.Json("implicit_f64s", []float64{}).
 			Optional(),
-		field.JSON("implicit_f32s", []float32{}).
+		field.Json("implicit_f32s", []float32{}).
 			Optional(),
-		field.JSON("implicit_i32s", []int32{}).
+		field.Json("implicit_i32s", []int32{}).
 			Optional(),
-		field.JSON("implicit_i64s", []int64{}).
+		field.Json("implicit_i64s", []int64{}).
 			Optional(),
-		field.JSON("implicit_u32s", []uint32{}).
+		field.Json("implicit_u32s", []uint32{}).
 			Optional(),
-		field.JSON("implicit_u64s", []uint64{}).
+		field.Json("implicit_u64s", []uint64{}).
 			Optional(),
-		field.JSON("implicit_si32s", []int32{}).
+		field.Json("implicit_si32s", []int32{}).
 			Optional(),
-		field.JSON("implicit_si64s", []int64{}).
+		field.Json("implicit_si64s", []int64{}).
 			Optional(),
-		field.JSON("implicit_fi32s", []uint32{}).
+		field.Json("implicit_fi32s", []uint32{}).
 			Optional(),
-		field.JSON("implicit_fi64s", []uint64{}).
+		field.Json("implicit_fi64s", []uint64{}).
 			Optional(),
-		field.JSON("implicit_sfi32s", []int32{}).
+		field.Json("implicit_sfi32s", []int32{}).
 			Optional(),
-		field.JSON("implicit_sfi64s", []int64{}).
+		field.Json("implicit_sfi64s", []int64{}).
 			Optional(),
-		field.JSON("implicit_bools", []bool{}).
+		field.Json("implicit_bools", []bool{}).
 			Optional(),
-		field.JSON("implicit_strings", []string{}).
+		field.Json("implicit_strings", []string{}).
 			Optional(),
-		field.JSON("implicit_bytess", [][]byte{}).
+		field.Json("implicit_bytess", [][]byte{}).
 			Optional(),
-		field.JSON("implicit_levels", []apptest.Level{}).
+		field.Json("implicit_levels", []apptest.Level{}).
 			Optional(),
 		field.Float("nullable_f64").
 			Nillable().
@@ -360,19 +360,19 @@ func (MessageField) Fields() []ent.Field {
 		field.String("id").
 			Unique().
 			Immutable(),
-		field.JSON("explicit", &structpb.Struct{}).
+		field.Json("explicit", &structpb.Struct{}).
 			Optional(),
-		field.JSON("held", &apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
+		field.Json("held", &apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
 			Optional(),
-		field.JSON("repeated", []*structpb.Struct{}).
+		field.Json("repeated", []*structpb.Struct{}).
 			Optional(),
-		field.JSON("nullable", &structpb.Struct{}).
+		field.Json("nullable", &structpb.Struct{}).
 			Optional(),
-		field.JSON("nullable_held", &apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
+		field.Json("nullable_held", &apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
 			Optional(),
-		field.JSON("explicit_with_default", &structpb.Struct{}).
+		field.Json("explicit_with_default", &structpb.Struct{}).
 			Optional(),
-		field.JSON("explicit_immutable", &structpb.Struct{}).
+		field.Json("explicit_immutable", &structpb.Struct{}).
 			Immutable().
 			Optional(),
 	}
@@ -393,25 +393,25 @@ func (MapField) Fields() []ent.Field {
 		field.String("id").
 			Unique().
 			Immutable(),
-		field.JSON("implicit_string", map[string]string{}).
+		field.Json("implicit_string", map[string]string{}).
 			Optional(),
-		field.JSON("implicit_enum", map[string]apptest.Level{}).
+		field.Json("implicit_enum", map[string]apptest.Level{}).
 			Optional(),
-		field.JSON("implicit_json", map[string]*structpb.Struct{}).
+		field.Json("implicit_json", map[string]*structpb.Struct{}).
 			Optional(),
-		field.JSON("implicit_string_with_default", map[string]string{}).
+		field.Json("implicit_string_with_default", map[string]string{}).
 			Optional(),
-		field.JSON("implicit_enum_with_default", map[string]apptest.Level{}).
+		field.Json("implicit_enum_with_default", map[string]apptest.Level{}).
 			Optional(),
-		field.JSON("implicit_json_with_default", map[string]*structpb.Struct{}).
+		field.Json("implicit_json_with_default", map[string]*structpb.Struct{}).
 			Optional(),
-		field.JSON("implicit_immutable_string", map[string]string{}).
+		field.Json("implicit_immutable_string", map[string]string{}).
 			Immutable().
 			Optional(),
-		field.JSON("implicit_immutable_enum", map[string]apptest.Level{}).
+		field.Json("implicit_immutable_enum", map[string]apptest.Level{}).
 			Immutable().
 			Optional(),
-		field.JSON("implicit_immutable_json", map[string]*structpb.Struct{}).
+		field.Json("implicit_immutable_json", map[string]*structpb.Struct{}).
 			Immutable().
 			Optional(),
 	}

@@ -9,7 +9,7 @@ import (
 
 func (e *ValueField) Proto() *apptest.ValueField {
 	x := &apptest.ValueField{}
-	x.SetId(e.ID)
+	x.SetId(e.Id)
 	x.SetImplicitF64(e.ImplicitF64)
 	x.SetImplicitF32(e.ImplicitF32)
 	x.SetImplicitI32(e.ImplicitI32)
@@ -270,7 +270,7 @@ func (e *ValueField) Proto() *apptest.ValueField {
 }
 func (e *MessageField) Proto() *apptest.MessageField {
 	x := &apptest.MessageField{}
-	x.SetId(e.ID)
+	x.SetId(e.Id)
 	if e.Explicit != nil {
 		x.SetExplicit(e.Explicit)
 	}
@@ -294,15 +294,15 @@ func (e *MessageField) Proto() *apptest.MessageField {
 }
 func (e *MapField) Proto() *apptest.MapField {
 	x := &apptest.MapField{}
-	x.SetId(e.ID)
+	x.SetId(e.Id)
 	x.SetImplicitString(e.ImplicitString)
 	x.SetImplicitEnum(e.ImplicitEnum)
-	x.SetImplicitJson(e.ImplicitJSON)
+	x.SetImplicitJson(e.ImplicitJson)
 	x.SetImplicitStringWithDefault(e.ImplicitStringWithDefault)
 	x.SetImplicitEnumWithDefault(e.ImplicitEnumWithDefault)
-	x.SetImplicitJsonWithDefault(e.ImplicitJSONWithDefault)
+	x.SetImplicitJsonWithDefault(e.ImplicitJsonWithDefault)
 	x.SetImplicitImmutableString(e.ImplicitImmutableString)
 	x.SetImplicitImmutableEnum(e.ImplicitImmutableEnum)
-	x.SetImplicitImmutableJson(e.ImplicitImmutableJSON)
+	x.SetImplicitImmutableJson(e.ImplicitImmutableJson)
 	return x
 }

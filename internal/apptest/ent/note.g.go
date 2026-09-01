@@ -10,7 +10,7 @@ import (
 
 func (e *Note) Proto() *apptest.Note {
 	x := &apptest.Note{}
-	x.SetId(e.ID[:])
+	x.SetId(e.Id[:])
 	x.SetAlias(e.Alias)
 	x.SetBody(e.Body)
 	x.SetSlug(e.Slug)

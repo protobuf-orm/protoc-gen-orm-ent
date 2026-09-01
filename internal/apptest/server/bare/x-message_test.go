@@ -16,11 +16,11 @@ import (
 //
 // `MessageField` has had message fields since it was written, and every one of
 // them was a `google.protobuf.Struct` -- the one message type that never
-// broke. The well-known types are generated with the **open** API, so their
-// fields are exported and `encoding/json` can see them; `field.JSON` marshalled
+// broke. The well-known types are generated with the **open** Api, so their
+// fields are exported and `encoding/json` can see them; `field.Json` marshalled
 // them correctly and always had.
 //
-// Anything generated the way this repository generates -- `API_OPAQUE` -- has
+// Anything generated the way this repository generates -- `Api_OPAQUE` -- has
 // no exported fields at all:
 //
 //	type Held struct {
@@ -28,9 +28,9 @@ import (
 //		xxx_hidden_What  string
 //	}
 //
-// So `field.JSON` stored `{}` for it. The insert reported success, the row
+// So `field.Json` stored `{}` for it. The insert reported success, the row
 // compared equal to empty, and nothing failed at any layer. It is now a string
-// carrying the canonical protobuf JSON, through `entpb.ValueScanner`.
+// carrying the canonical protobuf Json, through `entpb.ValueScanner`.
 //
 // The reason to assert on the **row** and not only on the answer is that the
 // answer was right the whole time: an Add echoes what it was given, so the
@@ -65,7 +65,7 @@ func TestMessageField(t *testing.T) {
 		// with nothing in it" cannot answer whether the field was ever set,
 		// and that is a question every optional message field raises.
 		n, err := c.Server.Db.MessageField.Query().
-			Where(messagefield.ID("b"), messagefield.NullableHeldIsNil()).
+			Where(messagefield.Id("b"), messagefield.NullableHeldIsNil()).
 			Count(ctx)
 		x.NoError(err)
 		x.Equal(1, n, "an unset message field is not NULL")

@@ -88,7 +88,7 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 
 	q := st.Db.ValueField.Create()
 	if req.HasId() {
-		q.SetID(req.GetId())
+		q.SetId(req.GetId())
 	}
 	q.SetImplicitF64(req.GetImplicitF64())
 	q.SetImplicitF32(req.GetImplicitF32())
@@ -490,7 +490,7 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:  apptest.ValueFieldService_Add_FullMethodName,
-		Key: u.ID,
+		Key: u.Id,
 	}); err != nil {
 		return nil, err
 	}
@@ -525,7 +525,7 @@ func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFiel
 }
 
 func selectValueFieldKey(q *ent.ValueFieldQuery) {
-	q.Select(valuefield.FieldID)
+	q.Select(valuefield.FieldId)
 }
 
 func ValueFieldSelectedFields(m *apptest.ValueFieldSelect) []string {
@@ -535,7 +535,7 @@ func ValueFieldSelectedFields(m *apptest.ValueFieldSelect) []string {
 
 	vs := make([]string, 0, len(valuefield.Columns))
 	{
-		vs = append(vs, valuefield.FieldID)
+		vs = append(vs, valuefield.FieldId)
 	}
 	if m.GetImplicitF64() {
 		vs = append(vs, valuefield.FieldImplicitF64)
@@ -968,7 +968,7 @@ func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFie
 		return z, err
 	}
 
-	v, err := db.ValueField.Query().Where(p).OnlyID(ctx)
+	v, err := db.ValueField.Query().Where(p).OnlyId(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return z, status.Error(codes.NotFound, "ValueField not found")
@@ -982,7 +982,7 @@ func ValueFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.ValueFie
 var valueFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "ValueField")
 
 var valueFieldPatchColumns = entpatch.Columns{
-	1: valuefield.FieldID, 16: valuefield.FieldImplicitF64, 17: valuefield.FieldImplicitF32, 18: valuefield.FieldImplicitI32, 19: valuefield.FieldImplicitI64, 20: valuefield.FieldImplicitU32, 21: valuefield.FieldImplicitU64, 22: valuefield.FieldImplicitSi32, 23: valuefield.FieldImplicitSi64, 24: valuefield.FieldImplicitFi32, 25: valuefield.FieldImplicitFi64, 26: valuefield.FieldImplicitSfi32, 27: valuefield.FieldImplicitSfi64, 28: valuefield.FieldImplicitBool, 29: valuefield.FieldImplicitString, 30: valuefield.FieldImplicitBytes, 31: valuefield.FieldImplicitEnum, 48: valuefield.FieldExplicitF64, 49: valuefield.FieldExplicitF32, 50: valuefield.FieldExplicitI32, 51: valuefield.FieldExplicitI64, 52: valuefield.FieldExplicitU32, 53: valuefield.FieldExplicitU64, 54: valuefield.FieldExplicitSi32, 55: valuefield.FieldExplicitSi64, 56: valuefield.FieldExplicitFi32, 57: valuefield.FieldExplicitFi64, 58: valuefield.FieldExplicitSfi32, 59: valuefield.FieldExplicitSfi64, 60: valuefield.FieldExplicitBool, 61: valuefield.FieldExplicitString, 62: valuefield.FieldExplicitBytes, 63: valuefield.FieldExplicitEnum, 80: valuefield.FieldImplicitF64s, 81: valuefield.FieldImplicitF32s, 82: valuefield.FieldImplicitI32s, 83: valuefield.FieldImplicitI64s, 84: valuefield.FieldImplicitU32s, 85: valuefield.FieldImplicitU64s, 86: valuefield.FieldImplicitSi32s, 87: valuefield.FieldImplicitSi64s, 88: valuefield.FieldImplicitFi32s, 89: valuefield.FieldImplicitFi64s, 90: valuefield.FieldImplicitSfi32s, 91: valuefield.FieldImplicitSfi64s, 92: valuefield.FieldImplicitBools, 93: valuefield.FieldImplicitStrings, 94: valuefield.FieldImplicitBytess, 95: valuefield.FieldImplicitLevels, 112: valuefield.FieldNullableF64, 113: valuefield.FieldNullableF32, 114: valuefield.FieldNullableI32, 115: valuefield.FieldNullableI64, 116: valuefield.FieldNullableU32, 117: valuefield.FieldNullableU64, 118: valuefield.FieldNullableSi32, 119: valuefield.FieldNullableSi64, 120: valuefield.FieldNullableFi32, 121: valuefield.FieldNullableFi64, 122: valuefield.FieldNullableSfi32, 123: valuefield.FieldNullableSfi64, 124: valuefield.FieldNullableBool, 125: valuefield.FieldNullableString, 126: valuefield.FieldNullableBytes, 127: valuefield.FieldNullableLevel, 144: valuefield.FieldImplicitF64WithDefault, 145: valuefield.FieldImplicitF32WithDefault, 146: valuefield.FieldImplicitI32WithDefault, 147: valuefield.FieldImplicitI64WithDefault, 148: valuefield.FieldImplicitU32WithDefault, 149: valuefield.FieldImplicitU64WithDefault, 150: valuefield.FieldImplicitSi32WithDefault, 151: valuefield.FieldImplicitSi64WithDefault, 152: valuefield.FieldImplicitFi32WithDefault, 153: valuefield.FieldImplicitFi64WithDefault, 154: valuefield.FieldImplicitSfi32WithDefault, 155: valuefield.FieldImplicitSfi64WithDefault, 156: valuefield.FieldImplicitBoolWithDefault, 157: valuefield.FieldImplicitStringWithDefault, 158: valuefield.FieldImplicitBytesWithDefault, 159: valuefield.FieldImplicitLevelWithDefault, 176: valuefield.FieldExplicitF64WithDefault, 177: valuefield.FieldExplicitF32WithDefault, 178: valuefield.FieldExplicitI32WithDefault, 179: valuefield.FieldExplicitI64WithDefault, 180: valuefield.FieldExplicitU32WithDefault, 181: valuefield.FieldExplicitU64WithDefault, 182: valuefield.FieldExplicitSi32WithDefault, 183: valuefield.FieldExplicitSi64WithDefault, 184: valuefield.FieldExplicitFi32WithDefault, 185: valuefield.FieldExplicitFi64WithDefault, 186: valuefield.FieldExplicitSfi32WithDefault, 187: valuefield.FieldExplicitSfi64WithDefault, 188: valuefield.FieldExplicitBoolWithDefault, 189: valuefield.FieldExplicitStringWithDefault, 190: valuefield.FieldExplicitBytesWithDefault, 191: valuefield.FieldExplicitLevelWithDefault, 208: valuefield.FieldImplicitImmutableF64, 209: valuefield.FieldImplicitImmutableF32, 210: valuefield.FieldImplicitImmutableI32, 211: valuefield.FieldImplicitImmutableI64, 212: valuefield.FieldImplicitImmutableU32, 213: valuefield.FieldImplicitImmutableU64, 214: valuefield.FieldImplicitImmutableSi32, 215: valuefield.FieldImplicitImmutableSi64, 216: valuefield.FieldImplicitImmutableFi32, 217: valuefield.FieldImplicitImmutableFi64, 218: valuefield.FieldImplicitImmutableSfi32, 219: valuefield.FieldImplicitImmutableSfi64, 220: valuefield.FieldImplicitImmutableBool, 221: valuefield.FieldImplicitImmutableString, 222: valuefield.FieldImplicitImmutableBytes, 223: valuefield.FieldImplicitImmutableLevel, 240: valuefield.FieldExplicitImmutableF64, 241: valuefield.FieldExplicitImmutableF32, 242: valuefield.FieldExplicitImmutableI32, 243: valuefield.FieldExplicitImmutableI64, 244: valuefield.FieldExplicitImmutableU32, 245: valuefield.FieldExplicitImmutableU64, 246: valuefield.FieldExplicitImmutableSi32, 247: valuefield.FieldExplicitImmutableSi64, 248: valuefield.FieldExplicitImmutableFi32, 249: valuefield.FieldExplicitImmutableFi64, 250: valuefield.FieldExplicitImmutableSfi32, 251: valuefield.FieldExplicitImmutableSfi64, 252: valuefield.FieldExplicitImmutableBool, 253: valuefield.FieldExplicitImmutableString, 254: valuefield.FieldExplicitImmutableBytes, 255: valuefield.FieldExplicitImmutableLevel}
+	1: valuefield.FieldId, 16: valuefield.FieldImplicitF64, 17: valuefield.FieldImplicitF32, 18: valuefield.FieldImplicitI32, 19: valuefield.FieldImplicitI64, 20: valuefield.FieldImplicitU32, 21: valuefield.FieldImplicitU64, 22: valuefield.FieldImplicitSi32, 23: valuefield.FieldImplicitSi64, 24: valuefield.FieldImplicitFi32, 25: valuefield.FieldImplicitFi64, 26: valuefield.FieldImplicitSfi32, 27: valuefield.FieldImplicitSfi64, 28: valuefield.FieldImplicitBool, 29: valuefield.FieldImplicitString, 30: valuefield.FieldImplicitBytes, 31: valuefield.FieldImplicitEnum, 48: valuefield.FieldExplicitF64, 49: valuefield.FieldExplicitF32, 50: valuefield.FieldExplicitI32, 51: valuefield.FieldExplicitI64, 52: valuefield.FieldExplicitU32, 53: valuefield.FieldExplicitU64, 54: valuefield.FieldExplicitSi32, 55: valuefield.FieldExplicitSi64, 56: valuefield.FieldExplicitFi32, 57: valuefield.FieldExplicitFi64, 58: valuefield.FieldExplicitSfi32, 59: valuefield.FieldExplicitSfi64, 60: valuefield.FieldExplicitBool, 61: valuefield.FieldExplicitString, 62: valuefield.FieldExplicitBytes, 63: valuefield.FieldExplicitEnum, 80: valuefield.FieldImplicitF64s, 81: valuefield.FieldImplicitF32s, 82: valuefield.FieldImplicitI32s, 83: valuefield.FieldImplicitI64s, 84: valuefield.FieldImplicitU32s, 85: valuefield.FieldImplicitU64s, 86: valuefield.FieldImplicitSi32s, 87: valuefield.FieldImplicitSi64s, 88: valuefield.FieldImplicitFi32s, 89: valuefield.FieldImplicitFi64s, 90: valuefield.FieldImplicitSfi32s, 91: valuefield.FieldImplicitSfi64s, 92: valuefield.FieldImplicitBools, 93: valuefield.FieldImplicitStrings, 94: valuefield.FieldImplicitBytess, 95: valuefield.FieldImplicitLevels, 112: valuefield.FieldNullableF64, 113: valuefield.FieldNullableF32, 114: valuefield.FieldNullableI32, 115: valuefield.FieldNullableI64, 116: valuefield.FieldNullableU32, 117: valuefield.FieldNullableU64, 118: valuefield.FieldNullableSi32, 119: valuefield.FieldNullableSi64, 120: valuefield.FieldNullableFi32, 121: valuefield.FieldNullableFi64, 122: valuefield.FieldNullableSfi32, 123: valuefield.FieldNullableSfi64, 124: valuefield.FieldNullableBool, 125: valuefield.FieldNullableString, 126: valuefield.FieldNullableBytes, 127: valuefield.FieldNullableLevel, 144: valuefield.FieldImplicitF64WithDefault, 145: valuefield.FieldImplicitF32WithDefault, 146: valuefield.FieldImplicitI32WithDefault, 147: valuefield.FieldImplicitI64WithDefault, 148: valuefield.FieldImplicitU32WithDefault, 149: valuefield.FieldImplicitU64WithDefault, 150: valuefield.FieldImplicitSi32WithDefault, 151: valuefield.FieldImplicitSi64WithDefault, 152: valuefield.FieldImplicitFi32WithDefault, 153: valuefield.FieldImplicitFi64WithDefault, 154: valuefield.FieldImplicitSfi32WithDefault, 155: valuefield.FieldImplicitSfi64WithDefault, 156: valuefield.FieldImplicitBoolWithDefault, 157: valuefield.FieldImplicitStringWithDefault, 158: valuefield.FieldImplicitBytesWithDefault, 159: valuefield.FieldImplicitLevelWithDefault, 176: valuefield.FieldExplicitF64WithDefault, 177: valuefield.FieldExplicitF32WithDefault, 178: valuefield.FieldExplicitI32WithDefault, 179: valuefield.FieldExplicitI64WithDefault, 180: valuefield.FieldExplicitU32WithDefault, 181: valuefield.FieldExplicitU64WithDefault, 182: valuefield.FieldExplicitSi32WithDefault, 183: valuefield.FieldExplicitSi64WithDefault, 184: valuefield.FieldExplicitFi32WithDefault, 185: valuefield.FieldExplicitFi64WithDefault, 186: valuefield.FieldExplicitSfi32WithDefault, 187: valuefield.FieldExplicitSfi64WithDefault, 188: valuefield.FieldExplicitBoolWithDefault, 189: valuefield.FieldExplicitStringWithDefault, 190: valuefield.FieldExplicitBytesWithDefault, 191: valuefield.FieldExplicitLevelWithDefault, 208: valuefield.FieldImplicitImmutableF64, 209: valuefield.FieldImplicitImmutableF32, 210: valuefield.FieldImplicitImmutableI32, 211: valuefield.FieldImplicitImmutableI64, 212: valuefield.FieldImplicitImmutableU32, 213: valuefield.FieldImplicitImmutableU64, 214: valuefield.FieldImplicitImmutableSi32, 215: valuefield.FieldImplicitImmutableSi64, 216: valuefield.FieldImplicitImmutableFi32, 217: valuefield.FieldImplicitImmutableFi64, 218: valuefield.FieldImplicitImmutableSfi32, 219: valuefield.FieldImplicitImmutableSfi64, 220: valuefield.FieldImplicitImmutableBool, 221: valuefield.FieldImplicitImmutableString, 222: valuefield.FieldImplicitImmutableBytes, 223: valuefield.FieldImplicitImmutableLevel, 240: valuefield.FieldExplicitImmutableF64, 241: valuefield.FieldExplicitImmutableF32, 242: valuefield.FieldExplicitImmutableI32, 243: valuefield.FieldExplicitImmutableI64, 244: valuefield.FieldExplicitImmutableU32, 245: valuefield.FieldExplicitImmutableU64, 246: valuefield.FieldExplicitImmutableSi32, 247: valuefield.FieldExplicitImmutableSi64, 248: valuefield.FieldExplicitImmutableFi32, 249: valuefield.FieldExplicitImmutableFi64, 250: valuefield.FieldExplicitImmutableSfi32, 251: valuefield.FieldExplicitImmutableSfi64, 252: valuefield.FieldExplicitImmutableBool, 253: valuefield.FieldExplicitImmutableString, 254: valuefield.FieldExplicitImmutableBytes, 255: valuefield.FieldExplicitImmutableLevel}
 
 func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFieldApplyRequest) (*apptest.ValueField, error) {
 	if !req.HasPatch() {
@@ -1027,7 +1027,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 	}
 	at := &apptest.ValueFieldRef{}
 	at.SetId(k)
-	p, err := s.narrow(ctx, valuefield.IDEQ(k))
+	p, err := s.narrow(ctx, valuefield.IdEQ(k))
 	if err != nil {
 		return nil, err
 	}
@@ -1118,7 +1118,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 
 	var k any
 	if s.Rec != nil {
-		v, err := st.Db.ValueField.Query().Where(p).OnlyID(ctx)
+		v, err := st.Db.ValueField.Query().Where(p).OnlyId(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.ValueFieldEraseResponse{}, nil
@@ -1127,7 +1127,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		}
 
 		k = v
-		p = valuefield.And(p, valuefield.IDEQ(v))
+		p = valuefield.And(p, valuefield.IdEQ(v))
 	}
 
 	n, err := st.Db.ValueField.Delete().Where(p).Exec(ctx)
@@ -1154,7 +1154,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 func ValueFieldPick(req *apptest.ValueFieldRef) (predicate.ValueField, error) {
 	switch req.WhichKey() {
 	case apptest.ValueFieldRef_Id_case:
-		return valuefield.IDEQ(req.GetId()), nil
+		return valuefield.IdEQ(req.GetId()), nil
 	case apptest.ValueFieldRef_Key_not_set_case:
 		return nil, status.Errorf(codes.InvalidArgument, "key not set: ValueField")
 	default:
@@ -1229,7 +1229,7 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 
 	q := st.Db.MessageField.Create()
 	if req.HasId() {
-		q.SetID(req.GetId())
+		q.SetId(req.GetId())
 	}
 	if req.HasExplicit() {
 		q.SetExplicit(req.GetExplicit())
@@ -1270,7 +1270,7 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:  apptest.MessageFieldService_Add_FullMethodName,
-		Key: u.ID,
+		Key: u.Id,
 	}); err != nil {
 		return nil, err
 	}
@@ -1305,7 +1305,7 @@ func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.Message
 }
 
 func selectMessageFieldKey(q *ent.MessageFieldQuery) {
-	q.Select(messagefield.FieldID)
+	q.Select(messagefield.FieldId)
 }
 
 func MessageFieldSelectedFields(m *apptest.MessageFieldSelect) []string {
@@ -1315,7 +1315,7 @@ func MessageFieldSelectedFields(m *apptest.MessageFieldSelect) []string {
 
 	vs := make([]string, 0, len(messagefield.Columns))
 	{
-		vs = append(vs, messagefield.FieldID)
+		vs = append(vs, messagefield.FieldId)
 	}
 	if m.GetExplicit() {
 		vs = append(vs, messagefield.FieldExplicit)
@@ -1385,7 +1385,7 @@ func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.Messag
 		return z, err
 	}
 
-	v, err := db.MessageField.Query().Where(p).OnlyID(ctx)
+	v, err := db.MessageField.Query().Where(p).OnlyId(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return z, status.Error(codes.NotFound, "MessageField not found")
@@ -1399,7 +1399,7 @@ func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.Messag
 var messageFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "MessageField")
 
 var messageFieldPatchColumns = entpatch.Columns{
-	1: messagefield.FieldID, 48: messagefield.FieldExplicit, 49: messagefield.FieldHeld, 80: messagefield.FieldRepeated, 112: messagefield.FieldNullable, 113: messagefield.FieldNullableHeld, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
+	1: messagefield.FieldId, 48: messagefield.FieldExplicit, 49: messagefield.FieldHeld, 80: messagefield.FieldRepeated, 112: messagefield.FieldNullable, 113: messagefield.FieldNullableHeld, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
 
 func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.MessageFieldApplyRequest) (*apptest.MessageField, error) {
 	if !req.HasPatch() {
@@ -1444,7 +1444,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 	}
 	at := &apptest.MessageFieldRef{}
 	at.SetId(k)
-	p, err := s.narrow(ctx, messagefield.IDEQ(k))
+	p, err := s.narrow(ctx, messagefield.IdEQ(k))
 	if err != nil {
 		return nil, err
 	}
@@ -1535,7 +1535,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 
 	var k any
 	if s.Rec != nil {
-		v, err := st.Db.MessageField.Query().Where(p).OnlyID(ctx)
+		v, err := st.Db.MessageField.Query().Where(p).OnlyId(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.MessageFieldEraseResponse{}, nil
@@ -1544,7 +1544,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		}
 
 		k = v
-		p = messagefield.And(p, messagefield.IDEQ(v))
+		p = messagefield.And(p, messagefield.IdEQ(v))
 	}
 
 	n, err := st.Db.MessageField.Delete().Where(p).Exec(ctx)
@@ -1571,7 +1571,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 func MessageFieldPick(req *apptest.MessageFieldRef) (predicate.MessageField, error) {
 	switch req.WhichKey() {
 	case apptest.MessageFieldRef_Id_case:
-		return messagefield.IDEQ(req.GetId()), nil
+		return messagefield.IdEQ(req.GetId()), nil
 	case apptest.MessageFieldRef_Key_not_set_case:
 		return nil, status.Errorf(codes.InvalidArgument, "key not set: MessageField")
 	default:
@@ -1646,7 +1646,7 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 
 	q := st.Db.MapField.Create()
 	if req.HasId() {
-		q.SetID(req.GetId())
+		q.SetId(req.GetId())
 	}
 	if u := req.GetImplicitString(); len(u) > 0 {
 		q.SetImplicitString(u)
@@ -1655,7 +1655,7 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 		q.SetImplicitEnum(u)
 	}
 	if u := req.GetImplicitJson(); len(u) > 0 {
-		q.SetImplicitJSON(u)
+		q.SetImplicitJson(u)
 	}
 	if u := req.GetImplicitStringWithDefault(); len(u) > 0 {
 		q.SetImplicitStringWithDefault(u)
@@ -1668,9 +1668,9 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 		q.SetImplicitEnumWithDefault(nil)
 	}
 	if u := req.GetImplicitJsonWithDefault(); len(u) > 0 {
-		q.SetImplicitJSONWithDefault(u)
+		q.SetImplicitJsonWithDefault(u)
 	} else {
-		q.SetImplicitJSONWithDefault(nil)
+		q.SetImplicitJsonWithDefault(nil)
 	}
 	if u := req.GetImplicitImmutableString(); len(u) > 0 {
 		q.SetImplicitImmutableString(u)
@@ -1679,7 +1679,7 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 		q.SetImplicitImmutableEnum(u)
 	}
 	if u := req.GetImplicitImmutableJson(); len(u) > 0 {
-		q.SetImplicitImmutableJSON(u)
+		q.SetImplicitImmutableJson(u)
 	}
 
 	u, err := q.Save(ctx)
@@ -1697,7 +1697,7 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:  apptest.MapFieldService_Add_FullMethodName,
-		Key: u.ID,
+		Key: u.Id,
 	}); err != nil {
 		return nil, err
 	}
@@ -1732,7 +1732,7 @@ func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGet
 }
 
 func selectMapFieldKey(q *ent.MapFieldQuery) {
-	q.Select(mapfield.FieldID)
+	q.Select(mapfield.FieldId)
 }
 
 func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
@@ -1742,7 +1742,7 @@ func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
 
 	vs := make([]string, 0, len(mapfield.Columns))
 	{
-		vs = append(vs, mapfield.FieldID)
+		vs = append(vs, mapfield.FieldId)
 	}
 	if m.GetImplicitString() {
 		vs = append(vs, mapfield.FieldImplicitString)
@@ -1751,7 +1751,7 @@ func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
 		vs = append(vs, mapfield.FieldImplicitEnum)
 	}
 	if m.GetImplicitJson() {
-		vs = append(vs, mapfield.FieldImplicitJSON)
+		vs = append(vs, mapfield.FieldImplicitJson)
 	}
 	if m.GetImplicitStringWithDefault() {
 		vs = append(vs, mapfield.FieldImplicitStringWithDefault)
@@ -1760,7 +1760,7 @@ func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
 		vs = append(vs, mapfield.FieldImplicitEnumWithDefault)
 	}
 	if m.GetImplicitJsonWithDefault() {
-		vs = append(vs, mapfield.FieldImplicitJSONWithDefault)
+		vs = append(vs, mapfield.FieldImplicitJsonWithDefault)
 	}
 	if m.GetImplicitImmutableString() {
 		vs = append(vs, mapfield.FieldImplicitImmutableString)
@@ -1769,7 +1769,7 @@ func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
 		vs = append(vs, mapfield.FieldImplicitImmutableEnum)
 	}
 	if m.GetImplicitImmutableJson() {
-		vs = append(vs, mapfield.FieldImplicitImmutableJSON)
+		vs = append(vs, mapfield.FieldImplicitImmutableJson)
 	}
 
 	return vs
@@ -1818,7 +1818,7 @@ func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRe
 		return z, err
 	}
 
-	v, err := db.MapField.Query().Where(p).OnlyID(ctx)
+	v, err := db.MapField.Query().Where(p).OnlyId(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return z, status.Error(codes.NotFound, "MapField not found")
@@ -1832,7 +1832,7 @@ func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRe
 var mapFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "MapField")
 
 var mapFieldPatchColumns = entpatch.Columns{
-	1: mapfield.FieldID, 16: mapfield.FieldImplicitString, 17: mapfield.FieldImplicitEnum, 18: mapfield.FieldImplicitJSON, 144: mapfield.FieldImplicitStringWithDefault, 145: mapfield.FieldImplicitEnumWithDefault, 146: mapfield.FieldImplicitJSONWithDefault, 208: mapfield.FieldImplicitImmutableString, 209: mapfield.FieldImplicitImmutableEnum, 210: mapfield.FieldImplicitImmutableJSON}
+	1: mapfield.FieldId, 16: mapfield.FieldImplicitString, 17: mapfield.FieldImplicitEnum, 18: mapfield.FieldImplicitJson, 144: mapfield.FieldImplicitStringWithDefault, 145: mapfield.FieldImplicitEnumWithDefault, 146: mapfield.FieldImplicitJsonWithDefault, 208: mapfield.FieldImplicitImmutableString, 209: mapfield.FieldImplicitImmutableEnum, 210: mapfield.FieldImplicitImmutableJson}
 
 func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldApplyRequest) (*apptest.MapField, error) {
 	if !req.HasPatch() {
@@ -1877,7 +1877,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 	}
 	at := &apptest.MapFieldRef{}
 	at.SetId(k)
-	p, err := s.narrow(ctx, mapfield.IDEQ(k))
+	p, err := s.narrow(ctx, mapfield.IdEQ(k))
 	if err != nil {
 		return nil, err
 	}
@@ -1968,7 +1968,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 
 	var k any
 	if s.Rec != nil {
-		v, err := st.Db.MapField.Query().Where(p).OnlyID(ctx)
+		v, err := st.Db.MapField.Query().Where(p).OnlyId(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.MapFieldEraseResponse{}, nil
@@ -1977,7 +1977,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		}
 
 		k = v
-		p = mapfield.And(p, mapfield.IDEQ(v))
+		p = mapfield.And(p, mapfield.IdEQ(v))
 	}
 
 	n, err := st.Db.MapField.Delete().Where(p).Exec(ctx)
@@ -2004,7 +2004,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 func MapFieldPick(req *apptest.MapFieldRef) (predicate.MapField, error) {
 	switch req.WhichKey() {
 	case apptest.MapFieldRef_Id_case:
-		return mapfield.IDEQ(req.GetId()), nil
+		return mapfield.IdEQ(req.GetId()), nil
 	case apptest.MapFieldRef_Key_not_set_case:
 		return nil, status.Errorf(codes.InvalidArgument, "key not set: MapField")
 	default:

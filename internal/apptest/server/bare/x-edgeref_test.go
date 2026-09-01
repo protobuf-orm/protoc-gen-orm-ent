@@ -33,14 +33,14 @@ func TestAnEdgeAnswersWithItsKeyUnloaded(t *testing.T) {
 	alias := t.Name()
 
 	tenant, err := s.Db.Tenant.Create().
-		SetID(uuid.New()).
+		SetId(uuid.New()).
 		SetAlias(alias).
 		Save(ctx)
 	x.NoError(err)
 
 	created, err := s.Db.User.Create().
-		SetID(uuid.New()).
-		SetTenantID(tenant.ID).
+		SetId(uuid.New()).
+		SetTenantId(tenant.Id).
 		SetAlias("root-" + alias).
 		SetDateUpdated(time.Now()).
 		SetDateCreated(time.Now()).
@@ -48,12 +48,12 @@ func TestAnEdgeAnswersWithItsKeyUnloaded(t *testing.T) {
 	x.NoError(err)
 
 	// Read back with nothing eager-loaded, which is what a list does.
-	got, err := s.Db.User.Query().Where(user.ID(created.ID)).Only(ctx)
+	got, err := s.Db.User.Query().Where(user.Id(created.Id)).Only(ctx)
 	x.NoError(err)
 	x.Nil(got.Edges.Tenant, "the test is about the case where nobody loaded it")
 
 	v := got.Proto()
-	x.Equal(tenant.ID[:], v.GetTenant().GetId())
+	x.Equal(tenant.Id[:], v.GetTenant().GetId())
 
 	// And it is a reference rather than a half-loaded row: the identifier, and
 	// nothing the query never asked for.
@@ -72,24 +72,24 @@ func TestALoadedEdgeIsStillTheWholeThing(t *testing.T) {
 	alias := t.Name()
 
 	tenant, err := s.Db.Tenant.Create().
-		SetID(uuid.New()).
+		SetId(uuid.New()).
 		SetAlias(alias).
 		Save(ctx)
 	x.NoError(err)
 
 	created, err := s.Db.User.Create().
-		SetID(uuid.New()).
-		SetTenantID(tenant.ID).
+		SetId(uuid.New()).
+		SetTenantId(tenant.Id).
 		SetAlias("root-" + alias).
 		SetDateUpdated(time.Now()).
 		SetDateCreated(time.Now()).
 		Save(ctx)
 	x.NoError(err)
 
-	got, err := s.Db.User.Query().Where(user.ID(created.ID)).WithTenant().Only(ctx)
+	got, err := s.Db.User.Query().Where(user.Id(created.Id)).WithTenant().Only(ctx)
 	x.NoError(err)
 
 	v := got.Proto()
-	x.Equal(tenant.ID[:], v.GetTenant().GetId())
+	x.Equal(tenant.Id[:], v.GetTenant().GetId())
 	x.Equal(alias, v.GetTenant().GetAlias())
 }

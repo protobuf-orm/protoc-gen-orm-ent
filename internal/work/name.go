@@ -1,7 +1,7 @@
 package work
 
 import (
-	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/ent"
+	"github.com/protobuf-orm/ent/entc/gen"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/strs"
 )
 
@@ -12,7 +12,7 @@ func (v Name) Go() string {
 }
 
 func (v Name) Ent() string {
-	return ent.Pascal(string(v))
+	return gen.Pascal(string(v))
 }
 
 // EdgeFieldSuffix is what the field holding an edge's key is called: the

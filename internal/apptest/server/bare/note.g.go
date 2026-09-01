@@ -101,7 +101,7 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	if v, err := mint(ctx, s.Mint, "apptest.Note", k, req.HasId()); err != nil {
 		return nil, err
 	} else {
-		q.SetID(v)
+		q.SetId(v)
 	}
 	if req.HasAlias() {
 		q.SetAlias(req.GetAlias())
@@ -140,7 +140,7 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:  apptest.NoteService_Add_FullMethodName,
-		Key: u.ID,
+		Key: u.Id,
 	}); err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (s NoteServiceServer) Get(ctx context.Context, req *apptest.NoteGetRequest)
 }
 
 func selectNoteKey(q *ent.NoteQuery) {
-	q.Select(note.FieldID)
+	q.Select(note.FieldId)
 }
 
 func NoteSelectedFields(m *apptest.NoteSelect) []string {
@@ -185,7 +185,7 @@ func NoteSelectedFields(m *apptest.NoteSelect) []string {
 
 	vs := make([]string, 0, len(note.Columns))
 	{
-		vs = append(vs, note.FieldID)
+		vs = append(vs, note.FieldId)
 	}
 	if m.GetAlias() {
 		vs = append(vs, note.FieldAlias)
@@ -256,7 +256,7 @@ func NoteGetKey(ctx context.Context, db *ent.Client, ref *apptest.NoteRef) (uuid
 		return z, err
 	}
 
-	v, err := db.Note.Query().Where(p).OnlyID(ctx)
+	v, err := db.Note.Query().Where(p).OnlyId(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return z, status.Error(codes.NotFound, "Note not found")
@@ -270,7 +270,7 @@ func NoteGetKey(ctx context.Context, db *ent.Client, ref *apptest.NoteRef) (uuid
 var noteOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_note_proto, "Note")
 
 var notePatchColumns = entpatch.Columns{
-	1: note.FieldID, 2: note.FieldAlias, 3: note.FieldBody, 4: note.FieldSlug, 13: note.FieldDateErased, 14: note.FieldDateUpdated, 15: note.FieldDateCreated}
+	1: note.FieldId, 2: note.FieldAlias, 3: note.FieldBody, 4: note.FieldSlug, 13: note.FieldDateErased, 14: note.FieldDateUpdated, 15: note.FieldDateCreated}
 
 func (s NoteServiceServer) Apply(ctx context.Context, req *apptest.NoteApplyRequest) (*apptest.Note, error) {
 	if !req.HasPatch() {
@@ -315,7 +315,7 @@ func (s NoteServiceServer) apply(ctx context.Context, ref *apptest.NoteRef, doc 
 	}
 	at := &apptest.NoteRef{}
 	at.SetId(k[:])
-	p, err := s.narrow(ctx, note.IDEQ(k))
+	p, err := s.narrow(ctx, note.IdEQ(k))
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +409,7 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*ap
 
 	var k any
 	if s.Rec != nil {
-		v, err := st.Db.Note.Query().Where(p).OnlyID(ctx)
+		v, err := st.Db.Note.Query().Where(p).OnlyId(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.NoteEraseResponse{}, nil
@@ -418,7 +418,7 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*ap
 		}
 
 		k = v
-		p = note.And(p, note.IDEQ(v))
+		p = note.And(p, note.IdEQ(v))
 	}
 
 	u := st.Db.Note.Update().Where(p)
@@ -469,7 +469,7 @@ func pickNote(req *apptest.NoteRef) (predicate.Note, error) {
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
-			return note.IDEQ(v), nil
+			return note.IdEQ(v), nil
 		}
 	case apptest.NoteRef_Slug_case:
 		return note.SlugEQ(req.GetSlug()), nil

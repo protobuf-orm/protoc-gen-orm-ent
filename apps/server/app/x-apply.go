@@ -142,7 +142,7 @@ func (w *fileWork) xApply() {
 	// GetKey above is not narrowed. It resolves the reference, which may be an
 	// alias, and narrowing it would answer NotFound one query earlier while
 	// telling the caller nothing different.
-	w.P("	p, err := s.narrow(ctx, ", w.xEntPkg().Ident("IDEQ"), "(k))")
+	w.P("	p, err := s.narrow(ctx, ", w.xEntPkg().Ident("IdEQ"), "(k))")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")

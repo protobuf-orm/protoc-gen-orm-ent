@@ -37,7 +37,7 @@ type Server interface {
 // RegisterServer registers every service of `s` with `g`.
 //
 // It takes a [grpc.ServiceRegistrar] rather than a *grpc.Server so that a
-// server which is not gRPC's own can be handed the same set of services.
+// server which is not gRpc's own can be handed the same set of services.
 func RegisterServer(g grpc.ServiceRegistrar, s Server) {
 	RegisterValueFieldServiceServer(g, s.ValueField())
 	RegisterMessageFieldServiceServer(g, s.MessageField())

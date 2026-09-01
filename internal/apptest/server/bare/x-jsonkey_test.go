@@ -16,16 +16,16 @@ import (
 )
 
 // A map key is whatever the caller put in the document, and it addresses a
-// place inside a JSON column -- so it reaches the statement as a JSON path.
-// Written into the statement text, a key carrying a quote closed the SQL
-// literal and what followed was parsed as SQL. Bound, the worst a key can do is
+// place inside a Json column -- so it reaches the statement as a Json path.
+// Written into the statement text, a key carrying a quote closed the Sql
+// literal and what followed was parsed as Sql. Bound, the worst a key can do is
 // address nothing.
 //
-// These go through the whole RPC on purpose. The path is built in two places --
+// These go through the whole Rpc on purpose. The path is built in two places --
 // the assignment and the guard predicate a remove needs -- and only one of them
 // used to be reachable with an awkward key.
-func TestJSONKeysAreData(t *testing.T) {
-	// Each of these breaks either the SQL string literal, the JSON path
+func TestJsonKeysAreData(t *testing.T) {
+	// Each of these breaks either the Sql string literal, the Json path
 	// grammar, or both.
 	for name, key := range map[string]string{
 		"single quote":         "a'b",
@@ -76,7 +76,7 @@ func TestJSONKeysAreData(t *testing.T) {
 
 // The same key through Patch, which converts a whole map rather than addressing
 // one entry -- so it must survive the other binding too.
-func TestJSONKeysThroughPatch(t *testing.T) {
+func TestJsonKeysThroughPatch(t *testing.T) {
 	t.Run("a whole map with an awkward key", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, nil)
 		want := map[string]string{"a'b": "1", `a"b`: "2"}
@@ -105,7 +105,7 @@ func TestServerRefusesAnUnwrittenDialect(t *testing.T) {
 	// A client opened on something unwritten is refused, however it arrives.
 	// "gremlin" is a literal because the ent fork dropped the constant with
 	// the driver; what matters here is only that the name is unwritten for.
-	for _, d := range []string{dialect.MySQL, "gremlin", "cockroach", ""} {
+	for _, d := range []string{dialect.MySql, "gremlin", "cockroach", ""} {
 		_, err := bare.NewServer(ent.NewClient(ent.Driver(fakeDriver{d})))
 		require.ErrorIs(t, err, entpatch.ErrDialect, "dialect %q", d)
 	}

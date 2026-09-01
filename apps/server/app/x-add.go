@@ -184,7 +184,7 @@ func (w *fileWork) xAdd() {
 	// or the branch above settled on.
 	w.P("	if err := record(ctx, s.Rec, st.Db, Change{")
 	w.P("		By: ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ",")
-	w.P("		Key: u.ID,")
+	w.P("		Key: u.Id,")
 	w.P("	}); err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")

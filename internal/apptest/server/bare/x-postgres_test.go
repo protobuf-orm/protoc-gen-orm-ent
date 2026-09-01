@@ -30,7 +30,7 @@ const Postgres = "APPTEST_POSTGRES"
 // cannot answer.
 //
 // A message field is a string column with a value scanner, and its schema type
-// is put back to `jsonb` -- because that is what `field.JSON` gave it before,
+// is put back to `jsonb` -- because that is what `field.Json` gave it before,
 // and narrowing it would be a table rewrite for every deployment that already
 // has one.
 //
@@ -117,7 +117,7 @@ func TestPostgresMessageField(t *testing.T) {
 	})
 
 	// And that jsonb is genuinely jsonb rather than a string that happens to
-	// hold JSON: an operator over it works.
+	// hold Json: an operator over it works.
 	t.Run("jsonb operators reach inside it", func(t *testing.T) {
 		x := require.New(t)
 

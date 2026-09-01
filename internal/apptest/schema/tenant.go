@@ -17,14 +17,14 @@ type Tenant struct {
 
 func (Tenant) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("id", uuid.UUID{}).
+		field.Uuid("id", uuid.UUID{}).
 			Unique().
 			Immutable(),
 		field.String("alias").
 			Optional(),
 		field.String("name").
 			Optional(),
-		field.JSON("labels", map[string]string{}).
+		field.Json("labels", map[string]string{}).
 			Optional(),
 		field.Time("date_created").
 			Immutable().

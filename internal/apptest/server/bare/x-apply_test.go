@@ -103,7 +103,7 @@ func TestApply(t *testing.T) {
 		x.Empty(got.GetName(), "the rest of the document must not have applied")
 	}))
 
-	t.Run("removing an absent entry under SKIP is tolerated", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+	t.Run("removing an absent entry under SKIp is tolerated", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, map[string]string{"env": "prod"})
 
 		req := doc(x,
@@ -307,7 +307,7 @@ func TestApply(t *testing.T) {
 
 	// Apply requires the document. Patch is the one that may have nothing to
 	// say, and both run the same path underneath, so the difference has to be
-	// stated at the RPC.
+	// stated at the Rpc.
 	t.Run("a request with no patch is refused", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, nil)
 

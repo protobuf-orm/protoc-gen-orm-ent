@@ -124,7 +124,7 @@ func TestRecordPatchAndApply(t *testing.T) {
 
 		u := r.Only(x)
 
-		// Patch is the RPC that carries no document of its own, so this is the
+		// Patch is the Rpc that carries no document of its own, so this is the
 		// thing a layer in front of this server could not have worked out: the
 		// request became a document, and the document is what was written. The
 		// operation says it was an apply and the method says which door it came
@@ -223,7 +223,7 @@ func TestRecordErase(t *testing.T) {
 		x.Equal(v.GetId(), k[:])
 	}))
 	t.Run("erasing what is not there still succeeds, and reports nothing", R(func(ctx context.Context, x *require.Assertions, c *Client, r *recorder) {
-		_, err := c.User().Erase(ctx, pb.UserById(newID()))
+		_, err := c.User().Erase(ctx, pb.UserById(newId()))
 		x.NoError(err)
 		x.Zero(r.Len())
 	}))
@@ -234,7 +234,7 @@ func TestRecordErase(t *testing.T) {
 // write and something else a single write -- must not have theirs committed or
 // thrown away underneath them.
 //
-// These go through the servers rather than a gRPC client, because what is being
+// These go through the servers rather than a gRpc client, because what is being
 // asked about is which driver the servers run on.
 func TestRecordInAnOpenTransaction(t *testing.T) {
 	ctx := context.Background()
@@ -495,7 +495,7 @@ func TestRecorders(t *testing.T) {
 }
 
 // fakeStream is the little of a server transport stream that [grpc.Method]
-// reads, so that a test can hand a server the context gRPC would have.
+// reads, so that a test can hand a server the context gRpc would have.
 type fakeStream struct {
 	grpc.ServerTransportStream
 
@@ -505,7 +505,7 @@ type fakeStream struct {
 func (s fakeStream) Method() string { return s.method }
 
 // asIfCalled answers with `ctx` looking the way it looks inside the handler
-// gRPC dispatched for `method`.
+// gRpc dispatched for `method`.
 func asIfCalled(ctx context.Context, method string) context.Context {
 	return grpc.NewContextWithServerTransportStream(ctx, fakeStream{method: method})
 }
@@ -515,7 +515,7 @@ func asIfCalled(ctx context.Context, method string) context.Context {
 //
 // They are the same for a request that reached this server as itself, which is
 // every test above. They come apart for the request an app actually writes --
-// an RPC of its own that ends in one of these -- and that is the case a trail
+// an Rpc of its own that ends in one of these -- and that is the case a trail
 // is read for.
 func TestRecordMethod(t *testing.T) {
 	const asked = "/apptest.UserService/Rename"
@@ -532,7 +532,7 @@ func TestRecordMethod(t *testing.T) {
 		x.NoError(err)
 
 		u := r.Only(x)
-		x.Equal(asked, u.Method, "what gRPC dispatched, whatever leg of it this was")
+		x.Equal(asked, u.Method, "what gRpc dispatched, whatever leg of it this was")
 		x.Equal(pb.TenantService_Add_FullMethodName, u.By, "and what this server did")
 	})
 
@@ -544,7 +544,7 @@ func TestRecordMethod(t *testing.T) {
 		defer s.Close()
 
 		// The deployment writing to itself before it serves anything. There is
-		// no dispatched RPC to name, and the honest answer is what happened.
+		// no dispatched Rpc to name, and the honest answer is what happened.
 		v := bare.NewTenantServiceServer(s.Db, bare.WithRecorder(r))
 		_, err := v.Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
 		x.NoError(err)

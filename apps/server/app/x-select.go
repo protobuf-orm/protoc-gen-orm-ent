@@ -5,7 +5,7 @@ import (
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
 
-	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/ent"
+	"github.com/protobuf-orm/ent/entc/gen"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -17,7 +17,7 @@ func (w *fileWork) xSelectKey() {
 	w.P("func select", name_x, "Key(",
 		/* */ "q *", w.ent.Ident(name_x+"Query"),
 		") {")
-	w.P("	q.Select(", x.Ident("Field"+ent.Pascal(w.Entity.Key().Name())), ")")
+	w.P("	q.Select(", x.Ident("Field"+gen.Pascal(w.Entity.Key().Name())), ")")
 	w.P("}")
 	w.P("")
 }

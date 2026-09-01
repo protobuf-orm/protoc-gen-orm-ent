@@ -101,7 +101,7 @@ func TestPatchVersion(t *testing.T) {
 	// other client's compare-and-swap is measured against, and choosing the
 	// value it had just read was enough to undo the lock: the row changed while
 	// the token stood still, so a concurrent writer's already-stale test still
-	// held, and overwrote, and the RPC said OK.
+	// held, and overwrote, and the Rpc said OK.
 	t.Run("force with a version is refused", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, nil)
 		before := version(ctx, x, c, u)
@@ -126,7 +126,7 @@ func TestPatchVersion(t *testing.T) {
 	// under load a caller could be given a version some other writer stamped --
 	// and a token that is not yours is one your next compare-and-swap will lose
 	// with. Measured before the fix: 800 concurrent writes, 800 distinct stamps
-	// in the SQL, but only 435 distinct versions returned, up to 6 callers
+	// in the Sql, but only 435 distinct versions returned, up to 6 callers
 	// sharing one.
 	t.Run("each writer is handed its own version", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, nil)
@@ -391,7 +391,7 @@ func TestPatchWithoutVersion(t *testing.T) {
 		x.Equal(codes.NotFound, status.Code(err))
 	}))
 
-	// A request that sets nothing writes nothing, which used to issue no SQL
+	// A request that sets nothing writes nothing, which used to issue no Sql
 	// and report zero rows -- indistinguishable from a row that is not there,
 	// so an existing entity came back NotFound. Asking whether the row exists
 	// is what tells the two apart.

@@ -27,7 +27,7 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 	case ormpb.Type_TYPE_MESSAGE:
 		panic("field cannot be typed as message")
 	case ormpb.Type_TYPE_JSON:
-		id = "JSON"
+		id = "Json"
 		ctor = graph.GoTypeOf(p, func(v protogen.GoIdent) string {
 			ident := w.QualifiedGoIdent(v)
 
@@ -72,7 +72,7 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 	}
 
 	if p.IsList() {
-		id = "JSON"
+		id = "Json"
 		if ctor == "" {
 			ctor = graph.GoTypeOf(p, w.QualifiedGoIdent)
 		}
@@ -111,7 +111,7 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 		case ormpb.Type_TYPE_GROUP:
 			panic("not implemented")
 		case ormpb.Type_TYPE_UUID:
-			id = "UUID"
+			id = "Uuid"
 		case ormpb.Type_TYPE_TIME:
 			id = "Time"
 			// case ormpb.Type_TYPE_JSON:

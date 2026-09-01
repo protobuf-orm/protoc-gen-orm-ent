@@ -100,12 +100,12 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	if v, err := mint(ctx, s.Mint, "apptest.User", k, req.HasId()); err != nil {
 		return nil, err
 	} else {
-		q.SetID(v)
+		q.SetId(v)
 	}
 	if k, err := TenantGetKey(ctx, st.Db, req.GetTenant()); err != nil {
 		return nil, err
 	} else {
-		q.SetTenantID(k)
+		q.SetTenantId(k)
 		ds = append(ds, func(v *apptest.User) {
 			v.SetTenant(apptest.Tenant_builder{Id: k[:]}.Build())
 		})
@@ -148,7 +148,7 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:  apptest.UserService_Add_FullMethodName,
-		Key: u.ID,
+		Key: u.Id,
 	}); err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest)
 }
 
 func selectUserKey(q *ent.UserQuery) {
-	q.Select(user.FieldID)
+	q.Select(user.FieldId)
 }
 
 func UserSelectedFields(m *apptest.UserSelect) []string {
@@ -197,7 +197,7 @@ func UserSelectedFields(m *apptest.UserSelect) []string {
 
 	vs := make([]string, 0, len(user.Columns))
 	{
-		vs = append(vs, user.FieldID)
+		vs = append(vs, user.FieldId)
 	}
 	if m.GetAlias() {
 		vs = append(vs, user.FieldAlias)
@@ -284,7 +284,7 @@ func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid
 		return z, err
 	}
 
-	v, err := db.User.Query().Where(p).OnlyID(ctx)
+	v, err := db.User.Query().Where(p).OnlyId(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return z, status.Error(codes.NotFound, "User not found")
@@ -298,7 +298,7 @@ func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid
 var userOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_user_proto, "User")
 
 var userPatchColumns = entpatch.Columns{
-	1: user.FieldID, 2: user.TenantColumn, 4: user.FieldAlias, 5: user.FieldName, 7: user.FieldLabels, 8: user.FieldLock, 14: user.FieldDateUpdated, 15: user.FieldDateCreated}
+	1: user.FieldId, 2: user.TenantColumn, 4: user.FieldAlias, 5: user.FieldName, 7: user.FieldLabels, 8: user.FieldLock, 14: user.FieldDateUpdated, 15: user.FieldDateCreated}
 
 func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequest) (*apptest.User, error) {
 	if !req.HasPatch() {
@@ -343,7 +343,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 	}
 	at := &apptest.UserRef{}
 	at.SetId(k[:])
-	p, err := s.narrow(ctx, user.IDEQ(k))
+	p, err := s.narrow(ctx, user.IdEQ(k))
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +437,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 
 	var k any
 	if s.Rec != nil {
-		v, err := st.Db.User.Query().Where(p).OnlyID(ctx)
+		v, err := st.Db.User.Query().Where(p).OnlyId(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.UserEraseResponse{}, nil
@@ -446,7 +446,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 		}
 
 		k = v
-		p = user.And(p, user.IDEQ(v))
+		p = user.And(p, user.IdEQ(v))
 	}
 
 	n, err := st.Db.User.Delete().Where(p).Exec(ctx)
@@ -476,7 +476,7 @@ func UserPick(req *apptest.UserRef) (predicate.User, error) {
 		if v, err := uuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
-			return user.IDEQ(v), nil
+			return user.IdEQ(v), nil
 		}
 	case apptest.UserRef_Alias_case:
 		k := req.GetAlias()

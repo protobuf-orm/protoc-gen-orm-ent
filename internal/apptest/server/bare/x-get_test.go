@@ -10,7 +10,7 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	t.Run("empty select returns edge IDs", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+	t.Run("empty select returns edge Ids", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		tenant, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
 		x.NoError(err)
 

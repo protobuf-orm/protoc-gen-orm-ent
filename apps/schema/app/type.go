@@ -38,15 +38,15 @@ func entField(t ormpb.Type) protogen.GoIdent {
 	case ormpb.Type_TYPE_BYTES:
 		id = "Bytes"
 	case ormpb.Type_TYPE_MESSAGE:
-		id = "JSON"
+		id = "Json"
 	case ormpb.Type_TYPE_GROUP:
 		panic("not implemented")
 	case ormpb.Type_TYPE_UUID:
-		id = "UUID"
+		id = "Uuid"
 	case ormpb.Type_TYPE_TIME:
 		id = "Time"
 	case ormpb.Type_TYPE_JSON:
-		id = "JSON"
+		id = "Json"
 	}
 
 	return work.PkgField.Ident(id)

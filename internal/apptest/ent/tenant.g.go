@@ -10,7 +10,7 @@ import (
 
 func (e *Tenant) Proto() *apptest.Tenant {
 	x := &apptest.Tenant{}
-	x.SetId(e.ID[:])
+	x.SetId(e.Id[:])
 	x.SetAlias(e.Alias)
 	x.SetName(e.Name)
 	x.SetLabels(e.Labels)

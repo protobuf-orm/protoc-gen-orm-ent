@@ -11,10 +11,10 @@ import (
 
 func (e *User) Proto() *apptest.User {
 	x := &apptest.User{}
-	x.SetId(e.ID[:])
+	x.SetId(e.Id[:])
 	if v := e.Edges.Tenant; v != nil {
 		x.SetTenant(v.Proto())
-	} else if v := e.TenantID; v != *new(uuid.UUID) {
+	} else if v := e.TenantId; v != *new(uuid.UUID) {
 		r := &apptest.Tenant{}
 		r.SetId(v[:])
 		x.SetTenant(r)
