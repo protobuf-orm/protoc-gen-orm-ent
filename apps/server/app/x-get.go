@@ -73,7 +73,7 @@ func (w *fileWork) xGetKey() {
 	w.P("	}")
 	w.P("")
 
-	w.P("	v, err := db.", name, ".Query().Where(p).OnlyID(ctx)")
+	w.P("	v, err := db.", name, ".Query().Where(p).OnlyId(ctx)")
 	w.P("	if err != nil {")
 	w.P("		if ", w.ent.Ident("IsNotFound"), "(err) {")
 	w.P("			return z, ", work.PkgGrpcStatus.Ident("Error"), "(", work.PkgGrpcCodes.Ident("NotFound"), ", \"", name, " not found\")")

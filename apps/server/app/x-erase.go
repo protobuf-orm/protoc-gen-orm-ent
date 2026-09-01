@@ -50,7 +50,7 @@ func (w *fileWork) xErase() {
 	// finds out when they stop.
 	w.P("	var k any")
 	w.P("	if s.Rec != nil {")
-	w.P("		v, err := st.Db.", name, ".Query().Where(p).OnlyID(ctx)")
+	w.P("		v, err := st.Db.", name, ".Query().Where(p).OnlyId(ctx)")
 	w.P("		if err != nil {")
 	w.P("			if ", w.ent.Ident("IsNotFound"), "(err) {")
 	// Gone already, or never there, or out of reach: one answer, and it is not
