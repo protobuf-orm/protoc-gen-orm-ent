@@ -22,17 +22,10 @@
 // a row that compared equal to empty, and no error anywhere. The failure was
 // invisible from Go, from the schema and from the database.
 //
-// `field.JSON` cannot be given a codec either, and not by omission. ent hangs
-// `ValueScanner` off the string and bytes builders and not off the JSON one,
-// and its validation refuses one that arrives anyway:
-//
-//	case tf.HasValueScanner() && tf.IsJSON():
-//		err = fmt.Errorf("json field %q cannot have an external ValueScanner", f.Name)
-//
-// So this is not a workaround waiting for an upstream patch. A JSON field
-// marshals in the generated code, and a codec would be a second path through
-// the same value; ent decided against having both. The field is a string, the
-// codec is this, and the column type is put back with `SchemaType`.
+// So the field needs a codec of its own, and this is it. A JSON field takes
+// one: ent wraps what the codec returns in a `json.RawMessage` on the way to
+// the column, so it is written as it is rather than encoded a second time.
+// The field is a `field.JSON`, and the column type comes from the builder.
 //
 // # What is stored
 //

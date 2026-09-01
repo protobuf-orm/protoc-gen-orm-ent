@@ -11,8 +11,7 @@ import (
 )
 
 type EntOpts struct {
-	Namer      string
-	ClientName string
+	Namer string
 }
 
 func (h *EntOpts) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error {
@@ -24,10 +23,6 @@ func (h *EntOpts) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) e
 		}
 		opts = append(opts, app.WithNamer(v))
 	}
-	if h.ClientName != "" {
-		opts = append(opts, app.WithClientName(h.ClientName))
-	}
-
 	app, err := app.New(opts...)
 	if err != nil {
 		return fmt.Errorf("initialize ent app: %w", err)

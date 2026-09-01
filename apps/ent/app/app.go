@@ -13,8 +13,7 @@ import (
 )
 
 type App struct {
-	namer  *template.Template
-	client string
+	namer *template.Template
 
 	// Generated file path -> Generated file.
 	gfs map[string]*protogen.GeneratedFile
@@ -29,9 +28,6 @@ func New(opts ...Option) (*App, error) {
 	}
 	if a.namer == nil {
 		a.namer = template.Must(template.New("namer").Parse("ent/{{ .Name }}.go"))
-	}
-	if a.client == "" {
-		a.client = "orm.g.go"
 	}
 
 	return a, nil
@@ -63,14 +59,6 @@ func (a *App) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error
 
 			gf, _, err := a.newGeneratedSchemaFile(p, f)
 			if err != nil {
-				handle_err(err)
-				continue
-			}
-
-			// One file per package, not per entity, and only where there is an
-			// entity at all: without one there is no Ent package for it to be
-			// a part of.
-			if err := a.doClientWork(p, f); err != nil {
 				handle_err(err)
 				continue
 			}

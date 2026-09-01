@@ -11,11 +11,3 @@ func WithNamer(v *template.Template) Option {
 		a.namer = v
 	}
 }
-
-// WithClientName names the one file that is about the package rather than
-// about an entity. It is placed beside the files [WithNamer] names.
-func WithClientName(v string) Option {
-	return func(a *App) {
-		a.client = v
-	}
-}
