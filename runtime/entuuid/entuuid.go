@@ -24,7 +24,7 @@ const Size = 16
 // and converts a [Size]byte, and neither is what a message carries.
 func FromBytes(b []byte) (uuid.UUID, error) {
 	if len(b) != Size {
-		return uuid.Nil(), fmt.Errorf("uuid is %d bytes, got %d", Size, len(b))
+		return uuid.Nil(), fmt.Errorf("got %d bytes, want %d", len(b), Size)
 	}
 	return uuid.UUID(b), nil
 }
