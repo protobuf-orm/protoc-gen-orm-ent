@@ -10,8 +10,8 @@ github.com/lesomnus/protobuf-patch v0.0.0-20260803175157-e1b7a0c2804f h1:hIDTEG7
 github.com/lesomnus/protobuf-patch v0.0.0-20260803175157-e1b7a0c2804f/go.mod h1:0sqL1bt/0v8atiVioyoJ25XQnZcn8zA9GYM1DvC4i5o=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/protobuf-orm/ent v0.0.0-20260901155027-6f0bc7e0840c h1:ey3nrU7RNW/qnFI2ncp6WoaR0s5QlT6Ee/+XFI04SD4=
-github.com/protobuf-orm/ent v0.0.0-20260901155027-6f0bc7e0840c/go.mod h1:wFLIWZcFBlCANVoA7120aB6BsWrCSSWLOZaET602tRk=
+github.com/protobuf-orm/ent v0.0.0-20260901163751-c97834a2392d h1:B5uu3A2/5BNPuuQxPJVcvt8P5i+xRlC+WnNSaThJzM4=
+github.com/protobuf-orm/ent v0.0.0-20260901163751-c97834a2392d/go.mod h1:EE8o+t0Y4xtH8DRH/shGerAb2mPQJ0A1TqWT5LU7pZQ=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29 h1:yLrMWcjBT70hljInsE7zssdIZ8pwvotprlUGsLEs4ms=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29/go.mod h1:jMdK+un3aGD6fB5zl3rBg0OMahe7vP5Dpfxe6Sws7mM=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
