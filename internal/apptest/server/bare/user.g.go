@@ -6,7 +6,6 @@ package bare
 import (
 	context "context"
 	errors "errors"
-	uuid "github.com/google/uuid"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
 	graph "github.com/protobuf-orm/protobuf-orm/graph"
@@ -17,9 +16,11 @@ import (
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
+	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	uuid "uuid"
 )
 
 type UserServiceServer struct {
@@ -91,7 +92,7 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	q := st.Db.User.Create()
 	var k uuid.UUID
 	if req.HasId() {
-		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			k = v
@@ -272,7 +273,7 @@ func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequ
 func UserGetKey(ctx context.Context, db *ent.Client, ref *apptest.UserRef) (uuid.UUID, error) {
 	var z uuid.UUID
 	if ref.HasId() {
-		if v, err := uuid.FromBytes(ref.GetId()); err != nil {
+		if v, err := entuuid.FromBytes(ref.GetId()); err != nil {
 			return z, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			return v, nil
@@ -473,7 +474,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 func UserPick(req *apptest.UserRef) (predicate.User, error) {
 	switch req.WhichKey() {
 	case apptest.UserRef_Id_case:
-		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			return user.IdEQ(v), nil

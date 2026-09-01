@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/protobuf-orm/ent/dialect"
 	"github.com/protobuf-orm/ent/dialect/sql"
+	entfield "github.com/protobuf-orm/ent/schema/field"
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpatch"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -147,14 +150,14 @@ func TestTestOnAnEdgeBindsTheTargetsKey(t *testing.T) {
 		t.Fatalf("bound %d arguments, want 1: %#v", len(args), args)
 	}
 	// The wire form of a UUID key is bytes, but the column holds the converted
-	// value, exactly as SetEdge writes it. Binding the bytes matches nothing.
-	want := uuid.Must(uuid.FromBytes(id))
-	got, ok := args[0].(uuid.UUID)
-	if !ok {
-		t.Fatalf("bound %#v (%T), want a uuid.UUID", args[0], args[0])
+	// value, exactly as SetEdge writes it: the text ent's codec for a
+	// uuid.UUID produces. Binding the wire bytes matches nothing.
+	want, err := entfield.TextValueScannerOf[uuid.UUID]().Value(entuuid.Must(entuuid.FromBytes(id)))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got != want {
-		t.Errorf("bound %v, want %v", got, want)
+	if got := args[0]; !reflect.DeepEqual(got, want) {
+		t.Errorf("bound %#v (%T), want %#v", got, got, want)
 	}
 
 	// The predicate is resolved once and applied per statement, so it has to
@@ -552,11 +555,11 @@ func TestJSONEditRendersPerDialect(t *testing.T) {
 	// refusal raised while rendering would be silent for exactly the documents
 	// that read.
 	t.Run("an unwritten dialect is refused by Build", func(t *testing.T) {
-		_, _, err := entpatch.Build(plan, userColumns, dialect.MySQL)
+		_, _, err := entpatch.Build(plan, userColumns, dialect.MySql)
 		if !errors.Is(err, entpatch.ErrDialect) {
 			t.Fatalf("got %v, want ErrDialect", err)
 		}
-		if entpatch.Supports(dialect.MySQL) {
+		if entpatch.Supports(dialect.MySql) {
 			t.Error("Supports says otherwise")
 		}
 		for _, d := range []string{dialect.SQLite, dialect.Postgres} {

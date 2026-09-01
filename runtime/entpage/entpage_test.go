@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/protobuf-orm/ent/dialect/sql"
 	"github.com/stretchr/testify/require"
 

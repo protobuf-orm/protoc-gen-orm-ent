@@ -11,12 +11,11 @@ module github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest
 go 1.27.0
 
 require (
-	github.com/google/uuid v1.6.0
 	github.com/lesomnus/protobuf-patch v0.0.0-20260803175157-e1b7a0c2804f
 	github.com/lesomnus/z v0.0.0-20250923111312-437bd8f8f4cf
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/protobuf-orm/ent v0.0.0-20260901221134-1d321ed5f02c
+	github.com/protobuf-orm/ent v0.0.0-20260901230746-4115dcfc4087
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
 	github.com/protobuf-orm/protoc-gen-orm-ent/runtime v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1

@@ -6,7 +6,6 @@ package bare
 import (
 	context "context"
 	errors "errors"
-	uuid "github.com/google/uuid"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
@@ -16,8 +15,10 @@ import (
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
+	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	uuid "uuid"
 )
 
 type NoteServiceServer struct {
@@ -92,7 +93,7 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	q := st.Db.Note.Create()
 	var k uuid.UUID
 	if req.HasId() {
-		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			k = v
@@ -244,7 +245,7 @@ func (s NoteServiceServer) Patch(ctx context.Context, req *apptest.NotePatchRequ
 func NoteGetKey(ctx context.Context, db *ent.Client, ref *apptest.NoteRef) (uuid.UUID, error) {
 	var z uuid.UUID
 	if ref.HasId() {
-		if v, err := uuid.FromBytes(ref.GetId()); err != nil {
+		if v, err := entuuid.FromBytes(ref.GetId()); err != nil {
 			return z, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			return v, nil
@@ -466,7 +467,7 @@ func NotePick(req *apptest.NoteRef) (predicate.Note, error) {
 func pickNote(req *apptest.NoteRef) (predicate.Note, error) {
 	switch req.WhichKey() {
 	case apptest.NoteRef_Id_case:
-		if v, err := uuid.FromBytes(req.GetId()); err != nil {
+		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			return note.IdEQ(v), nil

@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	uuid "github.com/google/uuid"
 	"github.com/lesomnus/protobuf-patch/patch"
 	"github.com/lesomnus/z"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	uuid "uuid"
 )
 
 func newId() []byte {

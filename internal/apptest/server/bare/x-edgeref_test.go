@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"uuid"
 
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 )

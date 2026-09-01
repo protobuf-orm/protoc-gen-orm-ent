@@ -73,7 +73,7 @@ func (w *fileWork) xPick() {
 			t := p_.Type()
 			switch t {
 			case ormpb.Type_TYPE_UUID:
-				w.P("		if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(req.Get", name_p.Go(), "()); err != nil {")
+				w.P("		if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(req.Get", name_p.Go(), "()); err != nil {")
 				w.P("			return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name_p, ": %s\", ", "err)")
 				w.P("		} else {")
 				w.P("			return ", eq, "(v), nil")
@@ -106,7 +106,7 @@ func (w *fileWork) xPick() {
 				t := p_.Type()
 				switch t {
 				case ormpb.Type_TYPE_UUID:
-					w.P("		if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(k.Get", name.Go(), "()); err != nil {")
+					w.P("		if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(k.Get", name.Go(), "()); err != nil {")
 					w.P("			return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name_p, ".", name, ": %s\", ", "err)")
 					w.P("		} else {")
 					w.P("			ps = append(ps, ", eq, "(v))")

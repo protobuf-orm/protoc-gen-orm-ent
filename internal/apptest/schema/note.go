@@ -4,7 +4,6 @@
 package schema
 
 import (
-	uuid "github.com/google/uuid"
 	ent "github.com/protobuf-orm/ent"
 	entsql "github.com/protobuf-orm/ent/dialect/entsql"
 	schema "github.com/protobuf-orm/ent/schema"
@@ -18,7 +17,7 @@ type Note struct {
 
 func (Note) Fields() []ent.Field {
 	return []ent.Field{
-		field.Uuid("id", uuid.UUID{}).
+		field.Uuid("id").
 			Unique().
 			Immutable(),
 		field.String("alias").

@@ -30,10 +30,10 @@ github.com/mitchellh/go-wordwrap v1.0.1 h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQ
 github.com/mitchellh/go-wordwrap v1.0.1/go.mod h1:R62XHJLzvMFRBbcrT7m7WgmE1eOyTSsCt+hzestvNj0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/protobuf-orm/ent v0.0.0-20260901214045-4965c66b728e h1:4XnyfW89MwcXrfAcx+Dnz8nkC4QSoc4ynWFxa8pDF3s=
-github.com/protobuf-orm/ent v0.0.0-20260901214045-4965c66b728e/go.mod h1:EE8o+t0Y4xtH8DRH/shGerAb2mPQJ0A1TqWT5LU7pZQ=
-github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29 h1:yLrMWcjBT70hljInsE7zssdIZ8pwvotprlUGsLEs4ms=
-github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29/go.mod h1:jMdK+un3aGD6fB5zl3rBg0OMahe7vP5Dpfxe6Sws7mM=
+github.com/protobuf-orm/ent v0.0.0-20260901230746-4115dcfc4087 h1:1RMN/oonuxWRHdLh1+aDqJsilqEDUp6Tds/ZixA2AkU=
+github.com/protobuf-orm/ent v0.0.0-20260901230746-4115dcfc4087/go.mod h1:EE8o+t0Y4xtH8DRH/shGerAb2mPQJ0A1TqWT5LU7pZQ=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20260901231226-61630a70f09e h1:XeBB1ORc/3ancbIo0iBCM5farV+IuQrA+9YSr/w+lkE=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20260901231226-61630a70f09e/go.mod h1:OYlbo4/9t+Hgj/XZwdgN8Z9MyViTLPHxBWLUR4+j52o=
 github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260808062124-7336db3ccda7 h1:xj+WO4fsr0arc9NVh9ZAMOVk/u9gfGLEWOCipgqlR/s=
 github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260808062124-7336db3ccda7/go.mod h1:EUiEHkmQI53u+32lC+9OiiECSY2xJ1hrgHk7Km9yn20=
 github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260820235114-efff3accbfe1 h1:ysLcXhAQfditIClN2bpgLWU4EfCl6RYyO18CTvtAXg0=

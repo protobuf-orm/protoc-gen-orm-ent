@@ -17,8 +17,7 @@ var (
 	PkgIndex       = protogen.GoImportPath("github.com/protobuf-orm/ent/schema/index")
 	PkgZ           = protogen.GoImportPath("github.com/lesomnus/z")
 
-	PkgGoogleUuid = protogen.GoImportPath("github.com/google/uuid")
-	PkgUuid       = PkgGoogleUuid
+	PkgUuid = protogen.GoImportPath("uuid")
 
 	PkgProtoEmpty     = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
 	PkgProtoTimestamp = protogen.GoImportPath("google.golang.org/protobuf/types/known/timestamppb")
@@ -38,6 +37,7 @@ var (
 	PkgOrmPatch = protogen.GoImportPath("github.com/protobuf-orm/protobuf-orm/ormpatch")
 	PkgEntPatch = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch")
 	PkgEntPb    = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpb")
+	PkgEntUuid  = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid")
 	PkgEntTx    = protogen.GoImportPath("github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx")
 
 	// Patch converts its request into a document and hands it to the same

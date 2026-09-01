@@ -56,7 +56,7 @@ func (w *fileWork) xGetKey() {
 	w.P("	if ref.Has", name_k.Go(), "() {")
 	switch k.Type() {
 	case ormpb.Type_TYPE_UUID:
-		w.P("		if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(ref.Get", name_k.Go(), "()); err != nil {")
+		w.P("		if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(ref.Get", name_k.Go(), "()); err != nil {")
 		w.P("			return z, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name_k, ": %s\", ", "err)")
 		w.P("		} else {")
 		w.P("			return v, nil")

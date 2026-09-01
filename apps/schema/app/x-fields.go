@@ -67,8 +67,9 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 		} else {
 			ctor = "&" + ctor + "{}"
 		}
-	case ormpb.Type_TYPE_UUID:
-		ctor = graph.GoTypeOf(p, w.QualifiedGoIdent) + "{}"
+		// TYPE_UUID needs no constructor argument: field.Uuid holds a uuid.UUID
+		// unless it is told another type, and that is the one it is told. A list
+		// of them is a JSON column, and the branch below writes the type for it.
 	}
 
 	if p.IsList() {

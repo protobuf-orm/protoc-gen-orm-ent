@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/lesomnus/protobuf-patch/patch"
 	"github.com/lesomnus/z"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -16,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"uuid"
 )
 
 // recorder keeps what it was told, and does whatever the test set it to do

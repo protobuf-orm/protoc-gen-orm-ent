@@ -14,7 +14,6 @@ module github.com/protobuf-orm/protoc-gen-orm-ent/runtime
 go 1.27.0
 
 require (
-	github.com/google/uuid v1.6.0
 	github.com/protobuf-orm/ent v0.0.0-20260901221134-1d321ed5f02c
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
 	github.com/stretchr/testify v1.11.1

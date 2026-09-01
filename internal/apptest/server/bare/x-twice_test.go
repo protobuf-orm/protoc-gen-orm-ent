@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"uuid"
 
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/note"
@@ -85,7 +85,7 @@ func TestNewServerHandsTheRefusalBack(t *testing.T) {
 
 // mint is a Minter that is not nil, which is the only thing this needs of it.
 var mint = bare.MinterFunc(func(context.Context, string, uuid.UUID, bool) (uuid.UUID, error) {
-	return uuid.Nil, nil
+	return uuid.Nil(), nil
 })
 
 // TestANilHookIsNotAHook.

@@ -4,9 +4,9 @@
 package ent
 
 import (
-	uuid "github.com/google/uuid"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	uuid "uuid"
 )
 
 func (e *User) Proto() *apptest.User {

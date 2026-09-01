@@ -6,7 +6,6 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
-	uuid "github.com/google/uuid"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	dialect "github.com/protobuf-orm/ent/dialect"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -23,6 +22,7 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	time "time"
+	uuid "uuid"
 )
 
 // Store is what every server of this package runs with: the client its
@@ -154,7 +154,7 @@ func WithClock(v Clock) Option {
 // Change is one write: what was asked for, and what this server did about
 // it.
 type Change struct {
-	// Method is what the caller asked for -- the RPC gRpc dispatched, by
+	// Method is what the caller asked for -- the RPC gRPC dispatched, by
 	// the name it knows it by, such as "/pkg.HolderService/Rename".
 	//
 	// It is the whole request's and not this leg of it, which is the
@@ -194,7 +194,7 @@ type Change struct {
 
 	// Patch is the document the write was compiled from, and nil for a
 	// write that was not one. A Patch request converts into a document, so
-	// both Rpcs arrive with the same thing to say and a recorder does not
+	// both RPCs arrive with the same thing to say and a recorder does not
 	// have to know which one it was -- [Change.By] still says.
 	//
 	// It is what was asked for and not a redo log. What the server settled
@@ -272,7 +272,7 @@ func (rs Recorders) Record(ctx context.Context, s Server, c Change) error {
 //
 // It is also where [Change.Method] is filled in. The write sites know
 // which RPC of this server they are, and the request knows what it was
-// asked for; asking gRpc once here is what keeps the two from being
+// asked for; asking gRPC once here is what keeps the two from being
 // spelled out at every one of them.
 func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
 	if rec == nil {
@@ -566,7 +566,7 @@ func (s Store) now() time.Time {
 // SQL for.
 //
 // An engine that speaks one of the written dialects under a different
-// name -- a PostgreSql-compatible server -- is named when the connection
+// name -- a PostgreSQL-compatible server -- is named when the connection
 // is opened, which is where saying so belongs: everything the client does
 // is rendered for that dialect, not just what this server writes.
 //
@@ -574,7 +574,7 @@ func (s Store) now() time.Time {
 // check. Note frees the names it held when a row
 // is erased, which is a unique index covering only the rows that are
 // still there -- a partial index, and the dialects above are the ones
-// that have one. MySql does not, and ent writes the annotation out for
+// that have one. MySQL does not, and ent writes the annotation out for
 // it rather than refusing, so the index would come up covering every
 // row and a freed name would stay taken with nothing to say so.
 func NewServer(db *ent.Client, opts ...Option) (Server, error) {

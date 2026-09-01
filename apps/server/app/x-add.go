@@ -97,7 +97,7 @@ func (w *fileWork) xAdd() {
 					set(fmt.Sprintf("int32(%s)", u))
 				}
 			case ormpb.Type_TYPE_UUID:
-				w.P("	if v, err := ", work.PkgGoogleUuid.Ident("FromBytes"), "(", u, "); err != nil {")
+				w.P("	if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(", u, "); err != nil {")
 				w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")
 				w.P("	} else {")
 				set("v")
@@ -221,7 +221,7 @@ func (w *fileWork) xAddKey(f graph.Field) {
 
 	w.P("	var k ", work.IdentUuid)
 	w.P("	if ", has, " {")
-	w.P("		if v, err := ", work.PkgUuid.Ident("FromBytes"), "(req.Get", name.Go(), "()); err != nil {")
+	w.P("		if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(req.Get", name.Go(), "()); err != nil {")
 	w.P("			return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", f.Name(), ": %s\", err)")
 	w.P("		} else {")
 	w.P("			k = v")

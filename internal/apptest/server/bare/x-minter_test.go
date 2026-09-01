@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"uuid"
 )
 
 // asked is what a [bare.Minter] was told, kept so that a test can say what the
@@ -60,7 +61,7 @@ func TestMinter(t *testing.T) {
 			x.Len(*rec, 1)
 			x.Equal("apptest.Tenant", (*rec)[0].Entity)
 			x.False((*rec)[0].Ok, "the request named no key")
-			x.Equal(uuid.Nil, (*rec)[0].Given)
+			x.Equal(uuid.Nil(), (*rec)[0].Given)
 		}))
 
 	t.Run("is handed the key the request named", M(watching,
@@ -113,7 +114,7 @@ func TestMinter(t *testing.T) {
 	t.Run("a refusal is the caller's answer", func(t *testing.T) {
 		M(func(*[]asked) bare.Minter {
 			return bare.MinterFunc(func(context.Context, string, uuid.UUID, bool) (uuid.UUID, error) {
-				return uuid.Nil, status.Error(codes.InvalidArgument, "not that one")
+				return uuid.Nil(), status.Error(codes.InvalidArgument, "not that one")
 			})
 		}, func(ctx context.Context, x *require.Assertions, c *Client, _ *[]asked) {
 			_, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
@@ -144,9 +145,9 @@ func TestNoMinter(t *testing.T) {
 		v, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
 		x.NoError(err)
 
-		k, err := uuid.FromBytes(v.GetId())
+		k, err := entuuid.FromBytes(v.GetId())
 		x.NoError(err)
-		x.NotEqual(uuid.Nil, k)
+		x.NotEqual(uuid.Nil(), k)
 	}))
 
 	t.Run("keeps the one the request named", T(func(ctx context.Context, x *require.Assertions, c *Client) {

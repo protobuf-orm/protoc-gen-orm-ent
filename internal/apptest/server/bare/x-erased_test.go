@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/lesomnus/protobuf-patch/patch"
 	"github.com/lesomnus/z"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/note"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"uuid"
 )
 
 // note adds one, failing the test if it cannot.
@@ -238,7 +239,7 @@ func TestPickIsAlive(t *testing.T) {
 
 // mustId reads an identifier the way the ent client wants one.
 func mustId(x *require.Assertions, v []byte) uuid.UUID {
-	k, err := uuid.FromBytes(v)
+	k, err := entuuid.FromBytes(v)
 	x.NoError(err)
 	return k
 }
