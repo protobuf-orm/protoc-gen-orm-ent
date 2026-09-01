@@ -16,8 +16,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"uuid"
 
 	"github.com/protobuf-orm/ent/dialect/sql"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 )
 
 // ErrCursor is what a cursor that cannot be read is. A caller is given one by
@@ -67,9 +69,11 @@ func After(by []Order, at []any) (func(*sql.Selector), error) {
 		for i := len(by) - 1; i >= 0; i-- {
 			c := s.C(by[i].Column)
 
-			cmp := sql.GT(c, at[i])
+			v := bind(at[i])
+
+			cmp := sql.GT(c, v)
 			if by[i].Desc {
-				cmp = sql.LT(c, at[i])
+				cmp = sql.LT(c, v)
 			}
 
 			if p == nil {
@@ -77,11 +81,31 @@ func After(by []Order, at []any) (func(*sql.Selector), error) {
 				continue
 			}
 
-			p = sql.Or(cmp, sql.And(sql.EQ(c, at[i]), p))
+			p = sql.Or(cmp, sql.And(sql.EQ(c, v), p))
 		}
 
 		s.Where(p)
 	}, nil
+}
+
+// bind is what the column holds for a cursor value.
+//
+// A cursor is decoded into the Go type of the column it names, and for most of
+// them that is what a driver reads. A UUID is the exception: it reaches its
+// column through a codec, so a keyset comparison that bound the value itself
+// would compare against nothing and hand the same page back forever.
+func bind(v any) any {
+	u, ok := v.(uuid.UUID)
+	if !ok {
+		return v
+	}
+	dv, err := entuuid.Value(u)
+	if err != nil {
+		// MarshalText on a uuid.UUID cannot fail; if that changes, comparing
+		// against the value is no worse than comparing against nothing.
+		return v
+	}
+	return dv
 }
 
 // Encode answers with the cursor that names the row the given values came from,

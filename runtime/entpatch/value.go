@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
-	"uuid"
 
-	"github.com/protobuf-orm/ent/schema/field"
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
@@ -73,10 +71,6 @@ func arg(p graph.Prop, v protoreflect.Value, pos argPos) (any, error) {
 	return scalarArg(p, v)
 }
 
-// uuidCodec is what a uuid.UUID is written as, which is what a UUID column
-// holds. See field.Uuid.
-var uuidCodec = field.TextValueScannerOf[uuid.UUID]()
-
 // scalarArg converts one value of the prop's own type.
 //
 // Two kinds of failure live here and they are told apart by [ErrValue]. A value
@@ -96,11 +90,7 @@ func scalarArg(p graph.Prop, v protoreflect.Value) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s: %w", ErrValue, p.Name(), err)
 		}
-		// A uuid.UUID says nothing to a driver on its own, so the column holds
-		// whatever ent's codec for the type wrote. Asking that codec is how
-		// this stays the same value the schema generator stores, rather than a
-		// second opinion on how a UUID is spelled.
-		return uuidCodec.Value(u)
+		return entuuid.Value(u)
 
 	case ormpb.Type_TYPE_TIME:
 		// Neither refusal below wraps ErrValue. A document's value is checked
