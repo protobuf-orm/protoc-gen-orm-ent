@@ -129,10 +129,10 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
 			if sqlgraph.IsUniqueConstraintError(err) {
-				return nil, status.Errorf(codes.AlreadyExists, "Note already exists: %s", err.Unwrap())
+				return nil, status.Error(codes.AlreadyExists, "Note already exists")
 			}
 			if sqlgraph.IsForeignKeyConstraintError(err) {
-				return nil, status.Errorf(codes.NotFound, "Note: referenced entity not found: %s", err.Unwrap())
+				return nil, status.Error(codes.NotFound, "Note: referenced entity not found")
 			}
 		}
 		return nil, err
@@ -349,10 +349,10 @@ func (s NoteServiceServer) apply(ctx context.Context, ref *apptest.NoteRef, doc 
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
-					return nil, status.Errorf(codes.AlreadyExists, "Note already exists: %s", err.Unwrap())
+					return nil, status.Error(codes.AlreadyExists, "Note already exists")
 				}
 				if sqlgraph.IsForeignKeyConstraintError(err) {
-					return nil, status.Errorf(codes.NotFound, "Note: referenced entity not found: %s", err.Unwrap())
+					return nil, status.Error(codes.NotFound, "Note: referenced entity not found")
 				}
 			}
 			return nil, err

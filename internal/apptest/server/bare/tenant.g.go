@@ -122,10 +122,10 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
 			if sqlgraph.IsUniqueConstraintError(err) {
-				return nil, status.Errorf(codes.AlreadyExists, "Tenant already exists: %s", err.Unwrap())
+				return nil, status.Error(codes.AlreadyExists, "Tenant already exists")
 			}
 			if sqlgraph.IsForeignKeyConstraintError(err) {
-				return nil, status.Errorf(codes.NotFound, "Tenant: referenced entity not found: %s", err.Unwrap())
+				return nil, status.Error(codes.NotFound, "Tenant: referenced entity not found")
 			}
 		}
 		return nil, err
@@ -333,10 +333,10 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
-					return nil, status.Errorf(codes.AlreadyExists, "Tenant already exists: %s", err.Unwrap())
+					return nil, status.Error(codes.AlreadyExists, "Tenant already exists")
 				}
 				if sqlgraph.IsForeignKeyConstraintError(err) {
-					return nil, status.Errorf(codes.NotFound, "Tenant: referenced entity not found: %s", err.Unwrap())
+					return nil, status.Error(codes.NotFound, "Tenant: referenced entity not found")
 				}
 			}
 			return nil, err

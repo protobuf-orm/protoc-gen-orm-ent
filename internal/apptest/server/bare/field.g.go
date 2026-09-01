@@ -479,10 +479,10 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
 			if sqlgraph.IsUniqueConstraintError(err) {
-				return nil, status.Errorf(codes.AlreadyExists, "ValueField already exists: %s", err.Unwrap())
+				return nil, status.Error(codes.AlreadyExists, "ValueField already exists")
 			}
 			if sqlgraph.IsForeignKeyConstraintError(err) {
-				return nil, status.Errorf(codes.NotFound, "ValueField: referenced entity not found: %s", err.Unwrap())
+				return nil, status.Error(codes.NotFound, "ValueField: referenced entity not found")
 			}
 		}
 		return nil, err
@@ -1058,10 +1058,10 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
-					return nil, status.Errorf(codes.AlreadyExists, "ValueField already exists: %s", err.Unwrap())
+					return nil, status.Error(codes.AlreadyExists, "ValueField already exists")
 				}
 				if sqlgraph.IsForeignKeyConstraintError(err) {
-					return nil, status.Errorf(codes.NotFound, "ValueField: referenced entity not found: %s", err.Unwrap())
+					return nil, status.Error(codes.NotFound, "ValueField: referenced entity not found")
 				}
 			}
 			return nil, err
@@ -1259,10 +1259,10 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
 			if sqlgraph.IsUniqueConstraintError(err) {
-				return nil, status.Errorf(codes.AlreadyExists, "MessageField already exists: %s", err.Unwrap())
+				return nil, status.Error(codes.AlreadyExists, "MessageField already exists")
 			}
 			if sqlgraph.IsForeignKeyConstraintError(err) {
-				return nil, status.Errorf(codes.NotFound, "MessageField: referenced entity not found: %s", err.Unwrap())
+				return nil, status.Error(codes.NotFound, "MessageField: referenced entity not found")
 			}
 		}
 		return nil, err
@@ -1475,10 +1475,10 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
-					return nil, status.Errorf(codes.AlreadyExists, "MessageField already exists: %s", err.Unwrap())
+					return nil, status.Error(codes.AlreadyExists, "MessageField already exists")
 				}
 				if sqlgraph.IsForeignKeyConstraintError(err) {
-					return nil, status.Errorf(codes.NotFound, "MessageField: referenced entity not found: %s", err.Unwrap())
+					return nil, status.Error(codes.NotFound, "MessageField: referenced entity not found")
 				}
 			}
 			return nil, err
@@ -1686,10 +1686,10 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
 			if sqlgraph.IsUniqueConstraintError(err) {
-				return nil, status.Errorf(codes.AlreadyExists, "MapField already exists: %s", err.Unwrap())
+				return nil, status.Error(codes.AlreadyExists, "MapField already exists")
 			}
 			if sqlgraph.IsForeignKeyConstraintError(err) {
-				return nil, status.Errorf(codes.NotFound, "MapField: referenced entity not found: %s", err.Unwrap())
+				return nil, status.Error(codes.NotFound, "MapField: referenced entity not found")
 			}
 		}
 		return nil, err
@@ -1908,10 +1908,10 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
-					return nil, status.Errorf(codes.AlreadyExists, "MapField already exists: %s", err.Unwrap())
+					return nil, status.Error(codes.AlreadyExists, "MapField already exists")
 				}
 				if sqlgraph.IsForeignKeyConstraintError(err) {
-					return nil, status.Errorf(codes.NotFound, "MapField: referenced entity not found: %s", err.Unwrap())
+					return nil, status.Error(codes.NotFound, "MapField: referenced entity not found")
 				}
 			}
 			return nil, err

@@ -122,3 +122,43 @@ func TestUpdateErrors(t *testing.T) {
 		x.Equal("mine", get(ctx, x, c, u).GetAlias())
 	}))
 }
+
+// TestConstraintErrorsSayOnlyTheFact.
+//
+// A constraint violation is answered with what the caller can act on: the value
+// is taken, or the row pointed at is not there. What the driver says about it
+// names a table, an index and a SQLSTATE -- the deployment's schema and its
+// choice of database -- and used to be the tail of both messages, so a person
+// reading a CLI was sent looking for a table they do not have.
+//
+// Both directions are asserted. That the fact is still there is what keeps this
+// from passing on an empty message, and that the driver's words are not is the
+// property itself: `sqlite3`, `SQLSTATE` and the index name are each enough to
+// fail it, and one of the three appears in whatever any driver would have said.
+func TestConstraintErrorsSayOnlyTheFact(t *testing.T) {
+	t.Run("a taken unique index", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		tenant, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
+		x.NoError(err)
+
+		_, err = c.User().Add(ctx, pb.UserAddRequest_builder{Alias: z.Ptr("dup"), Tenant: tenant.Ref()}.Build())
+		x.NoError(err)
+
+		_, err = c.User().Add(ctx, pb.UserAddRequest_builder{Alias: z.Ptr("dup"), Tenant: tenant.Ref()}.Build())
+		x.Equal(codes.AlreadyExists, status.Code(err))
+
+		msg := status.Convert(err).Message()
+		x.Equal("User already exists", msg)
+		for _, leak := range []string{"sqlite3", "SQLSTATE", "constraint", "user_"} {
+			x.NotContains(msg, leak)
+		}
+	}))
+	t.Run("an edge pointing at nothing", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		_, err := c.User().Add(ctx, pb.UserAddRequest_builder{Tenant: pb.TenantById(newID())}.Build())
+		x.Equal(codes.NotFound, status.Code(err))
+
+		msg := status.Convert(err).Message()
+		for _, leak := range []string{"sqlite3", "SQLSTATE", "FOREIGN KEY"} {
+			x.NotContains(msg, leak)
+		}
+	}))
+}

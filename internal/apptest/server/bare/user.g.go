@@ -137,10 +137,10 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
 			if sqlgraph.IsUniqueConstraintError(err) {
-				return nil, status.Errorf(codes.AlreadyExists, "User already exists: %s", err.Unwrap())
+				return nil, status.Error(codes.AlreadyExists, "User already exists")
 			}
 			if sqlgraph.IsForeignKeyConstraintError(err) {
-				return nil, status.Errorf(codes.NotFound, "User: referenced entity not found: %s", err.Unwrap())
+				return nil, status.Error(codes.NotFound, "User: referenced entity not found")
 			}
 		}
 		return nil, err
@@ -377,10 +377,10 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
-					return nil, status.Errorf(codes.AlreadyExists, "User already exists: %s", err.Unwrap())
+					return nil, status.Error(codes.AlreadyExists, "User already exists")
 				}
 				if sqlgraph.IsForeignKeyConstraintError(err) {
-					return nil, status.Errorf(codes.NotFound, "User: referenced entity not found: %s", err.Unwrap())
+					return nil, status.Error(codes.NotFound, "User: referenced entity not found")
 				}
 			}
 			return nil, err
