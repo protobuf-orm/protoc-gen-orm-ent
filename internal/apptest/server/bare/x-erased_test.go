@@ -273,10 +273,10 @@ func TestPromotedUnique(t *testing.T) {
 		x.NotEqual(v.GetId(), u.GetId())
 	}))
 
-	// And the Api did not change shape for it: the Ref of a unique field is
+	// And the API did not change shape for it: the Ref of a unique field is
 	// the bare scalar it always was, not the wrapper message a declared index
 	// produces. Which props are keys is `graph`'s to say and it reads the
-	// field's own `unique`; only the Sql moved.
+	// field's own `unique`; only the SQL moved.
 	t.Run("and is still named by a bare value", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		v, err := slug(ctx, x, c, "a", "s")
 		x.NoError(err)
@@ -294,7 +294,7 @@ func TestPromotedUnique(t *testing.T) {
 //
 // Erasing what is not there **succeeds**, and has to: a caller cancelling
 // something that may already be gone should not have to tell a race from a
-// mistake. So the Rpc cannot say "this call did it" by failing -- and it used
+// mistake. So the RPC cannot say "this call did it" by failing -- and it used
 // to answer `Empty`, which meant it could not say it at all.
 //
 // Anything single-use is spent by erasing it. Without this answer every

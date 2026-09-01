@@ -117,7 +117,7 @@ func TestPostgresMessageField(t *testing.T) {
 	})
 
 	// And that jsonb is genuinely jsonb rather than a string that happens to
-	// hold Json: an operator over it works.
+	// hold JSON: an operator over it works.
 	t.Run("jsonb operators reach inside it", func(t *testing.T) {
 		x := require.New(t)
 

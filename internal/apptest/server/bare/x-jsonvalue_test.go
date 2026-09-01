@@ -13,20 +13,20 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-// A `test` on one entry of a Json column extracts the entry and compares it, so
+// A `test` on one entry of a JSON column extracts the entry and compares it, so
 // the document's value has to be spelled the way the row spells it -- which is
 // whatever encoding/json wrote, since that is what ent's Add binds and what
 // this backend's own partial writes bind. Two kinds used to be spelled a second
 // way in the comparison and could therefore never match: bytes, stored as
 // base64 and compared as the raw bytes, and a message, stored as protojson
-// compacted and Html-escaped by encoding/json and compared as protojson left
+// compacted and HTML-escaped by encoding/json and compared as protojson left
 // it.
 //
 // The cost of that is not a failed test. A test that does not hold abandons the
 // whole document, so every other entry in it silently did not happen, and the
 // caller is told only that something did not hold.
 //
-// These go through the Rpc because that is the only place the two encoders meet
+// These go through the RPC because that is the only place the two encoders meet
 // a real column: one wrote the row, the other has to name what is in it.
 
 // jsonStruct is the message these use, with a byte the two encoders disagree

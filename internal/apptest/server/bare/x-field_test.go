@@ -60,7 +60,7 @@ func TestValueFieldRoundTrip(t *testing.T) {
 }
 
 // FINDING: a required (non-nullable, no-default) bytes field that the client
-// omits is sent to ent as a nil []byte, which becomes a Sql NULL and trips the
+// omits is sent to ent as a nil []byte, which becomes a SQL NULL and trips the
 // NOT NULL constraint. Unlike int/bool/string (whose zero values are non-NULL),
 // only bytes has this problem. The failure leaks as codes.Unknown; ideally the
 // generated Add would either coerce nil to empty bytes or reject with

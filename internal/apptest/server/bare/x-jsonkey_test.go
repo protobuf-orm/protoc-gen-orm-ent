@@ -16,16 +16,16 @@ import (
 )
 
 // A map key is whatever the caller put in the document, and it addresses a
-// place inside a Json column -- so it reaches the statement as a Json path.
-// Written into the statement text, a key carrying a quote closed the Sql
-// literal and what followed was parsed as Sql. Bound, the worst a key can do is
+// place inside a JSON column -- so it reaches the statement as a JSON path.
+// Written into the statement text, a key carrying a quote closed the SQL
+// literal and what followed was parsed as SQL. Bound, the worst a key can do is
 // address nothing.
 //
-// These go through the whole Rpc on purpose. The path is built in two places --
+// These go through the whole RPC on purpose. The path is built in two places --
 // the assignment and the guard predicate a remove needs -- and only one of them
 // used to be reachable with an awkward key.
 func TestJsonKeysAreData(t *testing.T) {
-	// Each of these breaks either the Sql string literal, the Json path
+	// Each of these breaks either the SQL string literal, the JSON path
 	// grammar, or both.
 	for name, key := range map[string]string{
 		"single quote":         "a'b",

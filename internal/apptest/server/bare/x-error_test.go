@@ -77,7 +77,7 @@ func TestAddErrors(t *testing.T) {
 // TestUpdateErrors is TestAddErrors for the other write.
 //
 // A constraint belongs to the schema and not to the statement that ran into
-// one, so the same conflict has to answer the same way whichever Rpc hit it.
+// one, so the same conflict has to answer the same way whichever RPC hit it.
 // The update path did not map it at all before this: a unique index refused an
 // update and the caller was told `Unknown`, in a sentence naming the index and
 // the columns it is on.

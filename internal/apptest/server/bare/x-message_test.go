@@ -16,7 +16,7 @@ import (
 //
 // `MessageField` has had message fields since it was written, and every one of
 // them was a `google.protobuf.Struct` -- the one message type that never
-// broke. The well-known types are generated with the **open** Api, so their
+// broke. The well-known types are generated with the **open** API, so their
 // fields are exported and `encoding/json` can see them; `field.Json` marshalled
 // them correctly and always had.
 //
@@ -30,7 +30,7 @@ import (
 //
 // So `field.Json` stored `{}` for it. The insert reported success, the row
 // compared equal to empty, and nothing failed at any layer. It is now a string
-// carrying the canonical protobuf Json, through `entpb.ValueScanner`.
+// carrying the canonical protobuf JSON, through `entpb.ValueScanner`.
 //
 // The reason to assert on the **row** and not only on the answer is that the
 // answer was right the whole time: an Add echoes what it was given, so the

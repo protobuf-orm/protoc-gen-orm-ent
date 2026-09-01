@@ -154,13 +154,13 @@ func WithClock(v Clock) Option {
 // Change is one write: what was asked for, and what this server did about
 // it.
 type Change struct {
-	// Method is what the caller asked for -- the Rpc gRpc dispatched, by
+	// Method is what the caller asked for -- the RPC gRpc dispatched, by
 	// the name it knows it by, such as "/pkg.HolderService/Rename".
 	//
 	// It is the whole request's and not this leg of it, which is the
 	// difference that makes it worth carrying. One call writes through
 	// several of these servers -- adding a Tenant writes the admin Holder
-	// that comes with it -- and an Rpc written by hand ends in an Apply that
+	// that comes with it -- and an RPC written by hand ends in an Apply that
 	// nobody called by that name. A trail that said [Change.By] here would
 	// answer "who renamed this" with a method the caller has never heard
 	// of.
@@ -171,7 +171,7 @@ type Change struct {
 	// in which anything called it.
 	Method string
 
-	// By is the Rpc of *this* server that made the write, which is what
+	// By is the RPC of *this* server that made the write, which is what
 	// actually happened to the row.
 	//
 	// It says which entity and which kind of write without a field for
@@ -271,7 +271,7 @@ func (rs Recorders) Record(ctx context.Context, s Server, c Change) error {
 // job, so failing to is this server's fault.
 //
 // It is also where [Change.Method] is filled in. The write sites know
-// which Rpc of this server they are, and the request knows what it was
+// which RPC of this server they are, and the request knows what it was
 // asked for; asking gRpc once here is what keeps the two from being
 // spelled out at every one of them.
 func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
@@ -563,7 +563,7 @@ func (s Store) now() time.Time {
 }
 
 // NewServer refuses a client whose dialect this backend does not write
-// Sql for.
+// SQL for.
 //
 // An engine that speaks one of the written dialects under a different
 // name -- a PostgreSql-compatible server -- is named when the connection

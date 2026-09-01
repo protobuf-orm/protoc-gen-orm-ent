@@ -307,7 +307,7 @@ func TestApply(t *testing.T) {
 
 	// Apply requires the document. Patch is the one that may have nothing to
 	// say, and both run the same path underneath, so the difference has to be
-	// stated at the Rpc.
+	// stated at the RPC.
 	t.Run("a request with no patch is refused", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		u := seed(ctx, x, c, nil)
 

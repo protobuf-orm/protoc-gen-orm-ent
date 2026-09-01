@@ -124,7 +124,7 @@ func TestRecordPatchAndApply(t *testing.T) {
 
 		u := r.Only(x)
 
-		// Patch is the Rpc that carries no document of its own, so this is the
+		// Patch is the RPC that carries no document of its own, so this is the
 		// thing a layer in front of this server could not have worked out: the
 		// request became a document, and the document is what was written. The
 		// operation says it was an apply and the method says which door it came
@@ -515,7 +515,7 @@ func asIfCalled(ctx context.Context, method string) context.Context {
 //
 // They are the same for a request that reached this server as itself, which is
 // every test above. They come apart for the request an app actually writes --
-// an Rpc of its own that ends in one of these -- and that is the case a trail
+// an RPC of its own that ends in one of these -- and that is the case a trail
 // is read for.
 func TestRecordMethod(t *testing.T) {
 	const asked = "/apptest.UserService/Rename"
@@ -544,7 +544,7 @@ func TestRecordMethod(t *testing.T) {
 		defer s.Close()
 
 		// The deployment writing to itself before it serves anything. There is
-		// no dispatched Rpc to name, and the honest answer is what happened.
+		// no dispatched RPC to name, and the honest answer is what happened.
 		v := bare.NewTenantServiceServer(s.Db, bare.WithRecorder(r))
 		_, err := v.Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
 		x.NoError(err)
