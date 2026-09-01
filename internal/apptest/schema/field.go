@@ -4,11 +4,11 @@
 package schema
 
 import (
-	ent "entgo.io/ent"
-	dialect "entgo.io/ent/dialect"
-	entsql "entgo.io/ent/dialect/entsql"
-	schema "entgo.io/ent/schema"
-	field "entgo.io/ent/schema/field"
+	ent "github.com/protobuf-orm/ent"
+	dialect "github.com/protobuf-orm/ent/dialect"
+	entsql "github.com/protobuf-orm/ent/dialect/entsql"
+	schema "github.com/protobuf-orm/ent/schema"
+	field "github.com/protobuf-orm/ent/schema/field"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	entpb "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"

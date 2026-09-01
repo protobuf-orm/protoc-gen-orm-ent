@@ -148,5 +148,5 @@ own server type happens to be, because that type belongs to the app and a driver
 has no business naming it.
 
 That is also why this is not in the generated message package: it would put
-`entgo.io/ent` in front of every consumer, including the ones that only speak
+`github.com/protobuf-orm/ent` in front of every consumer, including the ones that only speak
 gRPC and never open a database.

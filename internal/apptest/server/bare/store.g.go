@@ -4,11 +4,11 @@ package bare
 
 import (
 	context "context"
-	dialect "entgo.io/ent/dialect"
 	errors "errors"
 	fmt "fmt"
 	uuid "github.com/google/uuid"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
+	dialect "github.com/protobuf-orm/ent/dialect"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	mapfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/mapfield"

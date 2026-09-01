@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"entgo.io/ent/dialect/sql"
+	"github.com/protobuf-orm/ent/dialect/sql"
 )
 
 // ErrCursor is what a cursor that cannot be read is. A caller is given one by

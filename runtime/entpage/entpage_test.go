@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
+	"github.com/protobuf-orm/ent/dialect/sql"
 	"github.com/stretchr/testify/require"
 
 	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpage"

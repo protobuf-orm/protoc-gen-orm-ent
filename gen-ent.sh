@@ -6,8 +6,8 @@
 # ambiguous with the split-out one everything else uses -- as a dependency of
 # this module it breaks the build; resolved outside it, it bothers nobody.
 #
-# It has to match `entgo.io/ent` in internal/apptest/go.mod: the generator and
+# It has to match `github.com/protobuf-orm/ent` in internal/apptest/go.mod: the generator and
 # the runtime it generates against are one thing.
-ENT=v0.14.5
+ENT=v0.0.0-20260901155027-6f0bc7e0840c
 
-cd "$(dirname "$0")/internal/apptest" && go run "entgo.io/ent/cmd/ent@${ENT}" generate ./schema --target ./ent --feature sql/modifier
+cd "$(dirname "$0")/internal/apptest" && go run "github.com/protobuf-orm/ent/cmd/ent@${ENT}" generate ./schema --target ./ent --feature sql/modifier

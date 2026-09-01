@@ -16,7 +16,7 @@ package enttx
 import (
 	"context"
 
-	"entgo.io/ent/dialect"
+	"github.com/protobuf-orm/ent/dialect"
 )
 
 // Begin starts a transaction on drv and answers with a driver that runs

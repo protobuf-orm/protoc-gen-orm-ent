@@ -56,7 +56,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"entgo.io/ent/schema/field"
+	"github.com/protobuf-orm/ent/schema/field"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )

@@ -3,7 +3,7 @@
 package ent
 
 import (
-	dialect "entgo.io/ent/dialect"
+	dialect "github.com/protobuf-orm/ent/dialect"
 )
 
 // Dialect is the SQL this client speaks.

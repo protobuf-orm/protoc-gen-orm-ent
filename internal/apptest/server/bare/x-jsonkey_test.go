@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"entgo.io/ent/dialect"
+	"github.com/protobuf-orm/ent/dialect"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
@@ -103,7 +103,9 @@ func TestServerRefusesAnUnwrittenDialect(t *testing.T) {
 	require.NoError(t, err)
 
 	// A client opened on something unwritten is refused, however it arrives.
-	for _, d := range []string{dialect.MySQL, dialect.Gremlin, "cockroach", ""} {
+	// "gremlin" is a literal because the ent fork dropped the constant with
+	// the driver; what matters here is only that the name is unwritten for.
+	for _, d := range []string{dialect.MySQL, "gremlin", "cockroach", ""} {
 		_, err := bare.NewServer(ent.NewClient(ent.Driver(fakeDriver{d})))
 		require.ErrorIs(t, err, entpatch.ErrDialect, "dialect %q", d)
 	}

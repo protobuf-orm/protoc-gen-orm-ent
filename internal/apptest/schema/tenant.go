@@ -4,11 +4,11 @@
 package schema
 
 import (
-	ent "entgo.io/ent"
-	entsql "entgo.io/ent/dialect/entsql"
-	schema "entgo.io/ent/schema"
-	field "entgo.io/ent/schema/field"
 	uuid "github.com/google/uuid"
+	ent "github.com/protobuf-orm/ent"
+	entsql "github.com/protobuf-orm/ent/dialect/entsql"
+	schema "github.com/protobuf-orm/ent/schema"
+	field "github.com/protobuf-orm/ent/schema/field"
 )
 
 type Tenant struct {

@@ -5,9 +5,9 @@ package bare
 
 import (
 	context "context"
-	sqlgraph "entgo.io/ent/dialect/sql/sqlgraph"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
+	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"

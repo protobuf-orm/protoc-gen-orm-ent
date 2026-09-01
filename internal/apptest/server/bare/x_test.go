@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"entgo.io/ent/dialect"
-	"entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/protobuf-orm/ent/dialect"
+	"github.com/protobuf-orm/ent/dialect/sql"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"

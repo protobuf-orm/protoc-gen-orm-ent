@@ -11,11 +11,11 @@
 //	enttx     lets a transaction stand in for a driver, so a stack shares one
 module github.com/protobuf-orm/protoc-gen-orm-ent/runtime
 
-go 1.26.2
+go 1.27.0
 
 require (
-	entgo.io/ent v0.14.5
 	github.com/google/uuid v1.6.0
+	github.com/protobuf-orm/ent v0.0.0-20260901155027-6f0bc7e0840c
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.11
@@ -23,7 +23,6 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/lesomnus/protobuf-patch v0.0.0-20260803175157-e1b7a0c2804f // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

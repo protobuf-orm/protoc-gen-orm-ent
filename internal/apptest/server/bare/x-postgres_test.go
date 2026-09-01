@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"entgo.io/ent/dialect"
-	entsql "entgo.io/ent/dialect/sql"
 	"github.com/lesomnus/z"
 	_ "github.com/lib/pq"
+	"github.com/protobuf-orm/ent/dialect"
+	entsql "github.com/protobuf-orm/ent/dialect/sql"
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"

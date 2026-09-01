@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"entgo.io/ent/dialect"
+	"github.com/protobuf-orm/ent/dialect"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 )
 

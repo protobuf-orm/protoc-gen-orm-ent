@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"entgo.io/ent/dialect"
+	"github.com/protobuf-orm/ent/dialect"
 )
 
 // ErrNotBindable is a server that cannot be put on another driver.
