@@ -4,7 +4,6 @@ package apptest
 
 import (
 	bytes "bytes"
-	protojson "google.golang.org/protobuf/encoding/protojson"
 )
 
 func (x *ValueFieldRef) Pick() *ValueFieldGetRequest {
@@ -39,9 +38,6 @@ func (x *ValueFieldGetRequest) WithSelect(f func(s *ValueFieldSelect)) *ValueFie
 	f(x.GetSelect())
 	return x
 }
-
-func (x *ValueField) MarshalJSON() ([]byte, error) { return protojson.Marshal(x) }
-func (x *ValueField) UnmarshalJSON(b []byte) error { return protojson.Unmarshal(b, x) }
 
 func ValueFieldById(v string) *ValueFieldRef {
 	x := &ValueFieldRef{}
@@ -86,9 +82,6 @@ func (x *MessageFieldGetRequest) WithSelect(f func(s *MessageFieldSelect)) *Mess
 	return x
 }
 
-func (x *MessageField) MarshalJSON() ([]byte, error) { return protojson.Marshal(x) }
-func (x *MessageField) UnmarshalJSON(b []byte) error { return protojson.Unmarshal(b, x) }
-
 func MessageFieldById(v string) *MessageFieldRef {
 	x := &MessageFieldRef{}
 	x.SetId(v)
@@ -131,9 +124,6 @@ func (x *MapFieldGetRequest) WithSelect(f func(s *MapFieldSelect)) *MapFieldGetR
 	f(x.GetSelect())
 	return x
 }
-
-func (x *MapField) MarshalJSON() ([]byte, error) { return protojson.Marshal(x) }
-func (x *MapField) UnmarshalJSON(b []byte) error { return protojson.Unmarshal(b, x) }
 
 func MapFieldById(v string) *MapFieldRef {
 	x := &MapFieldRef{}
@@ -200,9 +190,6 @@ func (x *NoteGetRequest) WithSelect(f func(s *NoteSelect)) *NoteGetRequest {
 	f(x.GetSelect())
 	return x
 }
-
-func (x *Note) MarshalJSON() ([]byte, error) { return protojson.Marshal(x) }
-func (x *Note) UnmarshalJSON(b []byte) error { return protojson.Unmarshal(b, x) }
 
 func NoteById(v []byte) *NoteRef {
 	x := &NoteRef{}
@@ -277,9 +264,6 @@ func (x *TenantGetRequest) WithSelect(f func(s *TenantSelect)) *TenantGetRequest
 	return x
 }
 
-func (x *Tenant) MarshalJSON() ([]byte, error) { return protojson.Marshal(x) }
-func (x *Tenant) UnmarshalJSON(b []byte) error { return protojson.Unmarshal(b, x) }
-
 func TenantById(v []byte) *TenantRef {
 	x := &TenantRef{}
 	x.SetId(v)
@@ -333,9 +317,6 @@ func (x *UserGetRequest) WithSelect(f func(s *UserSelect)) *UserGetRequest {
 	f(x.GetSelect())
 	return x
 }
-
-func (x *User) MarshalJSON() ([]byte, error) { return protojson.Marshal(x) }
-func (x *User) UnmarshalJSON(b []byte) error { return protojson.Unmarshal(b, x) }
 
 func UserById(v []byte) *UserRef {
 	x := &UserRef{}

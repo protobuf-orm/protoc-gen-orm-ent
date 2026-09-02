@@ -40,6 +40,8 @@ github.com/protobuf-orm/protobuf-orm v0.0.0-20260901231226-61630a70f09e h1:XeBB1
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260901231226-61630a70f09e/go.mod h1:OYlbo4/9t+Hgj/XZwdgN8Z9MyViTLPHxBWLUR4+j52o=
 github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260808062124-7336db3ccda7 h1:xj+WO4fsr0arc9NVh9ZAMOVk/u9gfGLEWOCipgqlR/s=
 github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260808062124-7336db3ccda7/go.mod h1:EUiEHkmQI53u+32lC+9OiiECSY2xJ1hrgHk7Km9yn20=
+github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260902045159-6773062af8e6 h1:LfHFxRycHGDF1oIL2uU1kSFdRXyni5ZvtPn97rYyyA4=
+github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260902045159-6773062af8e6/go.mod h1:K46FZaa3TSGe7zd6zKWtCVbh3RaiSLQ1cLEv+aBeolo=
 github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260820235114-efff3accbfe1 h1:ysLcXhAQfditIClN2bpgLWU4EfCl6RYyO18CTvtAXg0=
 github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260820235114-efff3accbfe1/go.mod h1:SQY3h37mQDfyaoPw1Og7uBG6D8guwsB2g5SqCHua+bs=
 github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWbZV6S5g=
