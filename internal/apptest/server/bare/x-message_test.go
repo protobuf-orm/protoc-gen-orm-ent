@@ -95,3 +95,63 @@ func TestMessageField(t *testing.T) {
 		x.Equal("after", row.Held.GetWhat())
 	}))
 }
+
+// TestMessageCollections is the same bug one level down, and the reason the
+// case above passing was not enough.
+//
+// A message *field* is given a ValueScanner by the schema generator, which is
+// what fixed it. A list of the same message, or a map whose values are, is a
+// `field.Json` with no scanner at all -- so it is marshalled by
+// `encoding/json`, which is exactly what could not see an opaque message in
+// the first place. Every element went in as `{}`.
+//
+// Nothing in this repository held a collection of a message it generates: the
+// repeated field was a `google.protobuf.Struct` and so were the map values,
+// and those are the open API. The coverage was, again, of the case that
+// worked.
+func TestMessageCollections(t *testing.T) {
+	t.Run("a list of messages survives being written and read", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		_, err := c.MessageField().Add(ctx, pb.MessageFieldAddRequest_builder{
+			Id: z.Ptr("list"),
+			HeldList: []*pb.Held{
+				pb.Held_builder{What: z.Ptr("first"), HowMany: z.Ptr(int32(1))}.Build(),
+				pb.Held_builder{What: z.Ptr("second"), HowMany: z.Ptr(int32(2))}.Build(),
+			},
+		}.Build())
+		x.NoError(err)
+
+		row, err := c.Server.Db.MessageField.Get(ctx, "list")
+		x.NoError(err)
+		x.Len(row.HeldList, 2)
+		x.Equal("first", row.HeldList[0].GetWhat())
+		x.EqualValues(1, row.HeldList[0].GetHowMany())
+		x.Equal("second", row.HeldList[1].GetWhat())
+		x.EqualValues(2, row.HeldList[1].GetHowMany())
+
+		got, err := c.MessageField().Get(ctx, pb.MessageFieldGetRequest_builder{Ref: pb.MessageFieldRef_builder{Id: z.Ptr("list")}.Build()}.Build())
+		x.NoError(err)
+		x.Len(got.GetHeldList(), 2)
+		x.Equal("first", got.GetHeldList()[0].GetWhat())
+		x.Equal("second", got.GetHeldList()[1].GetWhat())
+	}))
+
+	t.Run("a map of messages survives being written and read", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		_, err := c.MapField().Add(ctx, pb.MapFieldAddRequest_builder{
+			Id: z.Ptr("map"),
+			ImplicitHeld: map[string]*pb.Held{
+				"a": pb.Held_builder{What: z.Ptr("apple"), HowMany: z.Ptr(int32(7))}.Build(),
+			},
+		}.Build())
+		x.NoError(err)
+
+		row, err := c.Server.Db.MapField.Get(ctx, "map")
+		x.NoError(err)
+		x.Len(row.ImplicitHeld, 1)
+		x.Equal("apple", row.ImplicitHeld["a"].GetWhat())
+		x.EqualValues(7, row.ImplicitHeld["a"].GetHowMany())
+
+		got, err := c.MapField().Get(ctx, pb.MapFieldGetRequest_builder{Ref: pb.MapFieldRef_builder{Id: z.Ptr("map")}.Build()}.Build())
+		x.NoError(err)
+		x.Equal("apple", got.GetImplicitHeld()["a"].GetWhat())
+	}))
+}

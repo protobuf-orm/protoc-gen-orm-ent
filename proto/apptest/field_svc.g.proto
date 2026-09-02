@@ -735,6 +735,7 @@ message MessageFieldAddRequest {
 	google.protobuf.Struct explicit = 48;
 	Held held = 49;
 	repeated google.protobuf.Struct repeated = 80;
+	repeated Held held_list = 81;
 	google.protobuf.Struct nullable = 112;
 	Held nullable_held = 113;
 	google.protobuf.Struct explicit_with_default = 176;
@@ -752,6 +753,7 @@ message MessageFieldSelect {
 	bool explicit = 48;
 	bool held = 49;
 	bool repeated = 80;
+	bool held_list = 81;
 	bool nullable = 112;
 	bool nullable_held = 113;
 	bool explicit_with_default = 176;
@@ -778,6 +780,7 @@ message MessageFieldPatchRequest {
 	// outright: setting both this and held clears.
 	bool held_null = 99;
 	repeated google.protobuf.Struct repeated = 160;
+	repeated Held held_list = 162;
 	google.protobuf.Struct nullable = 224;
 	// Clear nullable instead of writing it.
 	// It takes a field of its own because an unset value already means
@@ -830,6 +833,7 @@ message MapFieldAddRequest {
 	map<string, string> implicit_string = 16;
 	map<string, apptest.Level> implicit_enum = 17;
 	map<string, google.protobuf.Struct> implicit_json = 18;
+	map<string, apptest.Held> implicit_held = 19;
 	map<string, string> implicit_string_with_default = 144;
 	map<string, apptest.Level> implicit_enum_with_default = 145;
 	map<string, google.protobuf.Struct> implicit_json_with_default = 146;
@@ -849,6 +853,7 @@ message MapFieldSelect {
 	bool implicit_string = 16;
 	bool implicit_enum = 17;
 	bool implicit_json = 18;
+	bool implicit_held = 19;
 	bool implicit_string_with_default = 144;
 	bool implicit_enum_with_default = 145;
 	bool implicit_json_with_default = 146;
@@ -867,6 +872,7 @@ message MapFieldPatchRequest {
 	map<string, string> implicit_string = 32;
 	map<string, apptest.Level> implicit_enum = 34;
 	map<string, google.protobuf.Struct> implicit_json = 36;
+	map<string, apptest.Held> implicit_held = 38;
 	map<string, string> implicit_string_with_default = 288;
 	map<string, apptest.Level> implicit_enum_with_default = 290;
 	map<string, google.protobuf.Struct> implicit_json_with_default = 292;

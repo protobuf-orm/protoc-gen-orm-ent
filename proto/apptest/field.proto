@@ -371,6 +371,7 @@ message MessageField {
   google.protobuf.Struct explicit = 0x30;
   Held held = 0x31;
   repeated google.protobuf.Struct repeated = 0x50;
+  repeated Held held_list = 0x51;
   google.protobuf.Struct nullable = 0x70 [(orm.field) = {nullable: true}];
   Held nullable_held = 0x71 [(orm.field) = {nullable: true}];
   google.protobuf.Struct explicit_with_default = 0xB0 [(orm.field) = {default: ""}];
@@ -387,6 +388,7 @@ message MapField {
   map<string, string> implicit_string = 0x10;
   map<string, Level> implicit_enum = 0x11;
   map<string, google.protobuf.Struct> implicit_json = 0x12;
+  map<string, Held> implicit_held = 0x13;
 
   map<string, string> implicit_string_with_default = 0x90 [(orm.field) = {default: ""}];
   map<string, Level> implicit_enum_with_default = 0x91 [(orm.field) = {default: ""}];

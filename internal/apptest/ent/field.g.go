@@ -278,6 +278,7 @@ func (e *MessageField) Proto() *apptest.MessageField {
 		x.SetHeld(e.Held)
 	}
 	x.SetRepeated(e.Repeated)
+	x.SetHeldList(e.HeldList)
 	if e.Nullable != nil {
 		x.SetNullable(e.Nullable)
 	}
@@ -298,6 +299,7 @@ func (e *MapField) Proto() *apptest.MapField {
 	x.SetImplicitString(e.ImplicitString)
 	x.SetImplicitEnum(e.ImplicitEnum)
 	x.SetImplicitJson(e.ImplicitJson)
+	x.SetImplicitHeld(e.ImplicitHeld)
 	x.SetImplicitStringWithDefault(e.ImplicitStringWithDefault)
 	x.SetImplicitEnumWithDefault(e.ImplicitEnumWithDefault)
 	x.SetImplicitJsonWithDefault(e.ImplicitJsonWithDefault)

@@ -1240,6 +1240,9 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	if u := req.GetRepeated(); len(u) > 0 {
 		q.SetRepeated(u)
 	}
+	if u := req.GetHeldList(); len(u) > 0 {
+		q.SetHeldList(u)
+	}
 	if req.HasNullable() {
 		q.SetNullable(req.GetNullable())
 	}
@@ -1326,6 +1329,9 @@ func MessageFieldSelectedFields(m *apptest.MessageFieldSelect) []string {
 	if m.GetRepeated() {
 		vs = append(vs, messagefield.FieldRepeated)
 	}
+	if m.GetHeldList() {
+		vs = append(vs, messagefield.FieldHeldList)
+	}
 	if m.GetNullable() {
 		vs = append(vs, messagefield.FieldNullable)
 	}
@@ -1399,7 +1405,7 @@ func MessageFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.Messag
 var messageFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "MessageField")
 
 var messageFieldPatchColumns = entpatch.Columns{
-	1: messagefield.FieldId, 48: messagefield.FieldExplicit, 49: messagefield.FieldHeld, 80: messagefield.FieldRepeated, 112: messagefield.FieldNullable, 113: messagefield.FieldNullableHeld, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
+	1: messagefield.FieldId, 48: messagefield.FieldExplicit, 49: messagefield.FieldHeld, 80: messagefield.FieldRepeated, 81: messagefield.FieldHeldList, 112: messagefield.FieldNullable, 113: messagefield.FieldNullableHeld, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
 
 func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.MessageFieldApplyRequest) (*apptest.MessageField, error) {
 	if !req.HasPatch() {
@@ -1657,6 +1663,9 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	if u := req.GetImplicitJson(); len(u) > 0 {
 		q.SetImplicitJson(u)
 	}
+	if u := req.GetImplicitHeld(); len(u) > 0 {
+		q.SetImplicitHeld(u)
+	}
 	if u := req.GetImplicitStringWithDefault(); len(u) > 0 {
 		q.SetImplicitStringWithDefault(u)
 	} else {
@@ -1753,6 +1762,9 @@ func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
 	if m.GetImplicitJson() {
 		vs = append(vs, mapfield.FieldImplicitJson)
 	}
+	if m.GetImplicitHeld() {
+		vs = append(vs, mapfield.FieldImplicitHeld)
+	}
 	if m.GetImplicitStringWithDefault() {
 		vs = append(vs, mapfield.FieldImplicitStringWithDefault)
 	}
@@ -1832,7 +1844,7 @@ func MapFieldGetKey(ctx context.Context, db *ent.Client, ref *apptest.MapFieldRe
 var mapFieldOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_field_proto, "MapField")
 
 var mapFieldPatchColumns = entpatch.Columns{
-	1: mapfield.FieldId, 16: mapfield.FieldImplicitString, 17: mapfield.FieldImplicitEnum, 18: mapfield.FieldImplicitJson, 144: mapfield.FieldImplicitStringWithDefault, 145: mapfield.FieldImplicitEnumWithDefault, 146: mapfield.FieldImplicitJsonWithDefault, 208: mapfield.FieldImplicitImmutableString, 209: mapfield.FieldImplicitImmutableEnum, 210: mapfield.FieldImplicitImmutableJson}
+	1: mapfield.FieldId, 16: mapfield.FieldImplicitString, 17: mapfield.FieldImplicitEnum, 18: mapfield.FieldImplicitJson, 19: mapfield.FieldImplicitHeld, 144: mapfield.FieldImplicitStringWithDefault, 145: mapfield.FieldImplicitEnumWithDefault, 146: mapfield.FieldImplicitJsonWithDefault, 208: mapfield.FieldImplicitImmutableString, 209: mapfield.FieldImplicitImmutableEnum, 210: mapfield.FieldImplicitImmutableJson}
 
 func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldApplyRequest) (*apptest.MapField, error) {
 	if !req.HasPatch() {

@@ -366,6 +366,8 @@ func (MessageField) Fields() []ent.Field {
 			Optional(),
 		field.Json("repeated", []*structpb.Struct{}).
 			Optional(),
+		field.Json("held_list", []*apptest.Held{}).ValueScanner(entpb.ListValueScanner[*apptest.Held]{}).
+			Optional(),
 		field.Json("nullable", &structpb.Struct{}).
 			Optional(),
 		field.Json("nullable_held", &apptest.Held{}).ValueScanner(entpb.ValueScanner[*apptest.Held]{}).
@@ -398,6 +400,8 @@ func (MapField) Fields() []ent.Field {
 		field.Json("implicit_enum", map[string]apptest.Level{}).
 			Optional(),
 		field.Json("implicit_json", map[string]*structpb.Struct{}).
+			Optional(),
+		field.Json("implicit_held", map[string]*apptest.Held{}).ValueScanner(entpb.MapValueScanner[string, *apptest.Held]{}).
 			Optional(),
 		field.Json("implicit_string_with_default", map[string]string{}).
 			Optional(),

@@ -38,10 +38,23 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 			return "*" + ident
 
 		})
-		if p.Descriptor().IsMap() {
+		d := p.Descriptor()
+		if d.IsMap() {
 			ctor += "{}"
+			if m := heldMessage(w, d.MapValue()); m != "" {
+				// A map of messages is the same story as one message, and the
+				// map is the reason it needed telling twice: the scanner below
+				// converts a message, and a map is not one.
+				k := graph.GoType(d.MapKey(), ormpb.Type_TYPE_UNSPECIFIED, nil)
+				vs := w.QualifiedGoIdent(work.PkgEntPb.Ident("MapValueScanner"))
+				chain = fmt.Sprintf(".ValueScanner(%s[%s, *%s]{})", vs, k, m)
+			}
 		} else if p.IsList() {
 			ctor = "*" + ctor
+			if m := heldMessage(w, d); m != "" {
+				vs := w.QualifiedGoIdent(work.PkgEntPb.Ident("ListValueScanner"))
+				chain = fmt.Sprintf(".ValueScanner(%s[*%s]{})", vs, m)
+			}
 		} else if m := messageOf(w, p); m != "" {
 			// One message, held as a value of the row rather than as a row of
 			// its own. `encoding/json`, which is what a JSON column is written
@@ -134,7 +147,27 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 // which is a migration for no gain.
 func messageOf(w *work.FileWork, p graph.Field) string {
 	d := p.Descriptor()
-	if d.Kind() != protoreflect.MessageKind || d.IsMap() || d.IsList() {
+	if d.IsMap() || d.IsList() {
+		return ""
+	}
+
+	return heldMessage(w, d)
+}
+
+// heldMessage is the Go type of one message a JSON column holds, and empty for
+// anything that is not one.
+//
+// It takes a descriptor rather than a prop because the thing being asked about
+// is not always the field: for a map it is the value, and the field is the map.
+//
+// The two well-known types `DeduceType` also calls JSON are excluded
+// deliberately, as they are wherever this is asked: `structpb.Struct` and
+// `structpb.Value` are generated with the open API, so `encoding/json` can
+// already see them and `field.Json` has always worked. Moving them would change
+// the bytes in every column that already holds one, which is a migration for no
+// gain.
+func heldMessage(w *work.FileWork, d protoreflect.FieldDescriptor) string {
+	if d.Kind() != protoreflect.MessageKind {
 		return ""
 	}
 
@@ -143,7 +176,7 @@ func messageOf(w *work.FileWork, p graph.Field) string {
 		return ""
 	}
 
-	return graph.GoTypeOf(p, w.QualifiedGoIdent)
+	return graph.GoType(d, ormpb.Type_TYPE_UNSPECIFIED, w.QualifiedGoIdent)
 }
 
 func xFields(w *work.FileWork) {

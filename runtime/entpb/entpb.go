@@ -47,6 +47,7 @@ package entpb
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 
 	"github.com/protobuf-orm/ent/schema/field"
@@ -107,6 +108,176 @@ func (ValueScanner[T]) FromValue(v driver.Value) (T, error) {
 	// reason a generic like this can build a message at all.
 	m := zero.ProtoReflect().New().Interface()
 	if err := protojson.Unmarshal([]byte(s.String), m); err != nil {
+		return zero, err
+	}
+
+	return m.(T), nil
+}
+
+// ListValueScanner stores `[]T` as a JSON array of canonical protobuf JSON.
+//
+//	field.Json("attachments", []*Attachment{}).
+//		ValueScanner(entpb.ListValueScanner[*Attachment]{})
+//
+// A list needs one of its own because [ValueScanner] converts a message and a
+// list is not one. Without it a list of messages is an ordinary `field.Json`,
+// marshalled by `encoding/json` -- which is what could not see an opaque
+// message to begin with, and which finds its unexported bookkeeping instead:
+//
+//	[{"XXX_raceDetectHookData":{},"XXX_presence":[3]}]
+//
+// The elements are assembled by hand rather than handed to `encoding/json`,
+// because that is the thing being avoided: protojson writes each element and
+// the brackets and commas are written here.
+type ListValueScanner[T proto.Message] struct{}
+
+// Value is the list as a JSON array, and nil for a list that is not there.
+//
+// Nil rather than `[]` for the same reason [ValueScanner.Value] answers nil for
+// an absent message: a column that cannot tell "no list" from "an empty list"
+// cannot answer whether anything was ever set.
+func (ListValueScanner[T]) Value(vs []T) (driver.Value, error) {
+	if vs == nil {
+		return nil, nil
+	}
+
+	var b []byte
+	b = append(b, '[')
+	for i, v := range vs {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		if !v.ProtoReflect().IsValid() {
+			b = append(b, "null"...)
+			continue
+		}
+		e, err := protojson.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		b = append(b, e...)
+	}
+	b = append(b, ']')
+
+	return string(b), nil
+}
+
+// ScanValue is what the database value is read into.
+func (ListValueScanner[T]) ScanValue() field.ValueScanner { return &sql.NullString{} }
+
+// FromValue is the array as a list, and nil for SQL NULL.
+func (ListValueScanner[T]) FromValue(v driver.Value) ([]T, error) {
+	s, ok := v.(*sql.NullString)
+	if !ok {
+		return nil, fmt.Errorf("entpb: expected *sql.NullString, got %T", v)
+	}
+	if !s.Valid {
+		return nil, nil
+	}
+
+	// Split into elements by `encoding/json`, which can be trusted with the
+	// shape of a document; each element is then read by protojson, which is
+	// the only thing that can read a message. json.RawMessage is what says
+	// "hold this one aside rather than decoding it".
+	var raw []json.RawMessage
+	if err := json.Unmarshal([]byte(s.String), &raw); err != nil {
+		return nil, err
+	}
+
+	vs := make([]T, 0, len(raw))
+	for _, e := range raw {
+		v, err := messageFrom[T](e)
+		if err != nil {
+			return nil, err
+		}
+		vs = append(vs, v)
+	}
+
+	return vs, nil
+}
+
+// MapValueScanner stores `map[K]T` as a JSON object of canonical protobuf JSON.
+//
+//	field.Json("by_locale", map[string]*Greeting{}).
+//		ValueScanner(entpb.MapValueScanner[string, *Greeting]{})
+//
+// See [ListValueScanner] for why a map cannot be an ordinary `field.Json`.
+//
+// K is the protobuf map key, which the language limits to an integer, a bool or
+// a string; all three are keys `encoding/json` writes, so the object half is
+// left to it.
+type MapValueScanner[K comparable, T proto.Message] struct{}
+
+// Value is the map as a JSON object, and nil for a map that is not there.
+func (MapValueScanner[K, T]) Value(vs map[K]T) (driver.Value, error) {
+	if vs == nil {
+		return nil, nil
+	}
+
+	raw := make(map[K]json.RawMessage, len(vs))
+	for k, v := range vs {
+		if !v.ProtoReflect().IsValid() {
+			raw[k] = json.RawMessage("null")
+			continue
+		}
+		e, err := protojson.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		raw[k] = json.RawMessage(e)
+	}
+
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return string(b), nil
+}
+
+// ScanValue is what the database value is read into.
+func (MapValueScanner[K, T]) ScanValue() field.ValueScanner { return &sql.NullString{} }
+
+// FromValue is the object as a map, and nil for SQL NULL.
+func (MapValueScanner[K, T]) FromValue(v driver.Value) (map[K]T, error) {
+	s, ok := v.(*sql.NullString)
+	if !ok {
+		return nil, fmt.Errorf("entpb: expected *sql.NullString, got %T", v)
+	}
+	if !s.Valid {
+		return nil, nil
+	}
+
+	var raw map[K]json.RawMessage
+	if err := json.Unmarshal([]byte(s.String), &raw); err != nil {
+		return nil, err
+	}
+
+	vs := make(map[K]T, len(raw))
+	for k, e := range raw {
+		v, err := messageFrom[T](e)
+		if err != nil {
+			return nil, err
+		}
+		vs[k] = v
+	}
+
+	return vs, nil
+}
+
+// messageFrom reads one element of a collection.
+//
+// The new message comes through the descriptor of the zero value, for the
+// reason [ValueScanner.FromValue] gives: T is the pointer type, and a
+// constraint cannot name what it points at.
+func messageFrom[T proto.Message](b []byte) (T, error) {
+	var zero T
+	if string(b) == "null" {
+		return zero, nil
+	}
+
+	m := zero.ProtoReflect().New().Interface()
+	if err := protojson.Unmarshal(b, m); err != nil {
 		return zero, err
 	}
 
