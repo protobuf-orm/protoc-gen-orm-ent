@@ -15,7 +15,7 @@ import (
 // has already opened one -- to make this write and something else a single
 // write -- must not have it committed or thrown away underneath them.
 //
-// These go through the servers rather than a gRpc client, because what is being
+// These go through the servers rather than a gRPC client, because what is being
 // asked about is which driver the servers run on.
 
 // seedAt adds a tenant and a user through the given server.

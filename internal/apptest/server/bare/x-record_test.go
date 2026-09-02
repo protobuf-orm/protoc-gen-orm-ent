@@ -234,7 +234,7 @@ func TestRecordErase(t *testing.T) {
 // write and something else a single write -- must not have theirs committed or
 // thrown away underneath them.
 //
-// These go through the servers rather than a gRpc client, because what is being
+// These go through the servers rather than a gRPC client, because what is being
 // asked about is which driver the servers run on.
 func TestRecordInAnOpenTransaction(t *testing.T) {
 	ctx := context.Background()
@@ -495,7 +495,7 @@ func TestRecorders(t *testing.T) {
 }
 
 // fakeStream is the little of a server transport stream that [grpc.Method]
-// reads, so that a test can hand a server the context gRpc would have.
+// reads, so that a test can hand a server the context gRPC would have.
 type fakeStream struct {
 	grpc.ServerTransportStream
 
@@ -505,7 +505,7 @@ type fakeStream struct {
 func (s fakeStream) Method() string { return s.method }
 
 // asIfCalled answers with `ctx` looking the way it looks inside the handler
-// gRpc dispatched for `method`.
+// gRPC dispatched for `method`.
 func asIfCalled(ctx context.Context, method string) context.Context {
 	return grpc.NewContextWithServerTransportStream(ctx, fakeStream{method: method})
 }
@@ -532,7 +532,7 @@ func TestRecordMethod(t *testing.T) {
 		x.NoError(err)
 
 		u := r.Only(x)
-		x.Equal(asked, u.Method, "what gRpc dispatched, whatever leg of it this was")
+		x.Equal(asked, u.Method, "what gRPC dispatched, whatever leg of it this was")
 		x.Equal(pb.TenantService_Add_FullMethodName, u.By, "and what this server did")
 	})
 
