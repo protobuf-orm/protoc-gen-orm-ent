@@ -3,7 +3,7 @@ module github.com/protobuf-orm/protoc-gen-orm-ent
 go 1.27.0
 
 require (
-	github.com/protobuf-orm/ent v0.0.0-20260901230746-4115dcfc4087
+	github.com/protobuf-orm/ent v0.0.0-20260902013732-9b0c180f3456
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260901231226-61630a70f09e
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.11

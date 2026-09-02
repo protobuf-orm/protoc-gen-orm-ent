@@ -90,7 +90,7 @@ func scalarArg(p graph.Prop, v protoreflect.Value) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s: %w", ErrValue, p.Name(), err)
 		}
-		return entuuid.Value(u)
+		return u, nil
 
 	case ormpb.Type_TYPE_TIME:
 		// Neither refusal below wraps ErrValue. A document's value is checked

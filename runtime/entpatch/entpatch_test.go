@@ -7,11 +7,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"uuid"
 
 	"github.com/protobuf-orm/ent/dialect"
 	"github.com/protobuf-orm/ent/dialect/sql"
-	entfield "github.com/protobuf-orm/ent/schema/field"
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protobuf-orm/ormpatch"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
@@ -149,13 +147,10 @@ func TestTestOnAnEdgeBindsTheTargetsKey(t *testing.T) {
 	if len(args) != 1 {
 		t.Fatalf("bound %d arguments, want 1: %#v", len(args), args)
 	}
-	// The wire form of a UUID key is bytes, but the column holds the converted
-	// value, exactly as SetEdge writes it: the text ent's codec for a
-	// uuid.UUID produces. Binding the wire bytes matches nothing.
-	want, err := entfield.TextValueScannerOf[uuid.UUID]().Value(entuuid.Must(entuuid.FromBytes(id)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	// The wire form of a UUID key is bytes, and the column holds a UUID, so
+	// what is bound is the UUID those bytes are rather than the bytes. What
+	// the driver makes of it is database/sql's business.
+	want := entuuid.Must(entuuid.FromBytes(id))
 	if got := args[0]; !reflect.DeepEqual(got, want) {
 		t.Errorf("bound %#v (%T), want %#v", got, got, want)
 	}

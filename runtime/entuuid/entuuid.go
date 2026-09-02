@@ -7,11 +7,8 @@
 package entuuid
 
 import (
-	"database/sql/driver"
 	"fmt"
 	"uuid"
-
-	"github.com/protobuf-orm/ent/schema/field"
 )
 
 // Size is the number of bytes a UUID is.
@@ -37,16 +34,3 @@ func Must(v uuid.UUID, err error) uuid.UUID {
 	}
 	return v
 }
-
-// codec is what ent writes a uuid.UUID as, which is what a UUID column holds.
-// See field.Uuid.
-var codec = field.TextValueScannerOf[uuid.UUID]()
-
-// Value returns what a UUID column holds for u.
-//
-// A uuid.UUID says nothing to a driver on its own, so a predicate built by
-// hand -- outside the generated code, which converts on its own -- has to bind
-// this rather than the value. Asking ent's codec is what keeps such a
-// predicate agreeing with the rows the generated code wrote, rather than being
-// a second opinion on how a UUID is spelled.
-func Value(u uuid.UUID) (driver.Value, error) { return codec.Value(u) }
