@@ -7,6 +7,7 @@ import (
 	context "context"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
+	ent1 "github.com/protobuf-orm/ent"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
 	graph "github.com/protobuf-orm/protobuf-orm/graph"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
@@ -15,7 +16,6 @@ import (
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
-	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -79,7 +79,7 @@ func (s UserServiceServer) narrow(ctx context.Context, p predicate.User) (predic
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +329,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +427,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 		return nil, err
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}

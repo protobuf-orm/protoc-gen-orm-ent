@@ -7,6 +7,7 @@ import (
 	context "context"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
+	ent1 "github.com/protobuf-orm/ent"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
@@ -16,7 +17,6 @@ import (
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
-	enttx "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/enttx"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 )
@@ -77,7 +77,7 @@ func (s ValueFieldServiceServer) narrow(ctx context.Context, p predicate.ValueFi
 }
 
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1012,7 +1012,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1107,7 +1107,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		return nil, err
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1218,7 +1218,7 @@ func (s MessageFieldServiceServer) narrow(ctx context.Context, p predicate.Messa
 }
 
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1435,7 +1435,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1530,7 +1530,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		return nil, err
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1641,7 +1641,7 @@ func (s MapFieldServiceServer) narrow(ctx context.Context, p predicate.MapField)
 }
 
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1874,7 +1874,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1969,7 +1969,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		return nil, err
 	}
 
-	tx, err := enttx.Join[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
 		return nil, err
 	}

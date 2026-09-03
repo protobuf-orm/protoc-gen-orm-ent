@@ -17,7 +17,7 @@ import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 // statement's -- while Add and Erase want one only when there is a recorder,
 // since a write with nothing to record alongside it is a single statement.
 func (w *fileWork) xJoin(want string) {
-	w.P("	tx, err := ", work.PkgEntTx.Ident("Join"), "[*", w.ent.Ident("Client"), ", *", w.ent.Ident("Tx"),
+	w.P("	tx, err := ", work.PkgEnt.Ident("JoinTx"), "[*", w.ent.Ident("Client"), ", *", w.ent.Ident("Tx"),
 		"](ctx, s.Db, ", want, ")")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
