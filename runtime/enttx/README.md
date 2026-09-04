@@ -1,19 +1,27 @@
 # enttx
 
-Makes a transaction stand in for a driver, so that everything built on that
-driver runs inside the one transaction.
+Puts a server **stack** on another driver, so that everything in it runs inside
+one transaction.
 
 It is how a call that spans several servers — add the row, then write the audit
 entry — becomes a single write. The servers do not have to know: they keep
 talking to the client they were given, and the client talks to the transaction.
 
-## The rule
+## The transaction is ent's
 
-**A transaction is ended by whoever began it.**
+`dialect.BeginTx` answers with a driver that is a transaction, `dialect.InTx`
+says whether a driver is inside one, and `ent.JoinTx` is the shape a caller
+writes whether or not there is one to join. All three were here first, and
+having been written twice they disagreed with ent about what counts as being in
+a transaction: a client asked knew only about the one its own package begins,
+and this knew only about the other.
 
-`Begin` hands the transaction to its caller and hands everyone else a driver
-that *cannot end it*. Ask that driver for a transaction — which
-[`ent.Client.Tx`](https://entgo.io/docs/transactions) does, and which the
+What is left here is the half ent has no words for, since ent has no notion of a
+server.
+
+**A transaction is ended by whoever began it.** `dialect.BeginTx` hands the
+transaction to its caller and hands everyone else a driver that *cannot end it*.
+Ask that driver for a transaction — which `ent.Client.Tx` does, and which the
 generated `Apply` does through it — and you get one that reads and writes
 through the real one but whose `Commit` and `Rollback` are no-ops.
 
@@ -25,7 +33,7 @@ and report success for it.
 ## Using it
 
 ```go
-drv, tx, err := enttx.Begin(ctx, db.Driver())
+drv, tx, err := dialect.BeginTx(ctx, db.Driver())
 if err != nil {
     return err
 }
@@ -51,10 +59,11 @@ return tx.Commit()
 package by protoc-gen-orm-ent (`ent/orm.g.go`); ent keeps its own driver
 unexported, so they are the only way to ask.
 
-`InTx` reports whether a driver is already inside a transaction begun here. It
-is **not needed for correctness** — a transaction begun inside another is a
-no-op participant in it either way — it only spares the second wrapper, and lets
-a caller say out loud that it joined rather than started.
+`dialect.InTx` reports whether a driver is already inside a transaction, and
+`Client.InTx` asks it of the client's own. It is **not needed for correctness**
+— a transaction begun inside another is a no-op participant in it either way —
+it spares the second wrapper, and it is what `ent.JoinTx` asks so that a caller
+joins rather than starts.
 
 ## Putting a whole stack on it
 
@@ -142,10 +151,10 @@ error from inside as *roll back*.
 
 ## What it is not
 
-Nothing here knows what a server is. `Begin` and `InTx` take a
-`dialect.Driver`; `Rebind` and `Binder` are generic over whatever the stack's
-own server type happens to be, because that type belongs to the app and a driver
-has no business naming it.
+Nothing here is about a driver any more; that is all ent's. `Rebind` and
+`Binder` are generic over whatever the stack's own server type happens to be,
+because that type belongs to the app and a driver has no business naming it —
+which is the same reason they are not in ent.
 
 That is also why this is not in the generated message package: it would put
 `github.com/protobuf-orm/ent` in front of every consumer, including the ones that only speak

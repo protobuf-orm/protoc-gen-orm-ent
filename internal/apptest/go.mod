@@ -15,7 +15,7 @@ require (
 	github.com/lesomnus/z v0.0.0-20250923111312-437bd8f8f4cf
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/protobuf-orm/ent v0.0.0-20260903235335-78a935fbe882
+	github.com/protobuf-orm/ent v0.0.0-20260904000821-85579932411a
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
 	github.com/protobuf-orm/protoc-gen-orm-ent/runtime v0.0.0-20260902051406-e51c5bac76bc
 	github.com/stretchr/testify v1.11.1

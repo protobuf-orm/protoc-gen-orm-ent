@@ -2,6 +2,7 @@ package bare_test
 
 import (
 	"context"
+	"github.com/protobuf-orm/ent/dialect"
 	"sync"
 	"testing"
 
@@ -253,7 +254,7 @@ func TestRecordInAnOpenTransaction(t *testing.T) {
 		s := NewServerWith(t, bare.WithRecorder(r))
 		t.Cleanup(func() { s.Close() })
 
-		drv, tx, err := enttx.Begin(ctx, s.Driver)
+		drv, tx, err := dialect.BeginTx(ctx, s.Driver)
 		x.NoError(err)
 
 		sv, err := enttx.Rebind(pb.Server(s.Server), drv)

@@ -2,6 +2,7 @@ package bare_test
 
 import (
 	"context"
+	"github.com/protobuf-orm/ent/dialect"
 	"testing"
 
 	"github.com/lesomnus/protobuf-patch/patch"
@@ -59,7 +60,7 @@ func TestApplyInAnOpenTransaction(t *testing.T) {
 
 		u := seedAt(ctx, x, s)
 
-		drv, tx, err := enttx.Begin(ctx, s.Driver)
+		drv, tx, err := dialect.BeginTx(ctx, s.Driver)
 		x.NoError(err)
 
 		sv, err := enttx.Rebind(pb.Server(s.Server), drv)
@@ -85,7 +86,7 @@ func TestApplyInAnOpenTransaction(t *testing.T) {
 
 		u := seedAt(ctx, x, s)
 
-		drv, tx, err := enttx.Begin(ctx, s.Driver)
+		drv, tx, err := dialect.BeginTx(ctx, s.Driver)
 		x.NoError(err)
 
 		sv, err := enttx.Rebind(pb.Server(s.Server), drv)
@@ -105,7 +106,7 @@ func TestApplyInAnOpenTransaction(t *testing.T) {
 
 		u := seedAt(ctx, x, s)
 
-		drv, tx, err := enttx.Begin(ctx, s.Driver)
+		drv, tx, err := dialect.BeginTx(ctx, s.Driver)
 		x.NoError(err)
 
 		sv, err := enttx.Rebind(pb.Server(s.Server), drv)

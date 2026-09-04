@@ -1,6 +1,7 @@
 package enttx_test
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -66,6 +67,21 @@ func drivers(s srv) []dialect.Driver {
 	}
 	return vs
 }
+
+// recDriver is a driver that is only ever compared, since what rebinding
+// promises is that the one handed in is the one the sink ends up on.
+type recDriver struct {
+	dialect string
+}
+
+func (d *recDriver) Tx(context.Context) (dialect.Tx, error) { return dialect.NopTx(d), nil }
+func (d *recDriver) Dialect() string                        { return d.dialect }
+func (*recDriver) Close() error                             { return nil }
+
+func (*recDriver) Exec(context.Context, string, any, any) error  { return nil }
+func (*recDriver) Query(context.Context, string, any, any) error { return nil }
+
+var _ dialect.Driver = (*recDriver)(nil)
 
 func names(s srv) []string {
 	var vs []string
