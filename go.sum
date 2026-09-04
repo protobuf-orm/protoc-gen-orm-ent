@@ -40,6 +40,8 @@ github.com/protobuf-orm/ent v0.0.0-20260903235335-78a935fbe882 h1:amx6yozSLhwlLp
 github.com/protobuf-orm/ent v0.0.0-20260903235335-78a935fbe882/go.mod h1:EE8o+t0Y4xtH8DRH/shGerAb2mPQJ0A1TqWT5LU7pZQ=
 github.com/protobuf-orm/ent v0.0.0-20260904000821-85579932411a h1:988uEh0cYRiwmfh0iqVG4U/MRz8iPambTrgJCGem9og=
 github.com/protobuf-orm/ent v0.0.0-20260904000821-85579932411a/go.mod h1:EE8o+t0Y4xtH8DRH/shGerAb2mPQJ0A1TqWT5LU7pZQ=
+github.com/protobuf-orm/ent v0.0.0-20260904022402-7714d7267878 h1:NOSI5hrV/nV0AJlJPD3imX/sS+mt/PscR0cIyVIqorU=
+github.com/protobuf-orm/ent v0.0.0-20260904022402-7714d7267878/go.mod h1:EE8o+t0Y4xtH8DRH/shGerAb2mPQJ0A1TqWT5LU7pZQ=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260901231226-61630a70f09e h1:XeBB1ORc/3ancbIo0iBCM5farV+IuQrA+9YSr/w+lkE=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260901231226-61630a70f09e/go.mod h1:OYlbo4/9t+Hgj/XZwdgN8Z9MyViTLPHxBWLUR4+j52o=
 github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260808062124-7336db3ccda7 h1:xj+WO4fsr0arc9NVh9ZAMOVk/u9gfGLEWOCipgqlR/s=
