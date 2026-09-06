@@ -22,8 +22,8 @@ require (
 	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260902045159-6773062af8e6 // indirect
-	github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260820235114-efff3accbfe1 // indirect
+	github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20260906213448-03adaf8cb0fc // indirect
+	github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260906213434-46a5916d5339 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.2.0 // indirect
