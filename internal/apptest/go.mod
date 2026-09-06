@@ -33,11 +33,13 @@ require (
 	github.com/go-openapi/inflect v1.0.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
+	github.com/lesomnus/xli v0.0.0-20260717171524-bf8cac633057 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.2.0 // indirect
+	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
 	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
@@ -54,3 +56,5 @@ require (
 // have nothing to say until the runtime was published; this way a change to
 // either is exercised by the same `go test`.
 replace github.com/protobuf-orm/protoc-gen-orm-ent/runtime => ../../runtime
+
+tool github.com/protobuf-orm/ent/cmd/ent

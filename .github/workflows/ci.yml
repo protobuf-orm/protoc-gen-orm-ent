@@ -35,7 +35,8 @@ jobs:
       - run: buf generate
       - run: buf generate
 
-      - run: bash gen-ent.sh
+      - run: go generate ./...
+        working-directory: internal/apptest
 
       # Sixteen generated files **are** committed -- the service contracts, the
       # bare servers, `query.g.go` -- and this says a commit carried them. A
@@ -88,7 +89,8 @@ jobs:
 
       - run: buf generate
       - run: buf generate
-      - run: bash gen-ent.sh
+      - run: go generate ./...
+        working-directory: internal/apptest
 
       - run: go test ./... -count=1
         working-directory: internal/apptest

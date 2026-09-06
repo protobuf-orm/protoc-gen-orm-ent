@@ -353,8 +353,9 @@ cd runtime && go test ./...
 
 # regenerate + exercise the integration suite
 buf generate                 # full plugin pipeline over proto/ (writes into internal/apptest)
-./gen-ent.sh                 # run `ent generate` for the schema
-cd internal/apptest && go test ./...   # server integration tests against sqlite
+cd internal/apptest
+go generate ./...            # run `ent generate` for the schema
+go test ./...                # server integration tests against sqlite
 ```
 
 > `internal/apptest` only compiles once the codegen pipeline (buf generate + ent
