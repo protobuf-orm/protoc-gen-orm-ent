@@ -240,10 +240,10 @@ func predicate(t ormpatch.Test, col string, d string) (func(*sql.Selector) *sql.
 			return sql.P(func(b *sql.Builder) {
 				switch d {
 				case dialect.Postgres:
-					b.Ident(col).WriteString(" #> ARRAY[").Arg(raw).WriteString("]::text[]")
+					b.Ident(col).S(" #> ARRAY[").Arg(raw).S("]::text[]")
 				default:
-					b.WriteString("JSON_EXTRACT(").Ident(col).Comma().
-						Arg(sqlitePath(raw, isList)).WriteString(")")
+					b.S("JSON_EXTRACT(").Ident(col).Comma().
+						Arg(sqlitePath(raw, isList)).S(")")
 				}
 				want(b)
 			})
@@ -252,10 +252,10 @@ func predicate(t ormpatch.Test, col string, d string) (func(*sql.Selector) *sql.
 	exists := func(raw string, isList, absent bool) func(*sql.Selector) *sql.Predicate {
 		return inside(raw, isList, func(b *sql.Builder) {
 			if absent {
-				b.WriteString(" IS NULL")
+				b.S(" IS NULL")
 				return
 			}
-			b.WriteString(" IS NOT NULL")
+			b.S(" IS NOT NULL")
 		})
 	}
 
@@ -288,7 +288,7 @@ func predicate(t ormpatch.Test, col string, d string) (func(*sql.Selector) *sql.
 			return nil, err
 		}
 		return inside(raw, t.HasIndex, func(b *sql.Builder) {
-			b.WriteString(" = ")
+			b.S(" = ")
 			if d == dialect.Postgres {
 				b.Arg(text)
 				return
@@ -471,7 +471,7 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON, d string) (fun
 	expr := sql.ExprFunc(func(b *sql.Builder) {
 		base := func() {
 			if cleared {
-				b.WriteString(empty)
+				b.S(empty)
 				return
 			}
 			// An unset column is NULL, and every JSON function returns NULL for
@@ -479,9 +479,9 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON, d string) (fun
 			// from an empty document instead.
 			switch d {
 			case dialect.Postgres:
-				b.WriteString("COALESCE(").Ident(col).WriteString(", " + empty + "::jsonb)")
+				b.S("COALESCE(").Ident(col).S(", " + empty + "::jsonb)")
 			default:
-				b.WriteString("COALESCE(").Ident(col).WriteString(", " + empty + ")")
+				b.S("COALESCE(").Ident(col).S(", " + empty + ")")
 			}
 		}
 
@@ -501,43 +501,43 @@ func editJSON(w ormpatch.Write, col string, op ormpatch.EditJSON, d string) (fun
 			case dialect.Postgres:
 				switch s.fn {
 				case "set":
-					b.WriteString("jsonb_set(")
+					b.S("jsonb_set(")
 					emit(i - 1)
-					b.Comma().WriteString("ARRAY[").Arg(s.path).WriteString("]::text[]").Comma()
-					b.Arg(s.v).WriteString("::jsonb")
-					b.WriteString(", true)")
+					b.Comma().S("ARRAY[").Arg(s.path).S("]::text[]").Comma()
+					b.Arg(s.v).S("::jsonb")
+					b.S(", true)")
 				case "remove":
-					b.WriteString("(")
+					b.S("(")
 					emit(i - 1)
 					if isList {
-						b.WriteString(" - ").Arg(s.path).WriteString("::int)")
+						b.S(" - ").Arg(s.path).S("::int)")
 					} else {
-						b.WriteString(" - ").Arg(s.path).WriteString(")")
+						b.S(" - ").Arg(s.path).S(")")
 					}
 				case "append":
-					b.WriteString("(")
+					b.S("(")
 					emit(i - 1)
-					b.WriteString(" || jsonb_build_array(").Arg(s.v).WriteString("::jsonb))")
+					b.S(" || jsonb_build_array(").Arg(s.v).S("::jsonb))")
 				}
 
 			default: // SQLite; Build admitted no other dialect.
 				switch s.fn {
 				case "set":
-					b.WriteString("JSON_SET(")
+					b.S("JSON_SET(")
 					emit(i - 1)
 					b.Comma().Arg(sqlitePath(s.path, isList)).Comma()
-					b.WriteString("JSON(").Arg(s.v).WriteString(")")
-					b.WriteString(")")
+					b.S("JSON(").Arg(s.v).S(")")
+					b.S(")")
 				case "remove":
-					b.WriteString("JSON_REMOVE(")
+					b.S("JSON_REMOVE(")
 					emit(i - 1)
 					b.Comma().Arg(sqlitePath(s.path, isList))
-					b.WriteString(")")
+					b.S(")")
 				case "append":
-					b.WriteString("JSON_INSERT(")
+					b.S("JSON_INSERT(")
 					emit(i - 1)
-					b.WriteString(", '$[#]', JSON(").Arg(s.v).WriteString(")")
-					b.WriteString(")")
+					b.S(", '$[#]', JSON(").Arg(s.v).S(")")
+					b.S(")")
 				}
 			}
 		}
