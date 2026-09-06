@@ -8,6 +8,6 @@
 #
 # It has to match `github.com/protobuf-orm/ent` in internal/apptest/go.mod: the generator and
 # the runtime it generates against are one thing.
-ENT=v0.0.0-20260904022402-7714d7267878
+ENT=v0.0.0-20260906224055-1575ccbff508
 
 cd "$(dirname "$0")/internal/apptest" && go run "github.com/protobuf-orm/ent/cmd/ent@${ENT}" generate --target ./ent --feature sql/modifier ./schema
