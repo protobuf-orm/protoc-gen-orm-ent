@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/protobuf-orm/protobuf-orm/graph"
+	"github.com/protobuf-orm/protobuf-orm/graph/gogen"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
@@ -42,7 +42,7 @@ func (w *fileWork) xGet() {
 
 func (w *fileWork) xGetKey() {
 	k := w.Entity.Key()
-	t := graph.GoTypeOf(k, w.QualifiedGoIdent)
+	t := gogen.GoTypeOf(k, w.QualifiedGoIdent)
 
 	name := w.Entity.Name()
 	w.P("func ", name, "GetKey(",

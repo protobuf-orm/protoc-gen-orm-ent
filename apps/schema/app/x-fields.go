@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
+	"github.com/protobuf-orm/protobuf-orm/graph/gogen"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 	"google.golang.org/protobuf/compiler/protogen"
@@ -28,7 +29,7 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 		panic("field cannot be typed as message")
 	case ormpb.Type_TYPE_JSON:
 		id = "Json"
-		ctor = graph.GoTypeOf(p, func(v protogen.GoIdent) string {
+		ctor = gogen.GoTypeOf(p, func(v protogen.GoIdent) string {
 			ident := w.QualifiedGoIdent(v)
 
 			d := p.Descriptor()
@@ -45,7 +46,7 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 				// A map of messages is the same story as one message, and the
 				// map is the reason it needed telling twice: the scanner below
 				// converts a message, and a map is not one.
-				k := graph.GoType(d.MapKey(), ormpb.Type_TYPE_UNSPECIFIED, nil)
+				k := gogen.GoType(d.MapKey(), ormpb.Type_TYPE_UNSPECIFIED, nil)
 				vs := w.QualifiedGoIdent(work.PkgEntPb.Ident("MapValueScanner"))
 				chain = fmt.Sprintf(".ValueScanner(%s[%s, *%s]{})", vs, k, m)
 			}
@@ -88,7 +89,7 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 	if p.IsList() {
 		id = "Json"
 		if ctor == "" {
-			ctor = graph.GoTypeOf(p, w.QualifiedGoIdent)
+			ctor = gogen.GoTypeOf(p, w.QualifiedGoIdent)
 		}
 		ctor = "[]" + ctor + "{}"
 	} else {
@@ -176,7 +177,7 @@ func heldMessage(w *work.FileWork, d protoreflect.FieldDescriptor) string {
 		return ""
 	}
 
-	return graph.GoType(d, ormpb.Type_TYPE_UNSPECIFIED, w.QualifiedGoIdent)
+	return gogen.GoType(d, ormpb.Type_TYPE_UNSPECIFIED, w.QualifiedGoIdent)
 }
 
 func xFields(w *work.FileWork) {

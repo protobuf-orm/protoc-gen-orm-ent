@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
+	"github.com/protobuf-orm/protobuf-orm/graph/gogen"
 	"github.com/protobuf-orm/protobuf-orm/ormpb"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
@@ -36,7 +37,7 @@ func xProto(w *work.FileWork) {
 				// the repeated fields is already aligned with the proto type.
 				switch p.Type() {
 				case ormpb.Type_TYPE_ENUM:
-					v = fmt.Sprintf("%s(%s)", graph.GoTypeOf(p, w.QualifiedGoIdent), v)
+					v = fmt.Sprintf("%s(%s)", gogen.GoTypeOf(p, w.QualifiedGoIdent), v)
 				case ormpb.Type_TYPE_UUID:
 					v = v + "[:]"
 				case ormpb.Type_TYPE_TIME:
@@ -71,7 +72,7 @@ func xProto(w *work.FileWork) {
 				// `*new(T)` rather than a literal, because the key's type is
 				// whatever the target declared and only its zero value is the
 				// same question in every one of them.
-				zero := fmt.Sprintf("*new(%s)", graph.GoTypeOf(key, w.QualifiedGoIdent))
+				zero := fmt.Sprintf("*new(%s)", gogen.GoTypeOf(key, w.QualifiedGoIdent))
 
 				v := "v"
 				if key.Type() == ormpb.Type_TYPE_UUID {
