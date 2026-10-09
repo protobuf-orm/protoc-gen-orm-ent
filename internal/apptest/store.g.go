@@ -32,6 +32,7 @@ type Server interface {
 	Note() NoteServiceServer
 	Tenant() TenantServiceServer
 	User() UserServiceServer
+	Seat() SeatServiceServer
 }
 
 // RegisterServer registers every service of `s` with `g`.
@@ -45,6 +46,7 @@ func RegisterServer(g grpc.ServiceRegistrar, s Server) {
 	RegisterNoteServiceServer(g, s.Note())
 	RegisterTenantServiceServer(g, s.Tenant())
 	RegisterUserServiceServer(g, s.User())
+	RegisterSeatServiceServer(g, s.Seat())
 }
 
 type UnimplementedServer struct {
@@ -54,6 +56,7 @@ type UnimplementedServer struct {
 	NoteServer         NoteServiceServer
 	TenantServer       TenantServiceServer
 	UserServer         UserServiceServer
+	SeatServer         SeatServiceServer
 }
 
 func (UnimplementedServer) ValueField() ValueFieldServiceServer {
@@ -68,6 +71,7 @@ func (UnimplementedServer) MapField() MapFieldServiceServer {
 func (UnimplementedServer) Note() NoteServiceServer     { return UnimplementedNoteServiceServer{} }
 func (UnimplementedServer) Tenant() TenantServiceServer { return UnimplementedTenantServiceServer{} }
 func (UnimplementedServer) User() UserServiceServer     { return UnimplementedUserServiceServer{} }
+func (UnimplementedServer) Seat() SeatServiceServer     { return UnimplementedSeatServiceServer{} }
 
 type StaticServer struct {
 	ValueFieldServer   ValueFieldServiceServer
@@ -76,6 +80,7 @@ type StaticServer struct {
 	NoteServer         NoteServiceServer
 	TenantServer       TenantServiceServer
 	UserServer         UserServiceServer
+	SeatServer         SeatServiceServer
 }
 
 func (s StaticServer) ValueField() ValueFieldServiceServer     { return s.ValueFieldServer }
@@ -84,6 +89,7 @@ func (s StaticServer) MapField() MapFieldServiceServer         { return s.MapFie
 func (s StaticServer) Note() NoteServiceServer                 { return s.NoteServer }
 func (s StaticServer) Tenant() TenantServiceServer             { return s.TenantServer }
 func (s StaticServer) User() UserServiceServer                 { return s.UserServer }
+func (s StaticServer) Seat() SeatServiceServer                 { return s.SeatServer }
 
 type Client interface {
 	ValueField() ValueFieldServiceClient
@@ -92,6 +98,7 @@ type Client interface {
 	Note() NoteServiceClient
 	Tenant() TenantServiceClient
 	User() UserServiceClient
+	Seat() SeatServiceClient
 }
 
 func NewClient(c *grpc.ClientConn) Client {
@@ -102,6 +109,7 @@ func NewClient(c *grpc.ClientConn) Client {
 		_Note:         NewNoteServiceClient(c),
 		_Tenant:       NewTenantServiceClient(c),
 		_User:         NewUserServiceClient(c),
+		_Seat:         NewSeatServiceClient(c),
 	}
 }
 
@@ -112,6 +120,7 @@ type client struct {
 	_Note         NoteServiceClient
 	_Tenant       TenantServiceClient
 	_User         UserServiceClient
+	_Seat         SeatServiceClient
 }
 
 func (c *client) ValueField() ValueFieldServiceClient     { return c._ValueField }
@@ -120,6 +129,7 @@ func (c *client) MapField() MapFieldServiceClient         { return c._MapField }
 func (c *client) Note() NoteServiceClient                 { return c._Note }
 func (c *client) Tenant() TenantServiceClient             { return c._Tenant }
 func (c *client) User() UserServiceClient                 { return c._User }
+func (c *client) Seat() SeatServiceClient                 { return c._Seat }
 
 // Middleware is a server that delegates to another server.
 type Middleware interface {

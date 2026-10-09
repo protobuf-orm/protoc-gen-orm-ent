@@ -117,11 +117,16 @@ func (w *fileWork) xPick() {
 					w.P("		ps = append(ps, ", eq, "(k.Get", name.Go(), "()))")
 				}
 			case graph.Edge:
+				// The Pick is the target's, since it is the target that is
+				// being found. The getter and the predicate are the edge's:
+				// the reference message names its field after the edge, and
+				// so does ent. The two only agree when the edge is named after
+				// what it points at.
 				name_target := work.Name(p_.Target().Name())
-				w.P("		if p, err := ", name_target, "Pick(k.Get", name_target.Go(), "()); err != nil {")
+				w.P("		if p, err := ", name_target, "Pick(k.Get", name.Go(), "()); err != nil {")
 				w.P("			return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name_p, ".", name, ": %s\", ", "err)")
 				w.P("		} else {")
-				w.P("			ps = append(ps, ", x.Ident("Has"+name_target.Go()+"With"), "(p))")
+				w.P("			ps = append(ps, ", x.Ident("Has"+name.Go()+"With"), "(p))")
 				w.P("		}")
 			default:
 				panic("unknown type of graph prop")

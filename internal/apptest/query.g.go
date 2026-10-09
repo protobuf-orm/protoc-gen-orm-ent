@@ -338,3 +338,87 @@ func UserByAlias(alias string, tenant *TenantRef) *UserRef {
 func UserGetByAlias(alias string, tenant *TenantRef) *UserGetRequest {
 	return UserGetRequest_builder{Ref: UserByAlias(alias, tenant)}.Build()
 }
+
+func (x *SeatRef) Pick() *SeatGetRequest {
+	return SeatGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *Seat) Ref() *SeatRef {
+	if v := x.GetId(); len(v) > 0 {
+		return SeatById(v)
+	}
+	{
+		v1 := x.GetHolder()
+		v2 := x.GetOrg()
+		if v1 != nil && v2 != nil {
+			return SeatByPlace(v1.Ref(), v2.Ref())
+		}
+	}
+	{
+		v1 := x.GetDeputy()
+		if v1 != nil {
+			return SeatByDeputy(v1.Ref())
+		}
+	}
+
+	return nil
+}
+
+func (x *Seat) Pick() *SeatGetRequest {
+	return x.Ref().Pick()
+}
+
+func (x *SeatRef) Picks(v *Seat) bool {
+	switch x.WhichKey() {
+	case SeatRef_Id_case:
+		return bytes.Equal(x.GetId(), v.GetId())
+	case SeatRef_Place_case:
+		x := x.GetPlace()
+		return (x.GetHolder().Picks(v.GetHolder())) &&
+			(x.GetOrg().Picks(v.GetOrg()))
+	case SeatRef_Deputy_case:
+		x := x.GetDeputy()
+		return (x.GetDeputy().Picks(v.GetDeputy()))
+	default:
+		return false
+	}
+}
+
+func (x *SeatGetRequest) WithSelect(f func(s *SeatSelect)) *SeatGetRequest {
+	if !x.HasSelect() {
+		x.SetSelect(&SeatSelect{})
+	}
+	f(x.GetSelect())
+	return x
+}
+
+func SeatById(v []byte) *SeatRef {
+	x := &SeatRef{}
+	x.SetId(v)
+	return x
+}
+
+func SeatGetById(v []byte) *SeatGetRequest {
+	return SeatGetRequest_builder{Ref: SeatById(v)}.Build()
+}
+
+func SeatByPlace(holder *UserRef, org *TenantRef) *SeatRef {
+	x := &SeatRefByPlace{}
+	x.SetHolder(holder)
+	x.SetOrg(org)
+	return SeatRef_builder{Place: x}.Build()
+}
+
+func SeatGetByPlace(holder *UserRef, org *TenantRef) *SeatGetRequest {
+	return SeatGetRequest_builder{Ref: SeatByPlace(holder, org)}.Build()
+}
+
+func SeatByDeputy(deputy *UserRef) *SeatRef {
+	x := &SeatRefByDeputy{}
+	x.SetDeputy(deputy)
+	return SeatRef_builder{Deputy: x}.Build()
+}
+
+func SeatGetByDeputy(deputy *UserRef) *SeatGetRequest {
+	return SeatGetRequest_builder{Ref: SeatByDeputy(deputy)}.Build()
+}

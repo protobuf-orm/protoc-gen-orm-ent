@@ -1,0 +1,59 @@
+edition = "2023";
+
+package apptest;
+
+import "apptest/tenant.proto";
+import "apptest/user.proto";
+import "orm.proto";
+
+option features.field_presence = IMPLICIT;
+option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
+
+// Seat names its user and its tenant by edges whose names are not their
+// targets' names, and is unique over them. A lookup by such an index reads
+// each edge by its own name -- `GetHolder`, `HasHolderWith` -- because that is
+// what the reference message and the ent predicates are named after; the
+// target's name is only the name of the Pick that resolves it.
+message Seat {
+  bytes id = 1 [(orm.field) = {
+    type: TYPE_UUID
+    key: true
+    default: ""
+  }];
+
+  User holder = 2 [(orm.edge) = {}];
+  Tenant org = 3 [(orm.edge) = {}];
+  // Nullable as well, which is the shape a login on a person has: at most
+  // one person per login, and a person with none.
+  User deputy = 4 [(orm.edge) = {nullable: true}];
+
+  option (orm.message) = {
+    rpc: {crud: true}
+    indexes: [
+      {
+        name: "place"
+        refs: [
+          {
+            name: "holder"
+            number: 2
+          },
+          {
+            name: "org"
+            number: 3
+          }
+        ]
+        unique: true
+      },
+      {
+        name: "deputy"
+        refs: [
+          {
+            name: "deputy"
+            number: 4
+          }
+        ]
+        unique: true
+      }
+    ]
+  };
+}
