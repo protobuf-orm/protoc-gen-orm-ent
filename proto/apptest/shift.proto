@@ -1,0 +1,44 @@
+edition = "2023";
+
+package apptest;
+
+import "google/protobuf/timestamp.proto";
+import "orm.proto";
+
+option features.field_presence = IMPLICIT;
+option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
+
+// Shift is unique over a desk and the time it starts, which is the shape of
+// any index with a timestamp among its fields. A lookup by it has to read
+// every field of the index: two shifts may start at the same time at two
+// desks, and the time alone names both.
+message Shift {
+  bytes id = 1 [(orm.field) = {
+    type: TYPE_UUID
+    key: true
+    default: ""
+  }];
+
+  string desk = 2;
+  google.protobuf.Timestamp starts_at = 3;
+
+  option (orm.message) = {
+    rpc: {crud: true}
+    indexes: [
+      {
+        name: "slot"
+        refs: [
+          {
+            name: "desk"
+            number: 2
+          },
+          {
+            name: "starts_at"
+            number: 3
+          }
+        ]
+        unique: true
+      }
+    ]
+  };
+}

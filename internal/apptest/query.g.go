@@ -4,6 +4,8 @@ package apptest
 
 import (
 	bytes "bytes"
+	proto "google.golang.org/protobuf/proto"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (x *ValueFieldRef) Pick() *ValueFieldGetRequest {
@@ -421,4 +423,69 @@ func SeatByDeputy(deputy *UserRef) *SeatRef {
 
 func SeatGetByDeputy(deputy *UserRef) *SeatGetRequest {
 	return SeatGetRequest_builder{Ref: SeatByDeputy(deputy)}.Build()
+}
+
+func (x *ShiftRef) Pick() *ShiftGetRequest {
+	return ShiftGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *Shift) Ref() *ShiftRef {
+	if v := x.GetId(); len(v) > 0 {
+		return ShiftById(v)
+	}
+	{
+		v1 := x.GetDesk()
+		v2 := x.GetStartsAt()
+		if len(v1) > 0 && v2 != nil {
+			return ShiftBySlot(v1, v2)
+		}
+	}
+
+	return nil
+}
+
+func (x *Shift) Pick() *ShiftGetRequest {
+	return x.Ref().Pick()
+}
+
+func (x *ShiftRef) Picks(v *Shift) bool {
+	switch x.WhichKey() {
+	case ShiftRef_Id_case:
+		return bytes.Equal(x.GetId(), v.GetId())
+	case ShiftRef_Slot_case:
+		x := x.GetSlot()
+		return (x.GetDesk() == v.GetDesk()) &&
+			(proto.Equal(x.GetStartsAt(), v.GetStartsAt()))
+	default:
+		return false
+	}
+}
+
+func (x *ShiftGetRequest) WithSelect(f func(s *ShiftSelect)) *ShiftGetRequest {
+	if !x.HasSelect() {
+		x.SetSelect(&ShiftSelect{})
+	}
+	f(x.GetSelect())
+	return x
+}
+
+func ShiftById(v []byte) *ShiftRef {
+	x := &ShiftRef{}
+	x.SetId(v)
+	return x
+}
+
+func ShiftGetById(v []byte) *ShiftGetRequest {
+	return ShiftGetRequest_builder{Ref: ShiftById(v)}.Build()
+}
+
+func ShiftBySlot(desk string, starts_at *timestamppb.Timestamp) *ShiftRef {
+	x := &ShiftRefBySlot{}
+	x.SetDesk(desk)
+	x.SetStartsAt(starts_at)
+	return ShiftRef_builder{Slot: x}.Build()
+}
+
+func ShiftGetBySlot(desk string, starts_at *timestamppb.Timestamp) *ShiftGetRequest {
+	return ShiftGetRequest_builder{Ref: ShiftBySlot(desk, starts_at)}.Build()
 }

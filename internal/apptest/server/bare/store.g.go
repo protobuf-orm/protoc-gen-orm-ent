@@ -15,6 +15,7 @@ import (
 	note "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/note"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	seat "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/seat"
+	shift "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/shift"
 	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
@@ -321,6 +322,7 @@ type Scope interface {
 	TenantScope(ctx context.Context) (predicate.Tenant, error)
 	UserScope(ctx context.Context) (predicate.User, error)
 	SeatScope(ctx context.Context) (predicate.Seat, error)
+	ShiftScope(ctx context.Context) (predicate.Shift, error)
 }
 
 // Unscoped is a [Scope] that narrows nothing. Embed it and write out the
@@ -354,6 +356,9 @@ func (Unscoped) UserScope(_ context.Context) (predicate.User, error) {
 	return nil, nil
 }
 func (Unscoped) SeatScope(_ context.Context) (predicate.Seat, error) {
+	return nil, nil
+}
+func (Unscoped) ShiftScope(_ context.Context) (predicate.Shift, error) {
 	return nil, nil
 }
 
@@ -516,6 +521,26 @@ func (ss Scopes) SeatScope(ctx context.Context) (predicate.Seat, error) {
 	return seat.And(ps...), nil
 }
 
+func (ss Scopes) ShiftScope(ctx context.Context) (predicate.Shift, error) {
+	ps := make([]predicate.Shift, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.ShiftScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return shift.And(ps...), nil
+}
+
 // Minter decides the key a row is stored under. It is asked once per Add,
 // for an entity whose key is a uuid, and only for those.
 //
@@ -647,3 +672,4 @@ func (s Server) Note() apptest.NoteServiceServer     { return NoteServiceServer{
 func (s Server) Tenant() apptest.TenantServiceServer { return TenantServiceServer{Store: s.Store} }
 func (s Server) User() apptest.UserServiceServer     { return UserServiceServer{Store: s.Store} }
 func (s Server) Seat() apptest.SeatServiceServer     { return SeatServiceServer{Store: s.Store} }
+func (s Server) Shift() apptest.ShiftServiceServer   { return ShiftServiceServer{Store: s.Store} }
