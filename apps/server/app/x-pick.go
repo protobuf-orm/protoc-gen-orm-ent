@@ -112,7 +112,11 @@ func (w *fileWork) xPick() {
 					w.P("			ps = append(ps, ", eq, "(v))")
 					w.P("		}")
 				case ormpb.Type_TYPE_TIME:
-					w.P("		return ", eq, "(k.Get", name.Go(), "().AsTime()), nil")
+					// Appended like any other field. Returned here, as it once
+					// was, it dropped what came before it and never read what
+					// came after: a lookup by (desk, starts_at) matched every
+					// row at that time, whatever its desk.
+					w.P("		ps = append(ps, ", eq, "(k.Get", name.Go(), "().AsTime()))")
 				default:
 					w.P("		ps = append(ps, ", eq, "(k.Get", name.Go(), "()))")
 				}
