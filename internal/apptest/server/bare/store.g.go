@@ -23,6 +23,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	proto "google.golang.org/protobuf/proto"
 	time "time"
 	uuid "uuid"
 )
@@ -203,6 +204,11 @@ type Change struct {
 	// on itself is not in it: the version stamp of an Apply, and the key and
 	// the timestamps an Add makes up for a request that left them out.
 	Patch *patchpb.Patch
+	// Previous and Value are the resource immediately before and after this
+	// mutation. Add has no Previous; Erase has no Value. Treat both as read-only.
+	// References contain keys, as in a Get without an explicit selection.
+	Previous proto.Message
+	Value    proto.Message
 }
 
 // Recorder is told about every write, inside the transaction that makes
@@ -285,10 +291,19 @@ func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
 	} else {
 		c.Method = c.By
 	}
+	c.Previous = snapshotOrNil(c.Previous)
+	c.Value = snapshotOrNil(c.Value)
 	if err := rec.Record(ctx, Server{Store: Store{Db: db}}, c); err != nil {
 		return status.Errorf(codes.Internal, "record the write by %s: %s", c.By, err)
 	}
 	return nil
+}
+
+func snapshotOrNil(v proto.Message) proto.Message {
+	if v == nil || !v.ProtoReflect().IsValid() {
+		return nil
+	}
+	return v
 }
 
 // Scope narrows what the servers of a [Server] can see, one entity at a

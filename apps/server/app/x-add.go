@@ -179,12 +179,18 @@ func (w *fileWork) xAdd() {
 	w.P("	}")
 	w.P("")
 
+	w.P("	v := u.Proto()")
+	if len(edges) > 0 {
+		w.P("	for _, d := range ds { d(v) }")
+	}
+
 	// The key is taken from the row rather than from the request: a request
 	// may leave it out, and then the one that exists is the one the database
 	// or the branch above settled on.
 	w.P("	if err := record(ctx, s.Rec, st.Db, Change{")
 	w.P("		By: ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ",")
 	w.P("		Key: u.Id,")
+	w.P("		Value: s.image(v),")
 	w.P("	}); err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
@@ -193,15 +199,7 @@ func (w *fileWork) xAdd() {
 	w.P("	}")
 	w.P("")
 
-	if len(edges) > 0 {
-		w.P("	v := u.Proto()")
-		w.P("	for _, d := range ds {")
-		w.P("		d(v)")
-		w.P("	}")
-		w.P("	return v, nil")
-	} else {
-		w.P("	return u.Proto(), nil")
-	}
+	w.P("	return v, nil")
 	w.P("}")
 	w.P("")
 }

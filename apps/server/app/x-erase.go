@@ -49,8 +49,9 @@ func (w *fileWork) xErase() {
 	// there is today and there is no reason for this to be the place that
 	// finds out when they stop.
 	w.P("	var k any")
+	w.P("	var previous *", w.Ident)
 	w.P("	if s.Rec != nil {")
-	w.P("		v, err := st.Db.", name, ".Query().Where(p).OnlyId(ctx)")
+	w.P("		v, err := st.snapshot(ctx, p)")
 	w.P("		if err != nil {")
 	w.P("			if ", w.ent.Ident("IsNotFound"), "(err) {")
 	// Gone already, or never there, or out of reach: one answer, and it is not
@@ -77,8 +78,9 @@ func (w *fileWork) xErase() {
 	// It also threw away the **scope**. The row was in scope a moment earlier,
 	// so that window is narrow, and a window is not a reason to leave a
 	// predicate off.
-	w.P("		k = v")
-	w.P("		p = ", w.xEntPkg().Ident("And"), "(p, ", w.xEntPkg().Ident("IdEQ"), "(v))")
+	w.P("		k = v.Id")
+	w.P("		previous = v.Proto()")
+	w.P("		p = ", w.xEntPkg().Ident("And"), "(p, ", w.xEntPkg().Ident("IdEQ"), "(v.Id))")
 	w.P("	}")
 	w.P("")
 
@@ -119,6 +121,7 @@ func (w *fileWork) xErase() {
 	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
 	w.P("			By: ", w.Src.GoImportPath.Ident(name+"Service_Erase_FullMethodName"), ",")
 	w.P("			Key: k,")
+	w.P("			Previous: s.image(previous),")
 	w.P("		}); err != nil {")
 	w.P("			return nil, err")
 	w.P("		}")

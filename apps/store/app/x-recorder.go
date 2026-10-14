@@ -68,6 +68,11 @@ func (w *Work) xRecorder() {
 	w.P("	// on itself is not in it: the version stamp of an Apply, and the key and")
 	w.P("	// the timestamps an Add makes up for a request that left them out.")
 	w.P("	Patch *", work.PkgPatchPb.Ident("Patch"))
+	w.P("	// Previous and Value are the resource immediately before and after this")
+	w.P("	// mutation. Add has no Previous; Erase has no Value. Treat both as read-only.")
+	w.P("	// References contain keys, as in a Get without an explicit selection.")
+	w.P("	Previous ", work.PkgProto.Ident("Message"))
+	w.P("	Value ", work.PkgProto.Ident("Message"))
 	w.P("}")
 	w.P("")
 
@@ -153,6 +158,8 @@ func (w *Work) xRecorder() {
 	w.P("	} else {")
 	w.P("		c.Method = c.By")
 	w.P("	}")
+	w.P("	c.Previous = snapshotOrNil(c.Previous)")
+	w.P("	c.Value = snapshotOrNil(c.Value)")
 	w.P("	if err := rec.Record(ctx, Server{Store: Store{Db: db}}, c); err != nil {")
 	w.P("		return ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("Internal"),
 		", \"record the write by %s: %s\", c.By, err)")
@@ -160,4 +167,8 @@ func (w *Work) xRecorder() {
 	w.P("	return nil")
 	w.P("}")
 	w.P("")
+	w.P("func snapshotOrNil(v ", work.PkgProto.Ident("Message"), ") ", work.PkgProto.Ident("Message"), " {")
+	w.P("	if v == nil || !v.ProtoReflect().IsValid() { return nil }")
+	w.P("	return v")
+	w.P("}")
 }
