@@ -82,18 +82,18 @@ func (s UserServiceServer) narrow(ctx context.Context, p predicate.User) (predic
 	return UserNarrow(ctx, s.Scope, p)
 }
 
-func (s UserServiceServer) snapshot(ctx context.Context, p predicate.User) (*ent.User, error) {
+func (s UserServiceServer) snapshot(ctx context.Context, p predicate.User, lock bool) (*ent.User, error) {
 	q := s.Db.User.Query().Where(p)
 	q.WithTenant(func(q *ent.TenantQuery) { q.Select(tenant.FieldId) })
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s UserServiceServer) image(v *apptest.User) *apptest.User {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.User)
@@ -188,8 +188,8 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		d(v)
 	}
 	var value *apptest.User
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, user.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.UserService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, user.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -395,15 +395,16 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 	}
 
 	var previous *apptest.User
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.User.Query().Where(p)
@@ -458,11 +459,15 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.User
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -496,7 +501,14 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 	var k any
 	var previous *apptest.User
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.UserService_Erase_FullMethodName)
+		var v *ent.User
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.User.Query().Where(p).Select(user.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.UserEraseResponse{}, nil
@@ -505,7 +517,9 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = user.And(p, user.IdEQ(v.Id))
 	}
 
@@ -517,7 +531,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.UserService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}

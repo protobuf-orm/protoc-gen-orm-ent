@@ -83,17 +83,17 @@ func (s NoteServiceServer) narrow(ctx context.Context, p predicate.Note) (predic
 	return NoteNarrow(ctx, s.Scope, p)
 }
 
-func (s NoteServiceServer) snapshot(ctx context.Context, p predicate.Note) (*ent.Note, error) {
+func (s NoteServiceServer) snapshot(ctx context.Context, p predicate.Note, lock bool) (*ent.Note, error) {
 	q := s.Db.Note.Query().Where(p)
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s NoteServiceServer) image(v *apptest.Note) *apptest.Note {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.Note)
@@ -160,8 +160,8 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 
 	v := u.Proto()
 	var value *apptest.Note
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, note.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.NoteService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, note.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -351,15 +351,16 @@ func (s NoteServiceServer) apply(ctx context.Context, ref *apptest.NoteRef, doc 
 	}
 
 	var previous *apptest.Note
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.Note.Query().Where(p)
@@ -414,11 +415,15 @@ func (s NoteServiceServer) apply(ctx context.Context, ref *apptest.NoteRef, doc 
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.Note
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -452,7 +457,14 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*ap
 	var k any
 	var previous *apptest.Note
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.NoteService_Erase_FullMethodName)
+		var v *ent.Note
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.Note.Query().Where(p).Select(note.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.NoteEraseResponse{}, nil
@@ -461,7 +473,9 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*ap
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = note.And(p, note.IdEQ(v.Id))
 	}
 
@@ -476,7 +490,7 @@ func (s NoteServiceServer) Erase(ctx context.Context, req *apptest.NoteRef) (*ap
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.NoteService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}

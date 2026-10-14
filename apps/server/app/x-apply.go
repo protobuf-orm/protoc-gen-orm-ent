@@ -149,13 +149,14 @@ func (w *fileWork) xApply() {
 	w.P("")
 
 	w.P("	var previous *", w.Ident)
-	w.P("	if s.Rec != nil && mod != nil {")
-	w.P("		u, err := st.snapshot(ctx, p)")
+	w.P("	images := snapshotOptions(s.Rec, by)")
+	w.P("	if images.Previous && mod != nil {")
+	w.P("		u, err := st.snapshot(ctx, p, true)")
 	w.P("		if err != nil {")
 	w.P("			if ", w.ent.Ident("IsNotFound"), "(err) { return nil, ", work.PkgGrpcStatus.Ident("Error"), "(", work.PkgGrpcCodes.Ident("NotFound"), ", \"resource not found\") }")
 	w.P("			return nil, err")
 	w.P("		}")
-	w.P("		previous = u.Proto()")
+	w.P("		previous = s.image(u.Proto())")
 	w.P("	}")
 
 	// A document can legitimately write nothing: one made only of tests asserts
@@ -219,11 +220,13 @@ func (w *fileWork) xApply() {
 	// and a recorder told about one would be saying that a row was touched on
 	// the strength of a request that read it.
 	w.P("	if mod != nil {")
+	w.P("		var value *", w.Ident)
+	w.P("		if images.Value {value=s.image(out)}")
 	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
 	w.P("			By: by,")
 	w.P("			Key: k,")
 	w.P("			Patch: doc,")
-	w.P("			Previous: s.image(previous), Value: s.image(out),")
+	w.P("			Previous: previous, Value: value,")
 	w.P("		}); err != nil {")
 	w.P("			return nil, err")
 	w.P("		}")

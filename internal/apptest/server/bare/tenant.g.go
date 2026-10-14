@@ -79,17 +79,17 @@ func (s TenantServiceServer) narrow(ctx context.Context, p predicate.Tenant) (pr
 	return TenantNarrow(ctx, s.Scope, p)
 }
 
-func (s TenantServiceServer) snapshot(ctx context.Context, p predicate.Tenant) (*ent.Tenant, error) {
+func (s TenantServiceServer) snapshot(ctx context.Context, p predicate.Tenant, lock bool) (*ent.Tenant, error) {
 	q := s.Db.Tenant.Query().Where(p)
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s TenantServiceServer) image(v *apptest.Tenant) *apptest.Tenant {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.Tenant)
@@ -153,8 +153,8 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 
 	v := u.Proto()
 	var value *apptest.Tenant
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, tenant.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.TenantService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, tenant.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -338,15 +338,16 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 	}
 
 	var previous *apptest.Tenant
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.Tenant.Query().Where(p)
@@ -398,11 +399,15 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.Tenant
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -436,7 +441,14 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 	var k any
 	var previous *apptest.Tenant
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.TenantService_Erase_FullMethodName)
+		var v *ent.Tenant
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.Tenant.Query().Where(p).Select(tenant.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.TenantEraseResponse{}, nil
@@ -445,7 +457,9 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = tenant.And(p, tenant.IdEQ(v.Id))
 	}
 
@@ -457,7 +471,7 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.TenantService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}

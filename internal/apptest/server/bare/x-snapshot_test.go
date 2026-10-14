@@ -20,6 +20,7 @@ import (
 
 func TestRecorderSnapshots(t *testing.T) {
 	t.Run("successive mutations retain their own images including deleted rows", R(func(ctx context.Context, x *require.Assertions, c *Client, r *recorder) {
+		r.Images = bare.SnapshotOptions{Previous: true, Value: true}
 		tenant := seedTenant(ctx, x, c, r)
 		first, err := c.User().Add(ctx, pb.UserAddRequest_builder{Tenant: tenant.Ref(), Name: z.Ptr("first")}.Build())
 		x.NoError(err)
@@ -59,7 +60,7 @@ func TestPostgresRecorderSnapshotsSerializeWriters(t *testing.T) {
 	t.Cleanup(func() { drv.Close() })
 	db := ent.NewClient(ent.Driver(drv))
 	x.NoError(db.Schema.Create(ctx))
-	r := &recorder{}
+	r := &recorder{Images: bare.SnapshotOptions{Previous: true, Value: true}}
 	s, err := bare.NewServer(db, bare.WithRecorder(r), bare.WithClock(func() time.Time { return time.Date(2026, 10, 14, 1, 2, 3, 123456789, time.UTC) }))
 	x.NoError(err)
 	tenant, err := s.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
@@ -101,6 +102,7 @@ func TestPostgresRecorderSnapshotsSerializeWriters(t *testing.T) {
 
 func TestWriteOnlyRecorderSnapshot(t *testing.T) {
 	t.Run("Get RPC is not required", R(func(ctx context.Context, x *require.Assertions, c *Client, r *recorder) {
+		r.Images = bare.SnapshotOptions{Value: true}
 		v, err := c.WriteOnly().Add(ctx, pb.WriteOnlyAddRequest_builder{Id: "key", Value: "stored"}.Build())
 		x.NoError(err)
 		event := r.Only(x)

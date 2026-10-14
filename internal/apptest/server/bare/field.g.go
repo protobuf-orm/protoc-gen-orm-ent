@@ -79,17 +79,17 @@ func (s ValueFieldServiceServer) narrow(ctx context.Context, p predicate.ValueFi
 	return ValueFieldNarrow(ctx, s.Scope, p)
 }
 
-func (s ValueFieldServiceServer) snapshot(ctx context.Context, p predicate.ValueField) (*ent.ValueField, error) {
+func (s ValueFieldServiceServer) snapshot(ctx context.Context, p predicate.ValueField, lock bool) (*ent.ValueField, error) {
 	q := s.Db.ValueField.Query().Where(p)
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s ValueFieldServiceServer) image(v *apptest.ValueField) *apptest.ValueField {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.ValueField)
@@ -509,8 +509,8 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 
 	v := u.Proto()
 	var value *apptest.ValueField
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, valuefield.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.ValueFieldService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, valuefield.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -1062,15 +1062,16 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 	}
 
 	var previous *apptest.ValueField
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.ValueField.Query().Where(p)
@@ -1122,11 +1123,15 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.ValueField
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -1160,7 +1165,14 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 	var k any
 	var previous *apptest.ValueField
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.ValueFieldService_Erase_FullMethodName)
+		var v *ent.ValueField
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.ValueField.Query().Where(p).Select(valuefield.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.ValueFieldEraseResponse{}, nil
@@ -1169,7 +1181,9 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = valuefield.And(p, valuefield.IdEQ(v.Id))
 	}
 
@@ -1181,7 +1195,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.ValueFieldService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}
@@ -1261,17 +1275,17 @@ func (s MessageFieldServiceServer) narrow(ctx context.Context, p predicate.Messa
 	return MessageFieldNarrow(ctx, s.Scope, p)
 }
 
-func (s MessageFieldServiceServer) snapshot(ctx context.Context, p predicate.MessageField) (*ent.MessageField, error) {
+func (s MessageFieldServiceServer) snapshot(ctx context.Context, p predicate.MessageField, lock bool) (*ent.MessageField, error) {
 	q := s.Db.MessageField.Query().Where(p)
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s MessageFieldServiceServer) image(v *apptest.MessageField) *apptest.MessageField {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.MessageField)
@@ -1333,8 +1347,8 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 
 	v := u.Proto()
 	var value *apptest.MessageField
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, messagefield.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.MessageFieldService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, messagefield.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -1526,15 +1540,16 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 	}
 
 	var previous *apptest.MessageField
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.MessageField.Query().Where(p)
@@ -1586,11 +1601,15 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.MessageField
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -1624,7 +1643,14 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 	var k any
 	var previous *apptest.MessageField
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.MessageFieldService_Erase_FullMethodName)
+		var v *ent.MessageField
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.MessageField.Query().Where(p).Select(messagefield.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.MessageFieldEraseResponse{}, nil
@@ -1633,7 +1659,9 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = messagefield.And(p, messagefield.IdEQ(v.Id))
 	}
 
@@ -1645,7 +1673,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.MessageFieldService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}
@@ -1725,17 +1753,17 @@ func (s MapFieldServiceServer) narrow(ctx context.Context, p predicate.MapField)
 	return MapFieldNarrow(ctx, s.Scope, p)
 }
 
-func (s MapFieldServiceServer) snapshot(ctx context.Context, p predicate.MapField) (*ent.MapField, error) {
+func (s MapFieldServiceServer) snapshot(ctx context.Context, p predicate.MapField, lock bool) (*ent.MapField, error) {
 	q := s.Db.MapField.Query().Where(p)
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s MapFieldServiceServer) image(v *apptest.MapField) *apptest.MapField {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.MapField)
@@ -1807,8 +1835,8 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 
 	v := u.Proto()
 	var value *apptest.MapField
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, mapfield.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.MapFieldService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, mapfield.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -2006,15 +2034,16 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 	}
 
 	var previous *apptest.MapField
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.MapField.Query().Where(p)
@@ -2066,11 +2095,15 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.MapField
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -2104,7 +2137,14 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 	var k any
 	var previous *apptest.MapField
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.MapFieldService_Erase_FullMethodName)
+		var v *ent.MapField
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.MapField.Query().Where(p).Select(mapfield.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.MapFieldEraseResponse{}, nil
@@ -2113,7 +2153,9 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = mapfield.And(p, mapfield.IdEQ(v.Id))
 	}
 
@@ -2125,7 +2167,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.MapFieldService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}

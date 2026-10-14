@@ -25,11 +25,14 @@ type recorder struct {
 	mu sync.Mutex
 
 	Changes []bare.Change
+	Images  bare.SnapshotOptions
 
 	// Do runs inside the write's transaction, with the server the recorder was
 	// handed. It is where a test writes something of its own, or refuses.
 	Do func(ctx context.Context, s bare.Server, c bare.Change) error
 }
+
+func (r *recorder) Snapshots(string) bare.SnapshotOptions { return r.Images }
 
 func (r *recorder) Record(ctx context.Context, s bare.Server, c bare.Change) error {
 	r.mu.Lock()

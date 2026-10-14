@@ -83,20 +83,20 @@ func (s SeatServiceServer) narrow(ctx context.Context, p predicate.Seat) (predic
 	return SeatNarrow(ctx, s.Scope, p)
 }
 
-func (s SeatServiceServer) snapshot(ctx context.Context, p predicate.Seat) (*ent.Seat, error) {
+func (s SeatServiceServer) snapshot(ctx context.Context, p predicate.Seat, lock bool) (*ent.Seat, error) {
 	q := s.Db.Seat.Query().Where(p)
 	q.WithHolder(func(q *ent.UserQuery) { q.Select(user.FieldId) })
 	q.WithOrg(func(q *ent.TenantQuery) { q.Select(tenant.FieldId) })
 	q.WithDeputy(func(q *ent.UserQuery) { q.Select(user.FieldId) })
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s SeatServiceServer) image(v *apptest.Seat) *apptest.Seat {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.Seat)
@@ -215,8 +215,8 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 		d(v)
 	}
 	var value *apptest.Seat
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, seat.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.SeatService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, seat.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -428,15 +428,16 @@ func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc 
 	}
 
 	var previous *apptest.Seat
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.Seat.Query().Where(p)
@@ -488,11 +489,15 @@ func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc 
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.Seat
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -526,7 +531,14 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 	var k any
 	var previous *apptest.Seat
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.SeatService_Erase_FullMethodName)
+		var v *ent.Seat
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.Seat.Query().Where(p).Select(seat.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.SeatEraseResponse{}, nil
@@ -535,7 +547,9 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = seat.And(p, seat.IdEQ(v.Id))
 	}
 
@@ -547,7 +561,7 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.SeatService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}

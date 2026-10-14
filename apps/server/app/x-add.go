@@ -187,8 +187,8 @@ func (w *fileWork) xAdd() {
 	// Read back only when recording: SQL timestamp precision, database defaults
 	// and trigger-produced values belong in the event, not the builder's guess.
 	w.P("var value *", w.Ident)
-	w.P("if s.Rec!=nil {")
-	w.P("stored,err:=st.snapshot(ctx,", w.xEntPkg().Ident("IdEQ"), "(u.Id));if err!=nil{return nil,err}")
+	w.P("if snapshotOptions(s.Rec,", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ").Value {")
+	w.P("stored,err:=st.snapshot(ctx,", w.xEntPkg().Ident("IdEQ"), "(u.Id),false);if err!=nil{return nil,err}")
 	w.P("value=s.image(stored.Proto())")
 	w.P("}")
 

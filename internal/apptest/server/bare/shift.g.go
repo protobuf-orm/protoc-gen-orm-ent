@@ -80,17 +80,17 @@ func (s ShiftServiceServer) narrow(ctx context.Context, p predicate.Shift) (pred
 	return ShiftNarrow(ctx, s.Scope, p)
 }
 
-func (s ShiftServiceServer) snapshot(ctx context.Context, p predicate.Shift) (*ent.Shift, error) {
+func (s ShiftServiceServer) snapshot(ctx context.Context, p predicate.Shift, lock bool) (*ent.Shift, error) {
 	q := s.Db.Shift.Query().Where(p)
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s ShiftServiceServer) image(v *apptest.Shift) *apptest.Shift {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.Shift)
@@ -138,8 +138,8 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 
 	v := u.Proto()
 	var value *apptest.Shift
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, shift.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.ShiftService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, shift.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}
@@ -317,15 +317,16 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 	}
 
 	var previous *apptest.Shift
-	if s.Rec != nil && mod != nil {
-		u, err := st.snapshot(ctx, p)
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return nil, status.Error(codes.NotFound, "resource not found")
 			}
 			return nil, err
 		}
-		previous = u.Proto()
+		previous = s.image(u.Proto())
 	}
 	if mod == nil {
 		q := st.Db.Shift.Query().Where(p)
@@ -377,11 +378,15 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 		return nil, err
 	}
 	if mod != nil {
+		var value *apptest.Shift
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       by,
 			Key:      k,
 			Patch:    doc,
-			Previous: s.image(previous), Value: s.image(out),
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
@@ -415,7 +420,14 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 	var k any
 	var previous *apptest.Shift
 	if s.Rec != nil {
-		v, err := st.snapshot(ctx, p)
+		images := snapshotOptions(s.Rec, apptest.ShiftService_Erase_FullMethodName)
+		var v *ent.Shift
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.Shift.Query().Where(p).Select(shift.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.ShiftEraseResponse{}, nil
@@ -424,7 +436,9 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 		}
 
 		k = v.Id
-		previous = v.Proto()
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
 		p = shift.And(p, shift.IdEQ(v.Id))
 	}
 
@@ -436,7 +450,7 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 		if err := record(ctx, s.Rec, st.Db, Change{
 			By:       apptest.ShiftService_Erase_FullMethodName,
 			Key:      k,
-			Previous: s.image(previous),
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}
@@ -526,17 +540,17 @@ func (s WriteOnlyServiceServer) narrow(ctx context.Context, p predicate.WriteOnl
 	return WriteOnlyNarrow(ctx, s.Scope, p)
 }
 
-func (s WriteOnlyServiceServer) snapshot(ctx context.Context, p predicate.WriteOnly) (*ent.WriteOnly, error) {
+func (s WriteOnlyServiceServer) snapshot(ctx context.Context, p predicate.WriteOnly, lock bool) (*ent.WriteOnly, error) {
 	q := s.Db.WriteOnly.Query().Where(p)
 	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
+		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
 		}
 	})
 	return q.Only(ctx)
 }
 func (s WriteOnlyServiceServer) image(v *apptest.WriteOnly) *apptest.WriteOnly {
-	if s.Rec == nil || v == nil {
+	if v == nil {
 		return nil
 	}
 	out := proto.Clone(v).(*apptest.WriteOnly)
@@ -571,8 +585,8 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 
 	v := u.Proto()
 	var value *apptest.WriteOnly
-	if s.Rec != nil {
-		stored, err := st.snapshot(ctx, writeonly.IdEQ(u.Id))
+	if snapshotOptions(s.Rec, apptest.WriteOnlyService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, writeonly.IdEQ(u.Id), false)
 		if err != nil {
 			return nil, err
 		}

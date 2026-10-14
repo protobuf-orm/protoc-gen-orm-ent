@@ -205,8 +205,10 @@ type Change struct {
 	// on itself is not in it: the version stamp of an Apply, and the key and
 	// the timestamps an Add makes up for a request that left them out.
 	Patch *patchpb.Patch
-	// Previous and Value are the resource immediately before and after this
-	// mutation. Add has no Previous; Erase has no Value. Treat both as read-only.
+	// Previous and Value are optional images requested by SnapshotRecorder.
+	// By default neither is captured. Add has no Previous; Erase has no
+	// Value. A missing image does not identify the operation; use By instead.
+	// Treat both as read-only.
 	// References contain keys, as in a Get without an explicit selection.
 	Previous proto.Message
 	Value    proto.Message
@@ -243,6 +245,27 @@ type Recorder interface {
 	Record(ctx context.Context, s Server, c Change) error
 }
 
+// SnapshotOptions selects images for one generated write method. The zero
+// value preserves the ordinary recorder's query and locking behavior.
+type SnapshotOptions struct{ Previous, Value bool }
+
+// SnapshotRecorder opts into image capture before the write. Previous reads
+// and locks the root row until transaction completion (except SQLite, whose
+// writes are serialized by the database). Value reads back an Add and reuses
+// the existing read-back of Patch/Apply. Relations contain keys only.
+// method is the generated operation (Change.By), not the outer RPC.
+type SnapshotRecorder interface {
+	Recorder
+	Snapshots(method string) SnapshotOptions
+}
+
+func snapshotOptions(rec Recorder, method string) SnapshotOptions {
+	if r, ok := rec.(SnapshotRecorder); ok {
+		return r.Snapshots(method)
+	}
+	return SnapshotOptions{}
+}
+
 // Recorders is told about a write in the order they are written, and
 // stops at the first one that refuses. [WithRecorder] builds one of these
 // as soon as it is given a second recorder.
@@ -258,6 +281,16 @@ type Recorder interface {
 // whoever assembled the server.
 type Recorders []Recorder
 
+// Snapshots unions the requirements so each image is captured at most once.
+func (rs Recorders) Snapshots(method string) SnapshotOptions {
+	var out SnapshotOptions
+	for _, r := range rs {
+		v := snapshotOptions(r, method)
+		out.Previous = out.Previous || v.Previous
+		out.Value = out.Value || v.Value
+	}
+	return out
+}
 func (rs Recorders) Record(ctx context.Context, s Server, c Change) error {
 	for _, r := range rs {
 		if err := r.Record(ctx, s, c); err != nil {
