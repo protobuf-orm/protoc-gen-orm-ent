@@ -16,6 +16,7 @@ import (
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
+	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
@@ -81,6 +82,38 @@ func (s UserServiceServer) narrow(ctx context.Context, p predicate.User) (predic
 	return UserNarrow(ctx, s.Scope, p)
 }
 
+func (s UserServiceServer) snapshot(ctx context.Context, p predicate.User) (*ent.User, error) {
+	q := s.Db.User.Query().Where(p)
+	q.WithTenant(func(q *ent.TenantQuery) { q.Select(tenant.FieldId) })
+	q.Modify(func(q *sql.Selector) {
+		if s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s UserServiceServer) image(v *apptest.User) *apptest.User {
+	if s.Rec == nil || v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.User)
+	m := out.ProtoReflect()
+	{
+		f := m.Descriptor().Fields().ByNumber(2)
+		if m.Has(f) {
+			trim := func(r protoreflect.Message) {
+				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+					if f.Number() != 1 {
+						r.Clear(f)
+					}
+					return true
+				})
+			}
+			trim(m.Get(f).Message())
+		}
+	}
+	return out
+}
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -154,10 +187,18 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	for _, d := range ds {
 		d(v)
 	}
+	var value *apptest.User
+	if s.Rec != nil {
+		stored, err := st.snapshot(ctx, user.IdEQ(u.Id))
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:    apptest.UserService_Add_FullMethodName,
 		Key:   u.Id,
-		Value: s.image(v),
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -191,38 +232,6 @@ func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest)
 	return v.Proto(), nil
 }
 
-func (s UserServiceServer) snapshot(ctx context.Context, p predicate.User) (*ent.User, error) {
-	q := s.Db.User.Query().Where(p)
-	UserSelectInit(q, nil)
-	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
-			q.ForUpdate()
-		}
-	})
-	return q.Only(ctx)
-}
-func (s UserServiceServer) image(v *apptest.User) *apptest.User {
-	if s.Rec == nil || v == nil {
-		return nil
-	}
-	out := proto.Clone(v).(*apptest.User)
-	m := out.ProtoReflect()
-	{
-		f := m.Descriptor().Fields().ByNumber(2)
-		if m.Has(f) {
-			trim := func(r protoreflect.Message) {
-				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
-					if f.Number() != 1 {
-						r.Clear(f)
-					}
-					return true
-				})
-			}
-			trim(m.Get(f).Message())
-		}
-	}
-	return out
-}
 func selectUserKey(q *ent.UserQuery) {
 	q.Select(user.FieldId)
 }

@@ -17,6 +17,8 @@ import (
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	seat "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/seat"
+	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
+	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	codes "google.golang.org/grpc/codes"
@@ -81,6 +83,68 @@ func (s SeatServiceServer) narrow(ctx context.Context, p predicate.Seat) (predic
 	return SeatNarrow(ctx, s.Scope, p)
 }
 
+func (s SeatServiceServer) snapshot(ctx context.Context, p predicate.Seat) (*ent.Seat, error) {
+	q := s.Db.Seat.Query().Where(p)
+	q.WithHolder(func(q *ent.UserQuery) { q.Select(user.FieldId) })
+	q.WithOrg(func(q *ent.TenantQuery) { q.Select(tenant.FieldId) })
+	q.WithDeputy(func(q *ent.UserQuery) { q.Select(user.FieldId) })
+	q.Modify(func(q *sql.Selector) {
+		if s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s SeatServiceServer) image(v *apptest.Seat) *apptest.Seat {
+	if s.Rec == nil || v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.Seat)
+	m := out.ProtoReflect()
+	{
+		f := m.Descriptor().Fields().ByNumber(2)
+		if m.Has(f) {
+			trim := func(r protoreflect.Message) {
+				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+					if f.Number() != 1 {
+						r.Clear(f)
+					}
+					return true
+				})
+			}
+			trim(m.Get(f).Message())
+		}
+	}
+	{
+		f := m.Descriptor().Fields().ByNumber(3)
+		if m.Has(f) {
+			trim := func(r protoreflect.Message) {
+				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+					if f.Number() != 1 {
+						r.Clear(f)
+					}
+					return true
+				})
+			}
+			trim(m.Get(f).Message())
+		}
+	}
+	{
+		f := m.Descriptor().Fields().ByNumber(4)
+		if m.Has(f) {
+			trim := func(r protoreflect.Message) {
+				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+					if f.Number() != 1 {
+						r.Clear(f)
+					}
+					return true
+				})
+			}
+			trim(m.Get(f).Message())
+		}
+	}
+	return out
+}
 func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest) (*apptest.Seat, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -150,10 +214,18 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 	for _, d := range ds {
 		d(v)
 	}
+	var value *apptest.Seat
+	if s.Rec != nil {
+		stored, err := st.snapshot(ctx, seat.IdEQ(u.Id))
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:    apptest.SeatService_Add_FullMethodName,
 		Key:   u.Id,
-		Value: s.image(v),
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -187,66 +259,6 @@ func (s SeatServiceServer) Get(ctx context.Context, req *apptest.SeatGetRequest)
 	return v.Proto(), nil
 }
 
-func (s SeatServiceServer) snapshot(ctx context.Context, p predicate.Seat) (*ent.Seat, error) {
-	q := s.Db.Seat.Query().Where(p)
-	SeatSelectInit(q, nil)
-	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
-			q.ForUpdate()
-		}
-	})
-	return q.Only(ctx)
-}
-func (s SeatServiceServer) image(v *apptest.Seat) *apptest.Seat {
-	if s.Rec == nil || v == nil {
-		return nil
-	}
-	out := proto.Clone(v).(*apptest.Seat)
-	m := out.ProtoReflect()
-	{
-		f := m.Descriptor().Fields().ByNumber(2)
-		if m.Has(f) {
-			trim := func(r protoreflect.Message) {
-				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
-					if f.Number() != 1 {
-						r.Clear(f)
-					}
-					return true
-				})
-			}
-			trim(m.Get(f).Message())
-		}
-	}
-	{
-		f := m.Descriptor().Fields().ByNumber(3)
-		if m.Has(f) {
-			trim := func(r protoreflect.Message) {
-				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
-					if f.Number() != 1 {
-						r.Clear(f)
-					}
-					return true
-				})
-			}
-			trim(m.Get(f).Message())
-		}
-	}
-	{
-		f := m.Descriptor().Fields().ByNumber(4)
-		if m.Has(f) {
-			trim := func(r protoreflect.Message) {
-				r.Range(func(f protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
-					if f.Number() != 1 {
-						r.Clear(f)
-					}
-					return true
-				})
-			}
-			trim(m.Get(f).Message())
-		}
-	}
-	return out
-}
 func selectSeatKey(q *ent.SeatQuery) {
 	q.Select(seat.FieldId)
 }

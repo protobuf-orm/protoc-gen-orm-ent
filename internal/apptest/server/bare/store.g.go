@@ -19,6 +19,7 @@ import (
 	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
+	writeonly "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/writeonly"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -338,6 +339,7 @@ type Scope interface {
 	UserScope(ctx context.Context) (predicate.User, error)
 	SeatScope(ctx context.Context) (predicate.Seat, error)
 	ShiftScope(ctx context.Context) (predicate.Shift, error)
+	WriteOnlyScope(ctx context.Context) (predicate.WriteOnly, error)
 }
 
 // Unscoped is a [Scope] that narrows nothing. Embed it and write out the
@@ -374,6 +376,9 @@ func (Unscoped) SeatScope(_ context.Context) (predicate.Seat, error) {
 	return nil, nil
 }
 func (Unscoped) ShiftScope(_ context.Context) (predicate.Shift, error) {
+	return nil, nil
+}
+func (Unscoped) WriteOnlyScope(_ context.Context) (predicate.WriteOnly, error) {
 	return nil, nil
 }
 
@@ -556,6 +561,26 @@ func (ss Scopes) ShiftScope(ctx context.Context) (predicate.Shift, error) {
 	return shift.And(ps...), nil
 }
 
+func (ss Scopes) WriteOnlyScope(ctx context.Context) (predicate.WriteOnly, error) {
+	ps := make([]predicate.WriteOnly, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.WriteOnlyScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return writeonly.And(ps...), nil
+}
+
 // Minter decides the key a row is stored under. It is asked once per Add,
 // for an entity whose key is a uuid, and only for those.
 //
@@ -688,3 +713,6 @@ func (s Server) Tenant() apptest.TenantServiceServer { return TenantServiceServe
 func (s Server) User() apptest.UserServiceServer     { return UserServiceServer{Store: s.Store} }
 func (s Server) Seat() apptest.SeatServiceServer     { return SeatServiceServer{Store: s.Store} }
 func (s Server) Shift() apptest.ShiftServiceServer   { return ShiftServiceServer{Store: s.Store} }
+func (s Server) WriteOnly() apptest.WriteOnlyServiceServer {
+	return WriteOnlyServiceServer{Store: s.Store}
+}

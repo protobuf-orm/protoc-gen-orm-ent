@@ -3,16 +3,17 @@ package bare_test
 import (
 	"context"
 	"fmt"
-	"github.com/lesomnus/protobuf-patch/patch"
-	"github.com/protobuf-orm/ent/dialect"
-	entsql "github.com/protobuf-orm/ent/dialect/sql"
-	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
-	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/lesomnus/protobuf-patch/patch"
 	"github.com/lesomnus/z"
+	"github.com/protobuf-orm/ent/dialect"
+	entsql "github.com/protobuf-orm/ent/dialect/sql"
 	pb "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/server/bare"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -59,7 +60,7 @@ func TestPostgresRecorderSnapshotsSerializeWriters(t *testing.T) {
 	db := ent.NewClient(ent.Driver(drv))
 	x.NoError(db.Schema.Create(ctx))
 	r := &recorder{}
-	s, err := bare.NewServer(db, bare.WithRecorder(r))
+	s, err := bare.NewServer(db, bare.WithRecorder(r), bare.WithClock(func() time.Time { return time.Date(2026, 10, 14, 1, 2, 3, 123456789, time.UTC) }))
 	x.NoError(err)
 	tenant, err := s.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
 	x.NoError(err)
@@ -69,6 +70,11 @@ func TestPostgresRecorderSnapshotsSerializeWriters(t *testing.T) {
 		_, _ = s.User().Erase(context.Background(), user.Ref())
 		_, _ = s.Tenant().Erase(context.Background(), tenant.Ref())
 	})
+	stored, err := s.User().Get(ctx, user.Ref().Pick())
+	x.NoError(err)
+	created := r.Changes[len(r.Changes)-1].Value.(*pb.User)
+	x.True(proto.Equal(stored.GetDateCreated(), created.GetDateCreated()), "create image must have database timestamp precision")
+	x.True(proto.Equal(stored.GetDateUpdated(), created.GetDateUpdated()))
 	r.Changes = nil
 	const count = 16
 	done := make(chan error, count)
@@ -91,4 +97,14 @@ func TestPostgresRecorderSnapshotsSerializeWriters(t *testing.T) {
 	current, err := s.User().Get(ctx, user.Ref().Pick())
 	x.NoError(err)
 	x.Equal(previous, current.GetName())
+}
+
+func TestWriteOnlyRecorderSnapshot(t *testing.T) {
+	t.Run("Get RPC is not required", R(func(ctx context.Context, x *require.Assertions, c *Client, r *recorder) {
+		v, err := c.WriteOnly().Add(ctx, pb.WriteOnlyAddRequest_builder{Id: "key", Value: "stored"}.Build())
+		x.NoError(err)
+		event := r.Only(x)
+		x.Nil(event.Previous)
+		x.True(proto.Equal(v, event.Value))
+	}))
 }

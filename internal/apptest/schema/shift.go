@@ -37,3 +37,22 @@ func (Shift) Annotations() []schema.Annotation {
 		entsql.Annotation{Table: "shift"},
 	}
 }
+
+type WriteOnly struct {
+	ent.Schema
+}
+
+func (WriteOnly) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("id").
+			Unique().
+			Immutable(),
+		field.String("value"),
+	}
+}
+
+func (WriteOnly) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{Table: "writeonly"},
+	}
+}

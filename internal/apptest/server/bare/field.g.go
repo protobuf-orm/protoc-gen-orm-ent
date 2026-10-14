@@ -79,6 +79,22 @@ func (s ValueFieldServiceServer) narrow(ctx context.Context, p predicate.ValueFi
 	return ValueFieldNarrow(ctx, s.Scope, p)
 }
 
+func (s ValueFieldServiceServer) snapshot(ctx context.Context, p predicate.ValueField) (*ent.ValueField, error) {
+	q := s.Db.ValueField.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s ValueFieldServiceServer) image(v *apptest.ValueField) *apptest.ValueField {
+	if s.Rec == nil || v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.ValueField)
+	return out
+}
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -492,10 +508,18 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	}
 
 	v := u.Proto()
+	var value *apptest.ValueField
+	if s.Rec != nil {
+		stored, err := st.snapshot(ctx, valuefield.IdEQ(u.Id))
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:    apptest.ValueFieldService_Add_FullMethodName,
 		Key:   u.Id,
-		Value: s.image(v),
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -529,23 +553,6 @@ func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFiel
 	return v.Proto(), nil
 }
 
-func (s ValueFieldServiceServer) snapshot(ctx context.Context, p predicate.ValueField) (*ent.ValueField, error) {
-	q := s.Db.ValueField.Query().Where(p)
-	ValueFieldSelectInit(q, nil)
-	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
-			q.ForUpdate()
-		}
-	})
-	return q.Only(ctx)
-}
-func (s ValueFieldServiceServer) image(v *apptest.ValueField) *apptest.ValueField {
-	if s.Rec == nil || v == nil {
-		return nil
-	}
-	out := proto.Clone(v).(*apptest.ValueField)
-	return out
-}
 func selectValueFieldKey(q *ent.ValueFieldQuery) {
 	q.Select(valuefield.FieldId)
 }
@@ -1254,6 +1261,22 @@ func (s MessageFieldServiceServer) narrow(ctx context.Context, p predicate.Messa
 	return MessageFieldNarrow(ctx, s.Scope, p)
 }
 
+func (s MessageFieldServiceServer) snapshot(ctx context.Context, p predicate.MessageField) (*ent.MessageField, error) {
+	q := s.Db.MessageField.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s MessageFieldServiceServer) image(v *apptest.MessageField) *apptest.MessageField {
+	if s.Rec == nil || v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.MessageField)
+	return out
+}
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -1309,10 +1332,18 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	}
 
 	v := u.Proto()
+	var value *apptest.MessageField
+	if s.Rec != nil {
+		stored, err := st.snapshot(ctx, messagefield.IdEQ(u.Id))
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:    apptest.MessageFieldService_Add_FullMethodName,
 		Key:   u.Id,
-		Value: s.image(v),
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -1346,23 +1377,6 @@ func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.Message
 	return v.Proto(), nil
 }
 
-func (s MessageFieldServiceServer) snapshot(ctx context.Context, p predicate.MessageField) (*ent.MessageField, error) {
-	q := s.Db.MessageField.Query().Where(p)
-	MessageFieldSelectInit(q, nil)
-	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
-			q.ForUpdate()
-		}
-	})
-	return q.Only(ctx)
-}
-func (s MessageFieldServiceServer) image(v *apptest.MessageField) *apptest.MessageField {
-	if s.Rec == nil || v == nil {
-		return nil
-	}
-	out := proto.Clone(v).(*apptest.MessageField)
-	return out
-}
 func selectMessageFieldKey(q *ent.MessageFieldQuery) {
 	q.Select(messagefield.FieldId)
 }
@@ -1711,6 +1725,22 @@ func (s MapFieldServiceServer) narrow(ctx context.Context, p predicate.MapField)
 	return MapFieldNarrow(ctx, s.Scope, p)
 }
 
+func (s MapFieldServiceServer) snapshot(ctx context.Context, p predicate.MapField) (*ent.MapField, error) {
+	q := s.Db.MapField.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s MapFieldServiceServer) image(v *apptest.MapField) *apptest.MapField {
+	if s.Rec == nil || v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.MapField)
+	return out
+}
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -1776,10 +1806,18 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	}
 
 	v := u.Proto()
+	var value *apptest.MapField
+	if s.Rec != nil {
+		stored, err := st.snapshot(ctx, mapfield.IdEQ(u.Id))
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:    apptest.MapFieldService_Add_FullMethodName,
 		Key:   u.Id,
-		Value: s.image(v),
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -1813,23 +1851,6 @@ func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGet
 	return v.Proto(), nil
 }
 
-func (s MapFieldServiceServer) snapshot(ctx context.Context, p predicate.MapField) (*ent.MapField, error) {
-	q := s.Db.MapField.Query().Where(p)
-	MapFieldSelectInit(q, nil)
-	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
-			q.ForUpdate()
-		}
-	})
-	return q.Only(ctx)
-}
-func (s MapFieldServiceServer) image(v *apptest.MapField) *apptest.MapField {
-	if s.Rec == nil || v == nil {
-		return nil
-	}
-	out := proto.Clone(v).(*apptest.MapField)
-	return out
-}
 func selectMapFieldKey(q *ent.MapFieldQuery) {
 	q.Select(mapfield.FieldId)
 }

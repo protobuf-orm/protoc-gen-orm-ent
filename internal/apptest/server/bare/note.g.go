@@ -83,6 +83,22 @@ func (s NoteServiceServer) narrow(ctx context.Context, p predicate.Note) (predic
 	return NoteNarrow(ctx, s.Scope, p)
 }
 
+func (s NoteServiceServer) snapshot(ctx context.Context, p predicate.Note) (*ent.Note, error) {
+	q := s.Db.Note.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s NoteServiceServer) image(v *apptest.Note) *apptest.Note {
+	if s.Rec == nil || v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.Note)
+	return out
+}
 func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest) (*apptest.Note, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -143,10 +159,18 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	}
 
 	v := u.Proto()
+	var value *apptest.Note
+	if s.Rec != nil {
+		stored, err := st.snapshot(ctx, note.IdEQ(u.Id))
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:    apptest.NoteService_Add_FullMethodName,
 		Key:   u.Id,
-		Value: s.image(v),
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -180,23 +204,6 @@ func (s NoteServiceServer) Get(ctx context.Context, req *apptest.NoteGetRequest)
 	return v.Proto(), nil
 }
 
-func (s NoteServiceServer) snapshot(ctx context.Context, p predicate.Note) (*ent.Note, error) {
-	q := s.Db.Note.Query().Where(p)
-	NoteSelectInit(q, nil)
-	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
-			q.ForUpdate()
-		}
-	})
-	return q.Only(ctx)
-}
-func (s NoteServiceServer) image(v *apptest.Note) *apptest.Note {
-	if s.Rec == nil || v == nil {
-		return nil
-	}
-	out := proto.Clone(v).(*apptest.Note)
-	return out
-}
 func selectNoteKey(q *ent.NoteQuery) {
 	q.Select(note.FieldId)
 }

@@ -91,10 +91,12 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 
 	w.xServer()
 	rpcs := w.Entity.Rpcs()
+	if rpcs.HasAdd() || rpcs.HasPatch() || rpcs.HasErase() {
+		w.xSnapshots()
+	}
 	need_pick := false
 	if rpcs.HasAdd() {
 		w.xAdd()
-		need_pick = true
 	}
 	if rpcs.HasGet() {
 		w.xGet()

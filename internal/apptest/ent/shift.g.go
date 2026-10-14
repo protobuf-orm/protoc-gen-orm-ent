@@ -15,3 +15,9 @@ func (e *Shift) Proto() *apptest.Shift {
 	x.SetStartsAt(timestamppb.New(e.StartsAt))
 	return x
 }
+func (e *WriteOnly) Proto() *apptest.WriteOnly {
+	x := &apptest.WriteOnly{}
+	x.SetId(e.Id)
+	x.SetValue(e.Value)
+	return x
+}

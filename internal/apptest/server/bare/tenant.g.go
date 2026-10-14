@@ -79,6 +79,22 @@ func (s TenantServiceServer) narrow(ctx context.Context, p predicate.Tenant) (pr
 	return TenantNarrow(ctx, s.Scope, p)
 }
 
+func (s TenantServiceServer) snapshot(ctx context.Context, p predicate.Tenant) (*ent.Tenant, error) {
+	q := s.Db.Tenant.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s TenantServiceServer) image(v *apptest.Tenant) *apptest.Tenant {
+	if s.Rec == nil || v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.Tenant)
+	return out
+}
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -136,10 +152,18 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	}
 
 	v := u.Proto()
+	var value *apptest.Tenant
+	if s.Rec != nil {
+		stored, err := st.snapshot(ctx, tenant.IdEQ(u.Id))
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
 		By:    apptest.TenantService_Add_FullMethodName,
 		Key:   u.Id,
-		Value: s.image(v),
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -173,23 +197,6 @@ func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequ
 	return v.Proto(), nil
 }
 
-func (s TenantServiceServer) snapshot(ctx context.Context, p predicate.Tenant) (*ent.Tenant, error) {
-	q := s.Db.Tenant.Query().Where(p)
-	TenantSelectInit(q, nil)
-	q.Modify(func(q *sql.Selector) {
-		if s.Db.Dialect() != dialect.SQLite {
-			q.ForUpdate()
-		}
-	})
-	return q.Only(ctx)
-}
-func (s TenantServiceServer) image(v *apptest.Tenant) *apptest.Tenant {
-	if s.Rec == nil || v == nil {
-		return nil
-	}
-	out := proto.Clone(v).(*apptest.Tenant)
-	return out
-}
 func selectTenantKey(q *ent.TenantQuery) {
 	q.Select(tenant.FieldId)
 }

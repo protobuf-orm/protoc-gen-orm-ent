@@ -34,6 +34,7 @@ type Server interface {
 	User() UserServiceServer
 	Seat() SeatServiceServer
 	Shift() ShiftServiceServer
+	WriteOnly() WriteOnlyServiceServer
 }
 
 // RegisterServer registers every service of `s` with `g`.
@@ -49,6 +50,7 @@ func RegisterServer(g grpc.ServiceRegistrar, s Server) {
 	RegisterUserServiceServer(g, s.User())
 	RegisterSeatServiceServer(g, s.Seat())
 	RegisterShiftServiceServer(g, s.Shift())
+	RegisterWriteOnlyServiceServer(g, s.WriteOnly())
 }
 
 type UnimplementedServer struct {
@@ -60,6 +62,7 @@ type UnimplementedServer struct {
 	UserServer         UserServiceServer
 	SeatServer         SeatServiceServer
 	ShiftServer        ShiftServiceServer
+	WriteOnlyServer    WriteOnlyServiceServer
 }
 
 func (UnimplementedServer) ValueField() ValueFieldServiceServer {
@@ -76,6 +79,9 @@ func (UnimplementedServer) Tenant() TenantServiceServer { return UnimplementedTe
 func (UnimplementedServer) User() UserServiceServer     { return UnimplementedUserServiceServer{} }
 func (UnimplementedServer) Seat() SeatServiceServer     { return UnimplementedSeatServiceServer{} }
 func (UnimplementedServer) Shift() ShiftServiceServer   { return UnimplementedShiftServiceServer{} }
+func (UnimplementedServer) WriteOnly() WriteOnlyServiceServer {
+	return UnimplementedWriteOnlyServiceServer{}
+}
 
 type StaticServer struct {
 	ValueFieldServer   ValueFieldServiceServer
@@ -86,6 +92,7 @@ type StaticServer struct {
 	UserServer         UserServiceServer
 	SeatServer         SeatServiceServer
 	ShiftServer        ShiftServiceServer
+	WriteOnlyServer    WriteOnlyServiceServer
 }
 
 func (s StaticServer) ValueField() ValueFieldServiceServer     { return s.ValueFieldServer }
@@ -96,6 +103,7 @@ func (s StaticServer) Tenant() TenantServiceServer             { return s.Tenant
 func (s StaticServer) User() UserServiceServer                 { return s.UserServer }
 func (s StaticServer) Seat() SeatServiceServer                 { return s.SeatServer }
 func (s StaticServer) Shift() ShiftServiceServer               { return s.ShiftServer }
+func (s StaticServer) WriteOnly() WriteOnlyServiceServer       { return s.WriteOnlyServer }
 
 type Client interface {
 	ValueField() ValueFieldServiceClient
@@ -106,6 +114,7 @@ type Client interface {
 	User() UserServiceClient
 	Seat() SeatServiceClient
 	Shift() ShiftServiceClient
+	WriteOnly() WriteOnlyServiceClient
 }
 
 func NewClient(c *grpc.ClientConn) Client {
@@ -118,6 +127,7 @@ func NewClient(c *grpc.ClientConn) Client {
 		_User:         NewUserServiceClient(c),
 		_Seat:         NewSeatServiceClient(c),
 		_Shift:        NewShiftServiceClient(c),
+		_WriteOnly:    NewWriteOnlyServiceClient(c),
 	}
 }
 
@@ -130,6 +140,7 @@ type client struct {
 	_User         UserServiceClient
 	_Seat         SeatServiceClient
 	_Shift        ShiftServiceClient
+	_WriteOnly    WriteOnlyServiceClient
 }
 
 func (c *client) ValueField() ValueFieldServiceClient     { return c._ValueField }
@@ -140,6 +151,7 @@ func (c *client) Tenant() TenantServiceClient             { return c._Tenant }
 func (c *client) User() UserServiceClient                 { return c._User }
 func (c *client) Seat() SeatServiceClient                 { return c._Seat }
 func (c *client) Shift() ShiftServiceClient               { return c._Shift }
+func (c *client) WriteOnly() WriteOnlyServiceClient       { return c._WriteOnly }
 
 // Middleware is a server that delegates to another server.
 type Middleware interface {
