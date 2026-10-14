@@ -42,3 +42,10 @@ message Shift {
     ]
   };
 }
+
+// A resource that only accepts writes must still produce recorder snapshots.
+message WriteOnly {
+  string id = 1 [(orm.field) = {key: true}];
+  string value = 2;
+  option (orm.message) = {rpc: {add: {}}};
+}

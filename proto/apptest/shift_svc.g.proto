@@ -74,3 +74,17 @@ message ShiftEraseResponse {
 	// reason the RPC does not fail instead.
 	bool erased = 1;
 }
+
+service WriteOnlyService {
+	// Add creates a new WriteOnly
+	rpc Add(WriteOnlyAddRequest) returns (WriteOnly);
+}
+
+message WriteOnlyAddRequest {
+	string id = 1 [
+		features.field_presence = IMPLICIT
+	];
+	string value = 2 [
+		features.field_presence = IMPLICIT
+	];
+}

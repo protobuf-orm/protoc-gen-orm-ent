@@ -8,16 +8,20 @@ import (
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
 	ent1 "github.com/protobuf-orm/ent"
+	dialect "github.com/protobuf-orm/ent/dialect"
+	sql "github.com/protobuf-orm/ent/dialect/sql"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
 	ormpatch "github.com/protobuf-orm/protobuf-orm/ormpatch"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	shift "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/shift"
+	writeonly "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/writeonly"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	proto "google.golang.org/protobuf/proto"
 	uuid "uuid"
 )
 
@@ -76,6 +80,22 @@ func (s ShiftServiceServer) narrow(ctx context.Context, p predicate.Shift) (pred
 	return ShiftNarrow(ctx, s.Scope, p)
 }
 
+func (s ShiftServiceServer) snapshot(ctx context.Context, p predicate.Shift, lock bool) (*ent.Shift, error) {
+	q := s.Db.Shift.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if lock && s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s ShiftServiceServer) image(v *apptest.Shift) *apptest.Shift {
+	if v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.Shift)
+	return out
+}
 func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddRequest) (*apptest.Shift, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -116,9 +136,19 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 		return nil, err
 	}
 
+	v := u.Proto()
+	var value *apptest.Shift
+	if snapshotOptions(s.Rec, apptest.ShiftService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, shift.IdEQ(u.Id), false)
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
 	if err := record(ctx, s.Rec, st.Db, Change{
-		By:  apptest.ShiftService_Add_FullMethodName,
-		Key: u.Id,
+		By:    apptest.ShiftService_Add_FullMethodName,
+		Key:   u.Id,
+		Value: value,
 	}); err != nil {
 		return nil, err
 	}
@@ -126,7 +156,7 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 		return nil, err
 	}
 
-	return u.Proto(), nil
+	return v, nil
 }
 
 func (s ShiftServiceServer) Get(ctx context.Context, req *apptest.ShiftGetRequest) (*apptest.Shift, error) {
@@ -286,6 +316,18 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 		return nil, err
 	}
 
+	var previous *apptest.Shift
+	images := snapshotOptions(s.Rec, by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return nil, status.Error(codes.NotFound, "resource not found")
+			}
+			return nil, err
+		}
+		previous = s.image(u.Proto())
+	}
 	if mod == nil {
 		q := st.Db.Shift.Query().Where(p)
 		if pred != nil {
@@ -331,20 +373,25 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 		}
 	}
 
+	out, err := st.Get(ctx, at.Pick())
+	if err != nil {
+		return nil, err
+	}
 	if mod != nil {
+		var value *apptest.Shift
+		if images.Value {
+			value = s.image(out)
+		}
 		if err := record(ctx, s.Rec, st.Db, Change{
-			By:    by,
-			Key:   k,
-			Patch: doc,
+			By:       by,
+			Key:      k,
+			Patch:    doc,
+			Previous: previous, Value: value,
 		}); err != nil {
 			return nil, err
 		}
 	}
 
-	out, err := st.Get(ctx, at.Pick())
-	if err != nil {
-		return nil, err
-	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -371,8 +418,16 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 	st.Db = tx.Db
 
 	var k any
+	var previous *apptest.Shift
 	if s.Rec != nil {
-		v, err := st.Db.Shift.Query().Where(p).OnlyId(ctx)
+		images := snapshotOptions(s.Rec, apptest.ShiftService_Erase_FullMethodName)
+		var v *ent.Shift
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.Shift.Query().Where(p).Select(shift.FieldId).Only(ctx)
+		}
 		if err != nil {
 			if ent.IsNotFound(err) {
 				return &apptest.ShiftEraseResponse{}, nil
@@ -380,8 +435,11 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 			return nil, err
 		}
 
-		k = v
-		p = shift.And(p, shift.IdEQ(v))
+		k = v.Id
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
+		p = shift.And(p, shift.IdEQ(v.Id))
 	}
 
 	n, err := st.Db.Shift.Delete().Where(p).Exec(ctx)
@@ -390,8 +448,9 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 	}
 	if n > 0 {
 		if err := record(ctx, s.Rec, st.Db, Change{
-			By:  apptest.ShiftService_Erase_FullMethodName,
-			Key: k,
+			By:       apptest.ShiftService_Erase_FullMethodName,
+			Key:      k,
+			Previous: previous,
 		}); err != nil {
 			return nil, err
 		}
@@ -424,4 +483,125 @@ func ShiftPick(req *apptest.ShiftRef) (predicate.Shift, error) {
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
 	}
+}
+
+type WriteOnlyServiceServer struct {
+	Store
+
+	apptest.UnimplementedWriteOnlyServiceServer
+}
+
+// NewWriteOnlyServiceServer answers with a server that runs its queries with `db`.
+//
+// It takes the options of [Server] so that what is built here can be told
+// where to report its writes and what it may see. Built without them, it
+// reports nowhere and sees everything.
+func NewWriteOnlyServiceServer(db *ent.Client, opts ...Option) apptest.WriteOnlyServiceServer {
+	s := Server{Store: Store{Db: db}}
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return WriteOnlyServiceServer{Store: s.Store}
+}
+
+// WriteOnlyNarrow answers with `p` and everything else that narrows a
+// read of a WriteOnly, which is whatever `scope` says.
+//
+// Every read this package makes goes through it, and a read written by
+// hand should too -- a List is the one read nothing generates, and so the
+// one that would otherwise answer with rows nobody should be given.
+func WriteOnlyNarrow(ctx context.Context, scope Scope, p predicate.WriteOnly) (predicate.WriteOnly, error) {
+	ps := make([]predicate.WriteOnly, 0, 2)
+	if p != nil {
+		ps = append(ps, p)
+	}
+	if scope != nil {
+		q, err := scope.WriteOnlyScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if q != nil {
+			ps = append(ps, q)
+		}
+	}
+
+	switch len(ps) {
+	case 0:
+		return nil, nil
+	case 1:
+		return ps[0], nil
+	default:
+		return writeonly.And(ps...), nil
+	}
+}
+
+// narrow is [WriteOnlyNarrow] with this server's own scope.
+func (s WriteOnlyServiceServer) narrow(ctx context.Context, p predicate.WriteOnly) (predicate.WriteOnly, error) {
+	return WriteOnlyNarrow(ctx, s.Scope, p)
+}
+
+func (s WriteOnlyServiceServer) snapshot(ctx context.Context, p predicate.WriteOnly, lock bool) (*ent.WriteOnly, error) {
+	q := s.Db.WriteOnly.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if lock && s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s WriteOnlyServiceServer) image(v *apptest.WriteOnly) *apptest.WriteOnly {
+	if v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.WriteOnly)
+	return out
+}
+func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyAddRequest) (*apptest.WriteOnly, error) {
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q := st.Db.WriteOnly.Create()
+	q.SetId(req.GetId())
+	q.SetValue(req.GetValue())
+
+	u, err := q.Save(ctx)
+	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok {
+			if sqlgraph.IsUniqueConstraintError(err) {
+				return nil, status.Error(codes.AlreadyExists, "WriteOnly already exists")
+			}
+			if sqlgraph.IsForeignKeyConstraintError(err) {
+				return nil, status.Error(codes.NotFound, "WriteOnly: referenced entity not found")
+			}
+		}
+		return nil, err
+	}
+
+	v := u.Proto()
+	var value *apptest.WriteOnly
+	if snapshotOptions(s.Rec, apptest.WriteOnlyService_Add_FullMethodName).Value {
+		stored, err := st.snapshot(ctx, writeonly.IdEQ(u.Id), false)
+		if err != nil {
+			return nil, err
+		}
+		value = s.image(stored.Proto())
+	}
+	if err := record(ctx, s.Rec, st.Db, Change{
+		By:    apptest.WriteOnlyService_Add_FullMethodName,
+		Key:   u.Id,
+		Value: value,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }

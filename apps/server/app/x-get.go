@@ -38,6 +38,7 @@ func (w *fileWork) xGet() {
 	w.P("	return v.Proto(), nil")
 	w.P("}")
 	w.P("")
+
 }
 
 func (w *fileWork) xGetKey() {
