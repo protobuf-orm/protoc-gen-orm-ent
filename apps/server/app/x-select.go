@@ -118,8 +118,22 @@ func (w *fileWork) xSelectInit() {
 		") {")
 	w.P("	if m != nil {")
 	w.P("		", name_x, "Select(q, m)")
-	w.P("	} else {")
+	// Only a list edge is loaded. A row holds the key of every other one in
+	// the column the edge is kept in, and `Proto()` answers with it when
+	// nothing was loaded -- which is the whole of what a Get with no select
+	// answers for an edge. Loading it anyway was a query for each edge of
+	// every row read, and an answer that was worse: the neighbour read with
+	// its key and nothing else, so every other field of it at its zero value
+	// and its timestamps in the year 1, as though that were the row.
+	opened := false
 	for p := range w.Entity.Edges() {
+		if !p.IsList() {
+			continue
+		}
+		if !opened {
+			w.P("	} else {")
+			opened = true
+		}
 		name_p := work.Name(p.Name()).Ent()
 		name_y := p.Target().Name()
 		w.P("		q.With", name_p, "(select", name_y, "Key)")

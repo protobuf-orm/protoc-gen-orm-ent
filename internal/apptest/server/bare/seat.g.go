@@ -17,8 +17,6 @@ import (
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	seat "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/seat"
-	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
-	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
 	codes "google.golang.org/grpc/codes"
@@ -85,9 +83,6 @@ func (s SeatServiceServer) narrow(ctx context.Context, p predicate.Seat) (predic
 
 func (s SeatServiceServer) snapshot(ctx context.Context, p predicate.Seat, lock bool) (*ent.Seat, error) {
 	q := s.Db.Seat.Query().Where(p)
-	q.WithHolder(func(q *ent.UserQuery) { q.Select(user.FieldId) })
-	q.WithOrg(func(q *ent.TenantQuery) { q.Select(tenant.FieldId) })
-	q.WithDeputy(func(q *ent.UserQuery) { q.Select(user.FieldId) })
 	q.Modify(func(q *sql.Selector) {
 		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
@@ -301,10 +296,6 @@ func SeatSelect(q *ent.SeatQuery, m *apptest.SeatSelect) {
 func SeatSelectInit(q *ent.SeatQuery, m *apptest.SeatSelect) {
 	if m != nil {
 		SeatSelect(q, m)
-	} else {
-		q.WithHolder(selectUserKey)
-		q.WithOrg(selectTenantKey)
-		q.WithDeputy(selectUserKey)
 	}
 }
 

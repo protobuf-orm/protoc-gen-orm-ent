@@ -1004,7 +1004,6 @@ func ValueFieldSelect(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
 func ValueFieldSelectInit(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
 	if m != nil {
 		ValueFieldSelect(q, m)
-	} else {
 	}
 }
 
@@ -1482,7 +1481,6 @@ func MessageFieldSelect(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect)
 func MessageFieldSelectInit(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) {
 	if m != nil {
 		MessageFieldSelect(q, m)
-	} else {
 	}
 }
 
@@ -1976,7 +1974,6 @@ func MapFieldSelect(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
 func MapFieldSelectInit(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
 	if m != nil {
 		MapFieldSelect(q, m)
-	} else {
 	}
 }
 
