@@ -34,7 +34,10 @@ message User {
   }];
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {
+      crud: true
+      add: {many: {}}
+    }
     indexes: [
       {
         name: "alias"

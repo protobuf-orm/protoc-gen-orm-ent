@@ -21,10 +21,12 @@ import (
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
 	writeonly "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/writeonly"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
+	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	proto "google.golang.org/protobuf/proto"
+	protoadapt "google.golang.org/protobuf/protoadapt"
 	time "time"
 	uuid "uuid"
 )
@@ -180,8 +182,9 @@ type Change struct {
 	//
 	// It says which entity and which kind of write without a field for
 	// either: a service is named for the entity it is about, and it is
-	// always one of the four this server has -- an Add adds and an Erase
-	// erases, and Patch and Apply are one write by two roads.
+	// always one of the five this server has -- an Add adds and an Erase
+	// erases, an AddMany adds a row each it is told about, and Patch and
+	// Apply are one write by two roads.
 	//
 	// So the two answer different questions and a recorder wants the one it
 	// is for. A trail is read by somebody asking what was asked for, and
@@ -251,7 +254,7 @@ type SnapshotOptions struct{ Previous, Value bool }
 
 // SnapshotRecorder opts into image capture before the write. Previous reads
 // and locks the root row until transaction completion (except SQLite, whose
-// writes are serialized by the database). Value is the row an Add's INSERT
+// writes are serialized by the database). Value is the row an Add's, or an AddMany's, INSERT
 // reads back -- in the same statement, where the dialect has RETURNING -- and
 // the read-back Patch/Apply make anyway. Relations contain keys only.
 // method is the generated operation (Change.By), not the outer RPC.
@@ -684,6 +687,61 @@ func (s Store) now() time.Time {
 	}
 
 	return s.Now().UTC()
+}
+
+// ItemError is `err`, about the item at `i` of a call that carries many --
+// an AddMany -- said so that its caller can tell which: in the code `err`
+// had, after `items[i]: ` in the message, and, for an InvalidArgument, with
+// every field of its google.rpc.BadRequest under `items[i]` -- or one that
+// names the item, when it had none. A layer that refuses one item of many
+// answers with this, as the generated AddMany does.
+func ItemError(i int, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	at := fmt.Sprintf("items[%d]", i)
+	st := status.Convert(err)
+	out := status.New(st.Code(), at+": "+st.Message())
+
+	details := []protoadapt.MessageV1{}
+	named := false
+	for _, d := range st.Details() {
+		if b, ok := d.(*errdetails.BadRequest); ok {
+			vs := make([]*errdetails.BadRequest_FieldViolation, len(b.GetFieldViolations()))
+			for k, v := range b.GetFieldViolations() {
+				field := at
+				switch f := v.GetField(); {
+				case f == "":
+				case f[0] == '[':
+					field += f
+				default:
+					field += "." + f
+				}
+				vs[k] = &errdetails.BadRequest_FieldViolation{Field: field, Description: v.GetDescription()}
+			}
+			details = append(details, &errdetails.BadRequest{FieldViolations: vs})
+			named = true
+			continue
+		}
+		if m, ok := d.(protoadapt.MessageV1); ok {
+			details = append(details, m)
+		}
+	}
+	if !named && st.Code() == codes.InvalidArgument {
+		details = append(details, &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{{Field: at, Description: st.Message()}},
+		})
+	}
+	if len(details) == 0 {
+		return out.Err()
+	}
+
+	with, err := out.WithDetails(details...)
+	if err != nil {
+		return out.Err()
+	}
+	return with.Err()
 }
 
 // NewServer refuses a client whose dialect this backend does not write

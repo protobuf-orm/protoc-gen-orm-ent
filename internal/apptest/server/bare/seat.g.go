@@ -140,6 +140,55 @@ func (s SeatServiceServer) image(v *apptest.Seat) *apptest.Seat {
 	}
 	return out
 }
+
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st SeatServiceServer) create(ctx context.Context, req *apptest.SeatAddRequest) (*ent.SeatCreate, []func(v *apptest.Seat), error) {
+	ds := make([]func(v *apptest.Seat), 0, 3)
+	q := st.Db.Seat.Create()
+	var k uuid.UUID
+	if req.HasId() {
+		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
+			return nil, nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			k = v
+		}
+	}
+	if v, err := mint(ctx, st.Mint, "apptest.Seat", k, req.HasId()); err != nil {
+		return nil, nil, err
+	} else {
+		q.SetId(v)
+	}
+	if k, err := UserGetKey(ctx, st.Db, req.GetHolder()); err != nil {
+		return nil, nil, err
+	} else {
+		q.SetHolderId(k)
+		ds = append(ds, func(v *apptest.Seat) {
+			v.SetHolder(apptest.User_builder{Id: k[:]}.Build())
+		})
+	}
+	if k, err := TenantGetKey(ctx, st.Db, req.GetOrg()); err != nil {
+		return nil, nil, err
+	} else {
+		q.SetOrgId(k)
+		ds = append(ds, func(v *apptest.Seat) {
+			v.SetOrg(apptest.Tenant_builder{Id: k[:]}.Build())
+		})
+	}
+	if req.HasDeputy() {
+		if k, err := UserGetKey(ctx, st.Db, req.GetDeputy()); err != nil {
+			return nil, nil, err
+		} else {
+			q.SetDeputyId(k)
+			ds = append(ds, func(v *apptest.Seat) {
+				v.SetDeputy(apptest.User_builder{Id: k[:]}.Build())
+			})
+		}
+	}
+	return q, ds, nil
+}
+
 func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest) (*apptest.Seat, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -150,46 +199,9 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 	st := s
 	st.Db = tx.Db
 
-	ds := make([]func(v *apptest.Seat), 0, 3)
-	q := st.Db.Seat.Create()
-	var k uuid.UUID
-	if req.HasId() {
-		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
-		} else {
-			k = v
-		}
-	}
-	if v, err := mint(ctx, s.Mint, "apptest.Seat", k, req.HasId()); err != nil {
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
 		return nil, err
-	} else {
-		q.SetId(v)
-	}
-	if k, err := UserGetKey(ctx, st.Db, req.GetHolder()); err != nil {
-		return nil, err
-	} else {
-		q.SetHolderId(k)
-		ds = append(ds, func(v *apptest.Seat) {
-			v.SetHolder(apptest.User_builder{Id: k[:]}.Build())
-		})
-	}
-	if k, err := TenantGetKey(ctx, st.Db, req.GetOrg()); err != nil {
-		return nil, err
-	} else {
-		q.SetOrgId(k)
-		ds = append(ds, func(v *apptest.Seat) {
-			v.SetOrg(apptest.Tenant_builder{Id: k[:]}.Build())
-		})
-	}
-	if req.HasDeputy() {
-		if k, err := UserGetKey(ctx, st.Db, req.GetDeputy()); err != nil {
-			return nil, err
-		} else {
-			q.SetDeputyId(k)
-			ds = append(ds, func(v *apptest.Seat) {
-				v.SetDeputy(apptest.User_builder{Id: k[:]}.Build())
-			})
-		}
 	}
 
 	var stored *ent.Seat
@@ -230,6 +242,149 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 	}
 
 	return v, nil
+}
+
+// SeatAddManyMax is the most items one AddMany of Seat carries.
+const SeatAddManyMax = 3
+
+// seatAddManyRows is how many rows one INSERT of an AddMany
+// writes: as many as fit in what a statement binds on every engine, and
+// no more than a few hundred.
+const seatAddManyRows = 500
+
+// AddMany adds every item as Add would add it, in one transaction: all of
+// the rows or none of them. The rows come back in the order of the items.
+//
+// An item that cannot be a row is refused naming the item, before anything
+// is written. A refusal by the database is the whole statement's, and does
+// not say which row it was about.
+func (s SeatServiceServer) AddMany(ctx context.Context, req *apptest.SeatAddManyRequest) (*apptest.SeatAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > SeatAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", SeatAddManyMax, len(items))
+	}
+	if len(items) == 0 {
+		return apptest.SeatAddManyResponse_builder{}.Build(), nil
+	}
+
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	images := snapshotOptions(s.Rec, apptest.SeatService_AddMany_FullMethodName).Value
+	qs := make([]*ent.SeatCreate, len(items))
+	dss := make([][]func(v *apptest.Seat), len(items))
+	stored := make([]*ent.Seat, len(items))
+	for i, item := range items {
+		q, ds, err := st.create(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if images {
+			q.Stored(&stored[i])
+		}
+		qs[i], dss[i] = q, ds
+	}
+
+	us := make([]*ent.Seat, 0, len(qs))
+	for lo := 0; lo < len(qs); lo += seatAddManyRows {
+		vs, err := st.Db.Seat.CreateBulk(qs[lo:min(lo+seatAddManyRows, len(qs))]...).Save(ctx)
+		if err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Error(codes.AlreadyExists, "Seat already exists")
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Error(codes.NotFound, "Seat: referenced entity not found")
+				}
+			}
+			return nil, err
+		}
+		us = append(us, vs...)
+	}
+
+	out := make([]*apptest.Seat, len(us))
+	for i, u := range us {
+		v := u.Proto()
+		for _, d := range dss[i] {
+			d(v)
+		}
+		out[i] = v
+
+		var value *apptest.Seat
+		if stored[i] != nil {
+			value = s.image(stored[i].Proto())
+		}
+		if err := record(ctx, s.Rec, st.Db, Change{
+			By:    apptest.SeatService_AddMany_FullMethodName,
+			Key:   u.Id,
+			Value: value,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return apptest.SeatAddManyResponse_builder{Items: out}.Build(), nil
+}
+
+// SeatAddRule is what a layer in front says about one row an Add of Seat
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type SeatAddRule func(ctx context.Context, req *apptest.SeatAddRequest) (*apptest.SeatAddRequest, error)
+
+// SeatWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func SeatWithAddRule(next apptest.SeatServiceServer, rule SeatAddRule) apptest.SeatServiceServer {
+	return seatAddRuled{next, rule}
+}
+
+type seatAddRuled struct {
+	apptest.SeatServiceServer
+	rule SeatAddRule
+}
+
+func (s seatAddRuled) Add(ctx context.Context, req *apptest.SeatAddRequest) (*apptest.Seat, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.SeatServiceServer.Add(ctx, r)
+}
+
+func (s seatAddRuled) AddMany(ctx context.Context, req *apptest.SeatAddManyRequest) (*apptest.SeatAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > SeatAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", SeatAddManyMax, len(items))
+	}
+
+	rs := make([]*apptest.SeatAddRequest, len(items))
+	for i, item := range items {
+		r, err := s.rule(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if r == nil {
+			r = item
+		}
+		rs[i] = r
+	}
+	return s.SeatServiceServer.AddMany(ctx, apptest.SeatAddManyRequest_builder{Items: rs}.Build())
 }
 
 func (s SeatServiceServer) Get(ctx context.Context, req *apptest.SeatGetRequest) (*apptest.Seat, error) {

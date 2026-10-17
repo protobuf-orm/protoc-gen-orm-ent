@@ -95,16 +95,12 @@ func (s ValueFieldServiceServer) image(v *apptest.ValueField) *apptest.ValueFiel
 	out := proto.Clone(v).(*apptest.ValueField)
 	return out
 }
-func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Close()
 
-	st := s
-	st.Db = tx.Db
-
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st ValueFieldServiceServer) create(ctx context.Context, req *apptest.ValueFieldAddRequest) (*ent.ValueFieldCreate, []func(v *apptest.ValueField), error) {
+	var ds []func(v *apptest.ValueField)
 	q := st.Db.ValueField.Create()
 	if req.HasId() {
 		q.SetId(req.GetId())
@@ -518,6 +514,23 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	} else {
 		q.SetImplicitF64Half(0.5)
 	}
+	return q, ds, nil
+}
+
+func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	var stored *ent.ValueField
 	if snapshotOptions(s.Rec, apptest.ValueFieldService_Add_FullMethodName).Value {
@@ -538,6 +551,9 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	}
 
 	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
 	var value *apptest.ValueField
 	if stored != nil {
 		value = s.image(stored.Proto())
@@ -554,6 +570,149 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	}
 
 	return v, nil
+}
+
+// ValueFieldAddManyMax is the most items one AddMany of ValueField carries.
+const ValueFieldAddManyMax = 1000
+
+// valueFieldAddManyRows is how many rows one INSERT of an AddMany
+// writes: as many as fit in what a statement binds on every engine, and
+// no more than a few hundred.
+const valueFieldAddManyRows = 238
+
+// AddMany adds every item as Add would add it, in one transaction: all of
+// the rows or none of them. The rows come back in the order of the items.
+//
+// An item that cannot be a row is refused naming the item, before anything
+// is written. A refusal by the database is the whole statement's, and does
+// not say which row it was about.
+func (s ValueFieldServiceServer) AddMany(ctx context.Context, req *apptest.ValueFieldAddManyRequest) (*apptest.ValueFieldAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > ValueFieldAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", ValueFieldAddManyMax, len(items))
+	}
+	if len(items) == 0 {
+		return apptest.ValueFieldAddManyResponse_builder{}.Build(), nil
+	}
+
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	images := snapshotOptions(s.Rec, apptest.ValueFieldService_AddMany_FullMethodName).Value
+	qs := make([]*ent.ValueFieldCreate, len(items))
+	dss := make([][]func(v *apptest.ValueField), len(items))
+	stored := make([]*ent.ValueField, len(items))
+	for i, item := range items {
+		q, ds, err := st.create(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if images {
+			q.Stored(&stored[i])
+		}
+		qs[i], dss[i] = q, ds
+	}
+
+	us := make([]*ent.ValueField, 0, len(qs))
+	for lo := 0; lo < len(qs); lo += valueFieldAddManyRows {
+		vs, err := st.Db.ValueField.CreateBulk(qs[lo:min(lo+valueFieldAddManyRows, len(qs))]...).Save(ctx)
+		if err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Error(codes.AlreadyExists, "ValueField already exists")
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Error(codes.NotFound, "ValueField: referenced entity not found")
+				}
+			}
+			return nil, err
+		}
+		us = append(us, vs...)
+	}
+
+	out := make([]*apptest.ValueField, len(us))
+	for i, u := range us {
+		v := u.Proto()
+		for _, d := range dss[i] {
+			d(v)
+		}
+		out[i] = v
+
+		var value *apptest.ValueField
+		if stored[i] != nil {
+			value = s.image(stored[i].Proto())
+		}
+		if err := record(ctx, s.Rec, st.Db, Change{
+			By:    apptest.ValueFieldService_AddMany_FullMethodName,
+			Key:   u.Id,
+			Value: value,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return apptest.ValueFieldAddManyResponse_builder{Items: out}.Build(), nil
+}
+
+// ValueFieldAddRule is what a layer in front says about one row an Add of ValueField
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type ValueFieldAddRule func(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueFieldAddRequest, error)
+
+// ValueFieldWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func ValueFieldWithAddRule(next apptest.ValueFieldServiceServer, rule ValueFieldAddRule) apptest.ValueFieldServiceServer {
+	return valueFieldAddRuled{next, rule}
+}
+
+type valueFieldAddRuled struct {
+	apptest.ValueFieldServiceServer
+	rule ValueFieldAddRule
+}
+
+func (s valueFieldAddRuled) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.ValueFieldServiceServer.Add(ctx, r)
+}
+
+func (s valueFieldAddRuled) AddMany(ctx context.Context, req *apptest.ValueFieldAddManyRequest) (*apptest.ValueFieldAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > ValueFieldAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", ValueFieldAddManyMax, len(items))
+	}
+
+	rs := make([]*apptest.ValueFieldAddRequest, len(items))
+	for i, item := range items {
+		r, err := s.rule(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if r == nil {
+			r = item
+		}
+		rs[i] = r
+	}
+	return s.ValueFieldServiceServer.AddMany(ctx, apptest.ValueFieldAddManyRequest_builder{Items: rs}.Build())
 }
 
 func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFieldGetRequest) (*apptest.ValueField, error) {
@@ -1331,16 +1490,12 @@ func (s MessageFieldServiceServer) image(v *apptest.MessageField) *apptest.Messa
 	out := proto.Clone(v).(*apptest.MessageField)
 	return out
 }
-func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Close()
 
-	st := s
-	st.Db = tx.Db
-
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st MessageFieldServiceServer) create(ctx context.Context, req *apptest.MessageFieldAddRequest) (*ent.MessageFieldCreate, []func(v *apptest.MessageField), error) {
+	var ds []func(v *apptest.MessageField)
 	q := st.Db.MessageField.Create()
 	if req.HasId() {
 		q.SetId(req.GetId())
@@ -1371,6 +1526,23 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	if req.HasExplicitImmutable() {
 		q.SetExplicitImmutable(req.GetExplicitImmutable())
 	}
+	return q, ds, nil
+}
+
+func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	var stored *ent.MessageField
 	if snapshotOptions(s.Rec, apptest.MessageFieldService_Add_FullMethodName).Value {
@@ -1391,6 +1563,9 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	}
 
 	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
 	var value *apptest.MessageField
 	if stored != nil {
 		value = s.image(stored.Proto())
@@ -1407,6 +1582,149 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	}
 
 	return v, nil
+}
+
+// MessageFieldAddManyMax is the most items one AddMany of MessageField carries.
+const MessageFieldAddManyMax = 1000
+
+// messageFieldAddManyRows is how many rows one INSERT of an AddMany
+// writes: as many as fit in what a statement binds on every engine, and
+// no more than a few hundred.
+const messageFieldAddManyRows = 500
+
+// AddMany adds every item as Add would add it, in one transaction: all of
+// the rows or none of them. The rows come back in the order of the items.
+//
+// An item that cannot be a row is refused naming the item, before anything
+// is written. A refusal by the database is the whole statement's, and does
+// not say which row it was about.
+func (s MessageFieldServiceServer) AddMany(ctx context.Context, req *apptest.MessageFieldAddManyRequest) (*apptest.MessageFieldAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > MessageFieldAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", MessageFieldAddManyMax, len(items))
+	}
+	if len(items) == 0 {
+		return apptest.MessageFieldAddManyResponse_builder{}.Build(), nil
+	}
+
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	images := snapshotOptions(s.Rec, apptest.MessageFieldService_AddMany_FullMethodName).Value
+	qs := make([]*ent.MessageFieldCreate, len(items))
+	dss := make([][]func(v *apptest.MessageField), len(items))
+	stored := make([]*ent.MessageField, len(items))
+	for i, item := range items {
+		q, ds, err := st.create(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if images {
+			q.Stored(&stored[i])
+		}
+		qs[i], dss[i] = q, ds
+	}
+
+	us := make([]*ent.MessageField, 0, len(qs))
+	for lo := 0; lo < len(qs); lo += messageFieldAddManyRows {
+		vs, err := st.Db.MessageField.CreateBulk(qs[lo:min(lo+messageFieldAddManyRows, len(qs))]...).Save(ctx)
+		if err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Error(codes.AlreadyExists, "MessageField already exists")
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Error(codes.NotFound, "MessageField: referenced entity not found")
+				}
+			}
+			return nil, err
+		}
+		us = append(us, vs...)
+	}
+
+	out := make([]*apptest.MessageField, len(us))
+	for i, u := range us {
+		v := u.Proto()
+		for _, d := range dss[i] {
+			d(v)
+		}
+		out[i] = v
+
+		var value *apptest.MessageField
+		if stored[i] != nil {
+			value = s.image(stored[i].Proto())
+		}
+		if err := record(ctx, s.Rec, st.Db, Change{
+			By:    apptest.MessageFieldService_AddMany_FullMethodName,
+			Key:   u.Id,
+			Value: value,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return apptest.MessageFieldAddManyResponse_builder{Items: out}.Build(), nil
+}
+
+// MessageFieldAddRule is what a layer in front says about one row an Add of MessageField
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type MessageFieldAddRule func(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageFieldAddRequest, error)
+
+// MessageFieldWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func MessageFieldWithAddRule(next apptest.MessageFieldServiceServer, rule MessageFieldAddRule) apptest.MessageFieldServiceServer {
+	return messageFieldAddRuled{next, rule}
+}
+
+type messageFieldAddRuled struct {
+	apptest.MessageFieldServiceServer
+	rule MessageFieldAddRule
+}
+
+func (s messageFieldAddRuled) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.MessageFieldServiceServer.Add(ctx, r)
+}
+
+func (s messageFieldAddRuled) AddMany(ctx context.Context, req *apptest.MessageFieldAddManyRequest) (*apptest.MessageFieldAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > MessageFieldAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", MessageFieldAddManyMax, len(items))
+	}
+
+	rs := make([]*apptest.MessageFieldAddRequest, len(items))
+	for i, item := range items {
+		r, err := s.rule(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if r == nil {
+			r = item
+		}
+		rs[i] = r
+	}
+	return s.MessageFieldServiceServer.AddMany(ctx, apptest.MessageFieldAddManyRequest_builder{Items: rs}.Build())
 }
 
 func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.MessageFieldGetRequest) (*apptest.MessageField, error) {
@@ -1809,16 +2127,12 @@ func (s MapFieldServiceServer) image(v *apptest.MapField) *apptest.MapField {
 	out := proto.Clone(v).(*apptest.MapField)
 	return out
 }
-func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Close()
 
-	st := s
-	st.Db = tx.Db
-
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st MapFieldServiceServer) create(ctx context.Context, req *apptest.MapFieldAddRequest) (*ent.MapFieldCreate, []func(v *apptest.MapField), error) {
+	var ds []func(v *apptest.MapField)
 	q := st.Db.MapField.Create()
 	if req.HasId() {
 		q.SetId(req.GetId())
@@ -1859,6 +2173,23 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	if u := req.GetImplicitImmutableJson(); len(u) > 0 {
 		q.SetImplicitImmutableJson(u)
 	}
+	return q, ds, nil
+}
+
+func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	var stored *ent.MapField
 	if snapshotOptions(s.Rec, apptest.MapFieldService_Add_FullMethodName).Value {
@@ -1879,6 +2210,9 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	}
 
 	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
 	var value *apptest.MapField
 	if stored != nil {
 		value = s.image(stored.Proto())
@@ -1895,6 +2229,149 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	}
 
 	return v, nil
+}
+
+// MapFieldAddManyMax is the most items one AddMany of MapField carries.
+const MapFieldAddManyMax = 1000
+
+// mapFieldAddManyRows is how many rows one INSERT of an AddMany
+// writes: as many as fit in what a statement binds on every engine, and
+// no more than a few hundred.
+const mapFieldAddManyRows = 500
+
+// AddMany adds every item as Add would add it, in one transaction: all of
+// the rows or none of them. The rows come back in the order of the items.
+//
+// An item that cannot be a row is refused naming the item, before anything
+// is written. A refusal by the database is the whole statement's, and does
+// not say which row it was about.
+func (s MapFieldServiceServer) AddMany(ctx context.Context, req *apptest.MapFieldAddManyRequest) (*apptest.MapFieldAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > MapFieldAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", MapFieldAddManyMax, len(items))
+	}
+	if len(items) == 0 {
+		return apptest.MapFieldAddManyResponse_builder{}.Build(), nil
+	}
+
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	images := snapshotOptions(s.Rec, apptest.MapFieldService_AddMany_FullMethodName).Value
+	qs := make([]*ent.MapFieldCreate, len(items))
+	dss := make([][]func(v *apptest.MapField), len(items))
+	stored := make([]*ent.MapField, len(items))
+	for i, item := range items {
+		q, ds, err := st.create(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if images {
+			q.Stored(&stored[i])
+		}
+		qs[i], dss[i] = q, ds
+	}
+
+	us := make([]*ent.MapField, 0, len(qs))
+	for lo := 0; lo < len(qs); lo += mapFieldAddManyRows {
+		vs, err := st.Db.MapField.CreateBulk(qs[lo:min(lo+mapFieldAddManyRows, len(qs))]...).Save(ctx)
+		if err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Error(codes.AlreadyExists, "MapField already exists")
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Error(codes.NotFound, "MapField: referenced entity not found")
+				}
+			}
+			return nil, err
+		}
+		us = append(us, vs...)
+	}
+
+	out := make([]*apptest.MapField, len(us))
+	for i, u := range us {
+		v := u.Proto()
+		for _, d := range dss[i] {
+			d(v)
+		}
+		out[i] = v
+
+		var value *apptest.MapField
+		if stored[i] != nil {
+			value = s.image(stored[i].Proto())
+		}
+		if err := record(ctx, s.Rec, st.Db, Change{
+			By:    apptest.MapFieldService_AddMany_FullMethodName,
+			Key:   u.Id,
+			Value: value,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return apptest.MapFieldAddManyResponse_builder{Items: out}.Build(), nil
+}
+
+// MapFieldAddRule is what a layer in front says about one row an Add of MapField
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type MapFieldAddRule func(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapFieldAddRequest, error)
+
+// MapFieldWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func MapFieldWithAddRule(next apptest.MapFieldServiceServer, rule MapFieldAddRule) apptest.MapFieldServiceServer {
+	return mapFieldAddRuled{next, rule}
+}
+
+type mapFieldAddRuled struct {
+	apptest.MapFieldServiceServer
+	rule MapFieldAddRule
+}
+
+func (s mapFieldAddRuled) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.MapFieldServiceServer.Add(ctx, r)
+}
+
+func (s mapFieldAddRuled) AddMany(ctx context.Context, req *apptest.MapFieldAddManyRequest) (*apptest.MapFieldAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > MapFieldAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", MapFieldAddManyMax, len(items))
+	}
+
+	rs := make([]*apptest.MapFieldAddRequest, len(items))
+	for i, item := range items {
+		r, err := s.rule(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if r == nil {
+			r = item
+		}
+		rs[i] = r
+	}
+	return s.MapFieldServiceServer.AddMany(ctx, apptest.MapFieldAddManyRequest_builder{Items: rs}.Build())
 }
 
 func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGetRequest) (*apptest.MapField, error) {
