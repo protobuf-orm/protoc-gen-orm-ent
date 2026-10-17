@@ -22,9 +22,11 @@ func (User) Fields() []ent.Field {
 			Unique().
 			Immutable(),
 		field.String("alias").
-			Optional(),
+			Optional().
+			Default(""),
 		field.String("name").
-			Optional(),
+			Optional().
+			Default(""),
 		field.Json("labels", map[string]string{}).
 			Optional(),
 		field.String("lock").

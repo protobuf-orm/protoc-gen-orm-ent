@@ -266,6 +266,29 @@ Constraints map to ent modifiers: key → `.Unique().Immutable()`, `unique` →
 `.Unique()`, nullable (non-key, non-JSON) → `.Nillable()`, `immutable` →
 `.Immutable()`, optional (non-key) → `.Optional()`.
 
+### Defaults
+
+`(orm.field).default` is either a value or something made, and
+`internal/work/default.go` is the one place that says which:
+
+| Field type                  | `default` may say                                    | Server `Add` | Column            |
+| --------------------------- | ---------------------------------------------------- | ------------ | ----------------- |
+| string                      | anything, as written                                 | the value    | `.Default(value)` |
+| bool                        | `true`, `false`, or empty for false                  | the value    | `.Default(value)` |
+| integer, float              | a decimal number, or empty for 0                     | the value    | `.Default(value)` |
+| enum                        | the name of a value, its number, or empty for 0      | the value    | `.Default(value)` |
+| bytes                       | empty                                                | `[]byte{}`   | none              |
+| uuid key, time, message     | empty                                                | minted, now, nil | none          |
+
+A value is the column's as well as the server's so that a row which predates
+the column holds it. A default makes a field optional and optional is nullable
+in ent, so without it a column added to a table with rows left them NULL -- the
+zero value read back into Go, and nothing like it in SQL. Bytes are server-only
+because ent writes a `[]byte` default into the DDL as `[]`.
+
+Anything else is refused at generation rather than read as the zero value: a
+default that is not honoured is a value somebody chose and nothing kept.
+
 ## Usage
 
 This plugin is the last stage of a multi-plugin `buf.gen.yaml` (it relies on the

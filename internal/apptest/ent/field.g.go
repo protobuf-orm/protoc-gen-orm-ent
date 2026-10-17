@@ -266,6 +266,11 @@ func (e *ValueField) Proto() *apptest.ValueField {
 	if e.ExplicitImmutableLevel != nil {
 		x.SetExplicitImmutableLevel(apptest.Level(*e.ExplicitImmutableLevel))
 	}
+	x.SetImplicitI32Seven(e.ImplicitI32Seven)
+	x.SetImplicitBoolOn(e.ImplicitBoolOn)
+	x.SetImplicitStringNobody(e.ImplicitStringNobody)
+	x.SetImplicitLevelHard(apptest.Level(e.ImplicitLevelHard))
+	x.SetImplicitF64Half(e.ImplicitF64Half)
 	return x
 }
 func (e *MessageField) Proto() *apptest.MessageField {

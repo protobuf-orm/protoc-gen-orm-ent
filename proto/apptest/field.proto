@@ -346,6 +346,30 @@ message ValueField {
     (orm.field) = {immutable: true}
   ];
 
+  // Defaults that say something other than the zero value: what an `Add` that
+  // leaves the field out is given, and what a row that predates the column
+  // holds. See `x-default_test.go`.
+  int32 implicit_i32_seven = 0x100 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: "7"}
+  ];
+  bool implicit_bool_on = 0x101 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: "true"}
+  ];
+  string implicit_string_nobody = 0x102 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: "nobody"}
+  ];
+  Level implicit_level_hard = 0x103 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: "LEVEL_HARD"}
+  ];
+  double implicit_f64_half = 0x104 [
+    features.field_presence = IMPLICIT,
+    (orm.field) = {default: "0.5"}
+  ];
+
   option (orm.message) = {
     rpc: {crud: true}
   };

@@ -132,31 +132,26 @@ func (w *fileWork) xAdd() {
 			w.Pf("		q.Set%s(", name.Ent())
 			switch p_ := p.(type) {
 			case graph.Field:
+				// What the option said, which the schema gives the column too
+				// (`work.Default`). It was the zero value here whatever the
+				// option said.
+				if d, ok := work.Default(p_); ok {
+					w.Pf("%s", d)
+					break
+				}
+
+				// And a default that is made rather than written.
 				t := p_.Type()
 				switch t {
-				case ormpb.Type_TYPE_STRING:
-					w.Pf("%q", "")
-				case ormpb.Type_TYPE_BYTES:
-					w.Pf("[]byte{}")
-				case ormpb.Type_TYPE_ENUM:
-					w.Pf("0")
 				case ormpb.Type_TYPE_UUID:
 					w.Pf("%s()", work.PkgUuid.Ident("New"))
 				case ormpb.Type_TYPE_TIME:
 					w.Pf("st.now()")
 				default:
-					switch t.Decay() {
-					case ormpb.Type_TYPE_FLOAT,
-						ormpb.Type_TYPE_INT,
-						ormpb.Type_TYPE_UINT:
-						w.Pf("0")
-					case ormpb.Type_TYPE_BOOL:
-						w.Pf("false")
-					case ormpb.Type_TYPE_MESSAGE:
-						w.Pf("nil")
-					default:
+					if t.Decay() != ormpb.Type_TYPE_MESSAGE {
 						panic(fmt.Errorf("default value for type %s is not implemented", t))
 					}
+					w.Pf("nil")
 				}
 
 			case graph.Edge:
