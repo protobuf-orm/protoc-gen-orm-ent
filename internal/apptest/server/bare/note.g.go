@@ -145,6 +145,11 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 		q.SetDateCreated(st.now())
 	}
 
+	var stored *ent.Note
+	if snapshotOptions(s.Rec, apptest.NoteService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -160,11 +165,7 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 
 	v := u.Proto()
 	var value *apptest.Note
-	if snapshotOptions(s.Rec, apptest.NoteService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, note.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{

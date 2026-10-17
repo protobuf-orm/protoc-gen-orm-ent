@@ -192,6 +192,11 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 		}
 	}
 
+	var stored *ent.Seat
+	if snapshotOptions(s.Rec, apptest.SeatService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -210,11 +215,7 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 		d(v)
 	}
 	var value *apptest.Seat
-	if snapshotOptions(s.Rec, apptest.SeatService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, seat.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{

@@ -14,4 +14,4 @@
 // it and that genproto with that, so there is nothing left to keep out.
 package apptest
 
-//go:generate go tool ent generate --target ./ent --feature sql/modifier ./schema
+//go:generate go tool ent generate --target ./ent --feature sql/modifier,sql/returning ./schema

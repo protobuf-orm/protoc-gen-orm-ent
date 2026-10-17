@@ -88,11 +88,10 @@ func testSnapshotCosts(t *testing.T, postgres bool) {
 			log = nil
 			v, err := s.Tenant().Add(t.Context(), pb.TenantAddRequest_builder{Name: z.Ptr("before")}.Build())
 			x.NoError(err)
-			wantReads := 0
-			if options.Value {
-				wantReads = 1
-			}
-			check(wantReads, 0) // Postimages never request a preceding row lock.
+			// The image of an Add is the row its INSERT answers with, and both
+			// engines here have RETURNING: no SELECT, whatever was asked.
+			// Postimages never request a preceding row lock.
+			check(0, 0)
 			_, err = s.Tenant().Patch(t.Context(), pb.TenantPatchRequest_builder{Ref: v.Ref(), Name: z.Ptr("after")}.Build())
 			x.NoError(err)
 			wantReads, locks := 1, 0
