@@ -16,6 +16,11 @@ func (w *fileWork) xSnapshots() {
 		", p ", w.entPkg().Ident(name_x), ", lock bool) (*", w.ent.Ident(name_x), ", error) {")
 	w.P("	q := s.Db.", name_x, ".Query().Where(p)")
 	for edge := range w.Entity.Edges() {
+		// A list edge only: the key of any other is in the row, and
+		// `Proto()` answers with it -- see [fileWork.xSelectInit].
+		if !edge.IsList() {
+			continue
+		}
 		target := edge.Target().Name()
 		pkg := w.ent + "/" + protogen.GoImportPath(strings.ToLower(target))
 		w.P("q.With", work.Name(edge.Name()).Ent(), "(func(q *", w.ent.Ident(target+"Query"), "){q.Select(", pkg.Ident("FieldId"), ")})")

@@ -16,7 +16,6 @@ import (
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
-	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
@@ -84,7 +83,6 @@ func (s UserServiceServer) narrow(ctx context.Context, p predicate.User) (predic
 
 func (s UserServiceServer) snapshot(ctx context.Context, p predicate.User, lock bool) (*ent.User, error) {
 	q := s.Db.User.Query().Where(p)
-	q.WithTenant(func(q *ent.TenantQuery) { q.Select(tenant.FieldId) })
 	q.Modify(func(q *sql.Selector) {
 		if lock && s.Db.Dialect() != dialect.SQLite {
 			q.ForUpdate()
@@ -282,8 +280,6 @@ func UserSelect(q *ent.UserQuery, m *apptest.UserSelect) {
 func UserSelectInit(q *ent.UserQuery, m *apptest.UserSelect) {
 	if m != nil {
 		UserSelect(q, m)
-	} else {
-		q.WithTenant(selectTenantKey)
 	}
 }
 

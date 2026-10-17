@@ -215,7 +215,6 @@ func ShiftSelect(q *ent.ShiftQuery, m *apptest.ShiftSelect) {
 func ShiftSelectInit(q *ent.ShiftQuery, m *apptest.ShiftSelect) {
 	if m != nil {
 		ShiftSelect(q, m)
-	} else {
 	}
 }
 

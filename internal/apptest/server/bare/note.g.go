@@ -249,7 +249,6 @@ func NoteSelect(q *ent.NoteQuery, m *apptest.NoteSelect) {
 func NoteSelectInit(q *ent.NoteQuery, m *apptest.NoteSelect) {
 	if m != nil {
 		NoteSelect(q, m)
-	} else {
 	}
 }
 
