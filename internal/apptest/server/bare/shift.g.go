@@ -123,6 +123,11 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 	q.SetDesk(req.GetDesk())
 	q.SetStartsAt(req.GetStartsAt().AsTime())
 
+	var stored *ent.Shift
+	if snapshotOptions(s.Rec, apptest.ShiftService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -138,11 +143,7 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 
 	v := u.Proto()
 	var value *apptest.Shift
-	if snapshotOptions(s.Rec, apptest.ShiftService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, shift.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{
@@ -569,6 +570,11 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 	q.SetId(req.GetId())
 	q.SetValue(req.GetValue())
 
+	var stored *ent.WriteOnly
+	if snapshotOptions(s.Rec, apptest.WriteOnlyService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -584,11 +590,7 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 
 	v := u.Proto()
 	var value *apptest.WriteOnly
-	if snapshotOptions(s.Rec, apptest.WriteOnlyService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, writeonly.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{

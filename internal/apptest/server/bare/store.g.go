@@ -251,8 +251,9 @@ type SnapshotOptions struct{ Previous, Value bool }
 
 // SnapshotRecorder opts into image capture before the write. Previous reads
 // and locks the root row until transaction completion (except SQLite, whose
-// writes are serialized by the database). Value reads back an Add and reuses
-// the existing read-back of Patch/Apply. Relations contain keys only.
+// writes are serialized by the database). Value is the row an Add's INSERT
+// reads back -- in the same statement, where the dialect has RETURNING -- and
+// the read-back Patch/Apply make anyway. Relations contain keys only.
 // method is the generated operation (Change.By), not the outer RPC.
 type SnapshotRecorder interface {
 	Recorder

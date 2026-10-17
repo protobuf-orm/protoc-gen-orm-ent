@@ -308,12 +308,16 @@ plugins:
 ```
 
 After `buf generate`, run `ent generate` over the produced `schema/` package to
-materialize the ent runtime. It needs the `sql/modifier` feature: `Apply` writes
-a patch document as one statement, through column expressions ent has no builder
-for.
+materialize the ent runtime. It needs two features:
+
+- `sql/modifier`: `Apply` writes a patch document as one statement, through
+  column expressions ent has no builder for.
+- `sql/returning`: an `Add` whose recorder asks for the row's image has the
+  INSERT read the row back, which is one statement where the dialect has
+  `RETURNING`.
 
 ```sh
-ent generate ./schema --target ./ent --feature sql/modifier
+ent generate ./schema --target ./ent --feature sql/modifier,sql/returning
 ```
 
 Options:

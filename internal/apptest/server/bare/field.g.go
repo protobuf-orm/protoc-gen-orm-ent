@@ -519,6 +519,11 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 		q.SetImplicitF64Half(0.5)
 	}
 
+	var stored *ent.ValueField
+	if snapshotOptions(s.Rec, apptest.ValueFieldService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -534,11 +539,7 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 
 	v := u.Proto()
 	var value *apptest.ValueField
-	if snapshotOptions(s.Rec, apptest.ValueFieldService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, valuefield.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{
@@ -1371,6 +1372,11 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 		q.SetExplicitImmutable(req.GetExplicitImmutable())
 	}
 
+	var stored *ent.MessageField
+	if snapshotOptions(s.Rec, apptest.MessageFieldService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -1386,11 +1392,7 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 
 	v := u.Proto()
 	var value *apptest.MessageField
-	if snapshotOptions(s.Rec, apptest.MessageFieldService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, messagefield.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{
@@ -1858,6 +1860,11 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 		q.SetImplicitImmutableJson(u)
 	}
 
+	var stored *ent.MapField
+	if snapshotOptions(s.Rec, apptest.MapFieldService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -1873,11 +1880,7 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 
 	v := u.Proto()
 	var value *apptest.MapField
-	if snapshotOptions(s.Rec, apptest.MapFieldService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, mapfield.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{

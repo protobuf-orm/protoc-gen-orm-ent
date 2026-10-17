@@ -167,6 +167,22 @@ func (w *fileWork) xAdd() {
 		}
 	}
 	w.P("")
+
+	// Read back only when recording: SQL timestamp precision, database defaults
+	// and trigger-produced values belong in the event, not the builder's guess.
+	//
+	// By the INSERT itself, which answers with the row where the dialect has
+	// RETURNING -- ent's `sql/returning` -- so an Add recorded with its image
+	// is one statement rather than two. Where it has not, ent reads it with a
+	// query of its own, which is what this did everywhere. The edges are not
+	// loaded, and need not be: a list edge of a row that did not exist a
+	// statement ago has nothing in it, and every other edge's key is in the
+	// row.
+	w.P("	var stored *", w.ent.Ident(name))
+	w.P("	if snapshotOptions(s.Rec, ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ").Value {")
+	w.P("		q.Stored(&stored)")
+	w.P("	}")
+	w.P("")
 	w.P("	u, err := q.Save(ctx)")
 	w.P("	if err != nil {")
 	w.xConstraintError()
@@ -178,14 +194,10 @@ func (w *fileWork) xAdd() {
 	if len(edges) > 0 {
 		w.P("	for _, d := range ds { d(v) }")
 	}
-
-	// Read back only when recording: SQL timestamp precision, database defaults
-	// and trigger-produced values belong in the event, not the builder's guess.
-	w.P("var value *", w.Ident)
-	w.P("if snapshotOptions(s.Rec,", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ").Value {")
-	w.P("stored,err:=st.snapshot(ctx,", w.xEntPkg().Ident("IdEQ"), "(u.Id),false);if err!=nil{return nil,err}")
-	w.P("value=s.image(stored.Proto())")
-	w.P("}")
+	w.P("	var value *", w.Ident)
+	w.P("	if stored != nil {")
+	w.P("		value = s.image(stored.Proto())")
+	w.P("	}")
 
 	// The key is taken from the row rather than from the request: a request
 	// may leave it out, and then the one that exists is the one the database

@@ -15,7 +15,7 @@ require (
 	github.com/lesomnus/z v0.0.0-20250923111312-437bd8f8f4cf
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/protobuf-orm/ent v0.0.0-20260906224055-1575ccbff508
+	github.com/protobuf-orm/ent v0.0.0-20261017163933-c0ed45f9b9ea
 	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
 	github.com/protobuf-orm/protoc-gen-orm-ent/runtime v0.0.0-20260902051406-e51c5bac76bc
 	github.com/stretchr/testify v1.11.1
@@ -40,12 +40,12 @@ require (
 	github.com/zclconf/go-cty v1.19.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.2.0 // indirect
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
-	golang.org/x/mod v0.40.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

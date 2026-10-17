@@ -168,6 +168,11 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		q.SetDateCreated(st.now())
 	}
 
+	var stored *ent.User
+	if snapshotOptions(s.Rec, apptest.UserService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -186,11 +191,7 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		d(v)
 	}
 	var value *apptest.User
-	if snapshotOptions(s.Rec, apptest.UserService_Add_FullMethodName).Value {
-		stored, err := st.snapshot(ctx, user.IdEQ(u.Id), false)
-		if err != nil {
-			return nil, err
-		}
+	if stored != nil {
 		value = s.image(stored.Proto())
 	}
 	if err := record(ctx, s.Rec, st.Db, Change{
