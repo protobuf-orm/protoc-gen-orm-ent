@@ -14,6 +14,8 @@ option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest
 service ValueFieldService {
 	// Add creates a new ValueField
 	rpc Add(ValueFieldAddRequest) returns (ValueField);
+	// AddMany creates up to 1000 new ValueField rows in one call, all of them or none
+	rpc AddMany(ValueFieldAddManyRequest) returns (ValueFieldAddManyResponse);
 	// Get retrieves a ValueField
 	rpc Get(ValueFieldGetRequest) returns (ValueField);
 	// Patch updates an existing ValueField
@@ -223,6 +225,14 @@ message ValueFieldAddRequest {
 	string implicit_string_nobody = 258;
 	Level implicit_level_hard = 259;
 	double implicit_f64_half = 260;
+}
+
+message ValueFieldAddManyRequest {
+	repeated ValueFieldAddRequest items = 1;
+}
+
+message ValueFieldAddManyResponse {
+	repeated ValueField items = 1;
 }
 
 message ValueFieldRef {
@@ -735,6 +745,8 @@ message ValueFieldEraseResponse {
 service MessageFieldService {
 	// Add creates a new MessageField
 	rpc Add(MessageFieldAddRequest) returns (MessageField);
+	// AddMany creates up to 1000 new MessageField rows in one call, all of them or none
+	rpc AddMany(MessageFieldAddManyRequest) returns (MessageFieldAddManyResponse);
 	// Get retrieves a MessageField
 	rpc Get(MessageFieldGetRequest) returns (MessageField);
 	// Patch updates an existing MessageField
@@ -755,6 +767,14 @@ message MessageFieldAddRequest {
 	Held nullable_held = 113;
 	google.protobuf.Struct explicit_with_default = 176;
 	google.protobuf.Struct explicit_immutable = 240;
+}
+
+message MessageFieldAddManyRequest {
+	repeated MessageFieldAddRequest items = 1;
+}
+
+message MessageFieldAddManyResponse {
+	repeated MessageField items = 1;
 }
 
 message MessageFieldRef {
@@ -833,6 +853,8 @@ message MessageFieldEraseResponse {
 service MapFieldService {
 	// Add creates a new MapField
 	rpc Add(MapFieldAddRequest) returns (MapField);
+	// AddMany creates up to 1000 new MapField rows in one call, all of them or none
+	rpc AddMany(MapFieldAddManyRequest) returns (MapFieldAddManyResponse);
 	// Get retrieves a MapField
 	rpc Get(MapFieldGetRequest) returns (MapField);
 	// Patch updates an existing MapField
@@ -855,6 +877,14 @@ message MapFieldAddRequest {
 	map<string, string> implicit_immutable_string = 208;
 	map<string, apptest.Level> implicit_immutable_enum = 209;
 	map<string, google.protobuf.Struct> implicit_immutable_json = 210;
+}
+
+message MapFieldAddManyRequest {
+	repeated MapFieldAddRequest items = 1;
+}
+
+message MapFieldAddManyResponse {
+	repeated MapField items = 1;
 }
 
 message MapFieldRef {

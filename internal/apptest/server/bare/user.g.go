@@ -112,33 +112,28 @@ func (s UserServiceServer) image(v *apptest.User) *apptest.User {
 	}
 	return out
 }
-func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Close()
 
-	st := s
-	st.Db = tx.Db
-
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st UserServiceServer) create(ctx context.Context, req *apptest.UserAddRequest) (*ent.UserCreate, []func(v *apptest.User), error) {
 	ds := make([]func(v *apptest.User), 0, 1)
 	q := st.Db.User.Create()
 	var k uuid.UUID
 	if req.HasId() {
 		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+			return nil, nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			k = v
 		}
 	}
-	if v, err := mint(ctx, s.Mint, "apptest.User", k, req.HasId()); err != nil {
-		return nil, err
+	if v, err := mint(ctx, st.Mint, "apptest.User", k, req.HasId()); err != nil {
+		return nil, nil, err
 	} else {
 		q.SetId(v)
 	}
 	if k, err := TenantGetKey(ctx, st.Db, req.GetTenant()); err != nil {
-		return nil, err
+		return nil, nil, err
 	} else {
 		q.SetTenantId(k)
 		ds = append(ds, func(v *apptest.User) {
@@ -166,6 +161,23 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		q.SetDateCreated(req.GetDateCreated().AsTime())
 	} else {
 		q.SetDateCreated(st.now())
+	}
+	return q, ds, nil
+}
+
+func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
+		return nil, err
 	}
 
 	var stored *ent.User
@@ -206,6 +218,149 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	}
 
 	return v, nil
+}
+
+// UserAddManyMax is the most items one AddMany of User carries.
+const UserAddManyMax = 1000
+
+// userAddManyRows is how many rows one INSERT of an AddMany
+// writes: as many as fit in what a statement binds on every engine, and
+// no more than a few hundred.
+const userAddManyRows = 500
+
+// AddMany adds every item as Add would add it, in one transaction: all of
+// the rows or none of them. The rows come back in the order of the items.
+//
+// An item that cannot be a row is refused naming the item, before anything
+// is written. A refusal by the database is the whole statement's, and does
+// not say which row it was about.
+func (s UserServiceServer) AddMany(ctx context.Context, req *apptest.UserAddManyRequest) (*apptest.UserAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > UserAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", UserAddManyMax, len(items))
+	}
+	if len(items) == 0 {
+		return apptest.UserAddManyResponse_builder{}.Build(), nil
+	}
+
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	images := snapshotOptions(s.Rec, apptest.UserService_AddMany_FullMethodName).Value
+	qs := make([]*ent.UserCreate, len(items))
+	dss := make([][]func(v *apptest.User), len(items))
+	stored := make([]*ent.User, len(items))
+	for i, item := range items {
+		q, ds, err := st.create(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if images {
+			q.Stored(&stored[i])
+		}
+		qs[i], dss[i] = q, ds
+	}
+
+	us := make([]*ent.User, 0, len(qs))
+	for lo := 0; lo < len(qs); lo += userAddManyRows {
+		vs, err := st.Db.User.CreateBulk(qs[lo:min(lo+userAddManyRows, len(qs))]...).Save(ctx)
+		if err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Error(codes.AlreadyExists, "User already exists")
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Error(codes.NotFound, "User: referenced entity not found")
+				}
+			}
+			return nil, err
+		}
+		us = append(us, vs...)
+	}
+
+	out := make([]*apptest.User, len(us))
+	for i, u := range us {
+		v := u.Proto()
+		for _, d := range dss[i] {
+			d(v)
+		}
+		out[i] = v
+
+		var value *apptest.User
+		if stored[i] != nil {
+			value = s.image(stored[i].Proto())
+		}
+		if err := record(ctx, s.Rec, st.Db, Change{
+			By:    apptest.UserService_AddMany_FullMethodName,
+			Key:   u.Id,
+			Value: value,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return apptest.UserAddManyResponse_builder{Items: out}.Build(), nil
+}
+
+// UserAddRule is what a layer in front says about one row an Add of User
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type UserAddRule func(ctx context.Context, req *apptest.UserAddRequest) (*apptest.UserAddRequest, error)
+
+// UserWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func UserWithAddRule(next apptest.UserServiceServer, rule UserAddRule) apptest.UserServiceServer {
+	return userAddRuled{next, rule}
+}
+
+type userAddRuled struct {
+	apptest.UserServiceServer
+	rule UserAddRule
+}
+
+func (s userAddRuled) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.UserServiceServer.Add(ctx, r)
+}
+
+func (s userAddRuled) AddMany(ctx context.Context, req *apptest.UserAddManyRequest) (*apptest.UserAddManyResponse, error) {
+	items := req.GetItems()
+	if len(items) > UserAddManyMax {
+		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", UserAddManyMax, len(items))
+	}
+
+	rs := make([]*apptest.UserAddRequest, len(items))
+	for i, item := range items {
+		r, err := s.rule(ctx, item)
+		if err != nil {
+			return nil, ItemError(i, err)
+		}
+		if r == nil {
+			r = item
+		}
+		rs[i] = r
+	}
+	return s.UserServiceServer.AddMany(ctx, apptest.UserAddManyRequest_builder{Items: rs}.Build())
 }
 
 func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest) (*apptest.User, error) {

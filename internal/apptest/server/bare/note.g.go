@@ -99,27 +99,23 @@ func (s NoteServiceServer) image(v *apptest.Note) *apptest.Note {
 	out := proto.Clone(v).(*apptest.Note)
 	return out
 }
-func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest) (*apptest.Note, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Close()
 
-	st := s
-	st.Db = tx.Db
-
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st NoteServiceServer) create(ctx context.Context, req *apptest.NoteAddRequest) (*ent.NoteCreate, []func(v *apptest.Note), error) {
+	var ds []func(v *apptest.Note)
 	q := st.Db.Note.Create()
 	var k uuid.UUID
 	if req.HasId() {
 		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+			return nil, nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
 		} else {
 			k = v
 		}
 	}
-	if v, err := mint(ctx, s.Mint, "apptest.Note", k, req.HasId()); err != nil {
-		return nil, err
+	if v, err := mint(ctx, st.Mint, "apptest.Note", k, req.HasId()); err != nil {
+		return nil, nil, err
 	} else {
 		q.SetId(v)
 	}
@@ -144,6 +140,23 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	} else {
 		q.SetDateCreated(st.now())
 	}
+	return q, ds, nil
+}
+
+func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest) (*apptest.Note, error) {
+	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	var stored *ent.Note
 	if snapshotOptions(s.Rec, apptest.NoteService_Add_FullMethodName).Value {
@@ -164,6 +177,9 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	}
 
 	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
 	var value *apptest.Note
 	if stored != nil {
 		value = s.image(stored.Proto())
@@ -180,6 +196,38 @@ func (s NoteServiceServer) Add(ctx context.Context, req *apptest.NoteAddRequest)
 	}
 
 	return v, nil
+}
+
+// NoteAddRule is what a layer in front says about one row an Add of Note
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type NoteAddRule func(ctx context.Context, req *apptest.NoteAddRequest) (*apptest.NoteAddRequest, error)
+
+// NoteWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func NoteWithAddRule(next apptest.NoteServiceServer, rule NoteAddRule) apptest.NoteServiceServer {
+	return noteAddRuled{next, rule}
+}
+
+type noteAddRuled struct {
+	apptest.NoteServiceServer
+	rule NoteAddRule
+}
+
+func (s noteAddRuled) Add(ctx context.Context, req *apptest.NoteAddRequest) (*apptest.Note, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.NoteServiceServer.Add(ctx, r)
 }
 
 func (s NoteServiceServer) Get(ctx context.Context, req *apptest.NoteGetRequest) (*apptest.Note, error) {

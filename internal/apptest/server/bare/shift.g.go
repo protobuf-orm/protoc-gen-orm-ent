@@ -96,6 +96,31 @@ func (s ShiftServiceServer) image(v *apptest.Shift) *apptest.Shift {
 	out := proto.Clone(v).(*apptest.Shift)
 	return out
 }
+
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st ShiftServiceServer) create(ctx context.Context, req *apptest.ShiftAddRequest) (*ent.ShiftCreate, []func(v *apptest.Shift), error) {
+	var ds []func(v *apptest.Shift)
+	q := st.Db.Shift.Create()
+	var k uuid.UUID
+	if req.HasId() {
+		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
+			return nil, nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
+		} else {
+			k = v
+		}
+	}
+	if v, err := mint(ctx, st.Mint, "apptest.Shift", k, req.HasId()); err != nil {
+		return nil, nil, err
+	} else {
+		q.SetId(v)
+	}
+	q.SetDesk(req.GetDesk())
+	q.SetStartsAt(req.GetStartsAt().AsTime())
+	return q, ds, nil
+}
+
 func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddRequest) (*apptest.Shift, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -106,22 +131,10 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 	st := s
 	st.Db = tx.Db
 
-	q := st.Db.Shift.Create()
-	var k uuid.UUID
-	if req.HasId() {
-		if v, err := entuuid.FromBytes(req.GetId()); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "id: %s", err)
-		} else {
-			k = v
-		}
-	}
-	if v, err := mint(ctx, s.Mint, "apptest.Shift", k, req.HasId()); err != nil {
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
 		return nil, err
-	} else {
-		q.SetId(v)
 	}
-	q.SetDesk(req.GetDesk())
-	q.SetStartsAt(req.GetStartsAt().AsTime())
 
 	var stored *ent.Shift
 	if snapshotOptions(s.Rec, apptest.ShiftService_Add_FullMethodName).Value {
@@ -142,6 +155,9 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 	}
 
 	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
 	var value *apptest.Shift
 	if stored != nil {
 		value = s.image(stored.Proto())
@@ -158,6 +174,38 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 	}
 
 	return v, nil
+}
+
+// ShiftAddRule is what a layer in front says about one row an Add of Shift
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type ShiftAddRule func(ctx context.Context, req *apptest.ShiftAddRequest) (*apptest.ShiftAddRequest, error)
+
+// ShiftWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func ShiftWithAddRule(next apptest.ShiftServiceServer, rule ShiftAddRule) apptest.ShiftServiceServer {
+	return shiftAddRuled{next, rule}
+}
+
+type shiftAddRuled struct {
+	apptest.ShiftServiceServer
+	rule ShiftAddRule
+}
+
+func (s shiftAddRuled) Add(ctx context.Context, req *apptest.ShiftAddRequest) (*apptest.Shift, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.ShiftServiceServer.Add(ctx, r)
 }
 
 func (s ShiftServiceServer) Get(ctx context.Context, req *apptest.ShiftGetRequest) (*apptest.Shift, error) {
@@ -556,6 +604,18 @@ func (s WriteOnlyServiceServer) image(v *apptest.WriteOnly) *apptest.WriteOnly {
 	out := proto.Clone(v).(*apptest.WriteOnly)
 	return out
 }
+
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st WriteOnlyServiceServer) create(ctx context.Context, req *apptest.WriteOnlyAddRequest) (*ent.WriteOnlyCreate, []func(v *apptest.WriteOnly), error) {
+	var ds []func(v *apptest.WriteOnly)
+	q := st.Db.WriteOnly.Create()
+	q.SetId(req.GetId())
+	q.SetValue(req.GetValue())
+	return q, ds, nil
+}
+
 func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyAddRequest) (*apptest.WriteOnly, error) {
 	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
 	if err != nil {
@@ -566,9 +626,10 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 	st := s
 	st.Db = tx.Db
 
-	q := st.Db.WriteOnly.Create()
-	q.SetId(req.GetId())
-	q.SetValue(req.GetValue())
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	var stored *ent.WriteOnly
 	if snapshotOptions(s.Rec, apptest.WriteOnlyService_Add_FullMethodName).Value {
@@ -589,6 +650,9 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 	}
 
 	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
 	var value *apptest.WriteOnly
 	if stored != nil {
 		value = s.image(stored.Proto())
@@ -605,4 +669,36 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 	}
 
 	return v, nil
+}
+
+// WriteOnlyAddRule is what a layer in front says about one row an Add of WriteOnly
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type WriteOnlyAddRule func(ctx context.Context, req *apptest.WriteOnlyAddRequest) (*apptest.WriteOnlyAddRequest, error)
+
+// WriteOnlyWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func WriteOnlyWithAddRule(next apptest.WriteOnlyServiceServer, rule WriteOnlyAddRule) apptest.WriteOnlyServiceServer {
+	return writeOnlyAddRuled{next, rule}
+}
+
+type writeOnlyAddRuled struct {
+	apptest.WriteOnlyServiceServer
+	rule WriteOnlyAddRule
+}
+
+func (s writeOnlyAddRuled) Add(ctx context.Context, req *apptest.WriteOnlyAddRequest) (*apptest.WriteOnly, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.WriteOnlyServiceServer.Add(ctx, r)
 }

@@ -10,22 +10,40 @@ import (
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
 
+// xAdd emits Add, and AddMany beside it when the entity asked for one, both of
+// them writing a row the one way [fileWork.xAddCreate] builds it; and the rule
+// a layer in front puts on the two of them at once ([fileWork.xAddRule]).
 func (w *fileWork) xAdd() {
+	w.xAddCreate()
+	w.xAddOne()
+	if w.Entity.Rpcs().HasAddMany() {
+		w.xAddMany()
+	}
+	w.xAddRule()
+}
+
+// xAddCreate emits `create`: the row an Add of one request writes, as a
+// builder not yet saved, and what the answer says about its edges.
+//
+// It is a method of its own because there are two writes of it. An item of an
+// AddMany is an Add's request, and it has to become the row an Add of it would
+// have been -- the same defaults, the same key, the same refusals -- which two
+// copies of this would agree on only until one of them was changed.
+func (w *fileWork) xAddCreate() {
 	name := w.Ident.GoName
-	w.P("func (s ", name, "ServiceServer) Add(",
+	w.P("// create is the row an Add of `req` writes, as a builder not yet saved,")
+	w.P("// and what the answer says about its edges. Add and AddMany both write")
+	w.P("// with it, so that an item of an AddMany is the row an Add of it would be.")
+	w.P("func (st ", name, "ServiceServer) create(",
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "req *", w.Src.GoImportPath.Ident(name+"AddRequest"),
-		") (*", w.Src.GoImportPath.Ident(name), ", error) {")
-
-	// The row and what a recorder writes about it are one write, so they are
-	// done inside one transaction -- and only when there is a recorder, since
-	// the row alone is a single statement with nothing to hold it together
-	// with. See xJoin.
-	w.xJoin("s.Rec != nil")
+		") (*", w.ent.Ident(name+"Create"), ", []func(v *", w.Ident, "), error) {")
 
 	edges := slices.Collect(w.Entity.Edges())
 	if len(edges) > 0 {
 		w.P("	ds := make([]func(v *", w.Ident, "), 0, ", len(edges), ")")
+	} else {
+		w.P("	var ds []func(v *", w.Ident, ")")
 	}
 	w.P("	q := st.Db.", name, ".Create()")
 	for p := range w.Entity.Props() {
@@ -98,7 +116,7 @@ func (w *fileWork) xAdd() {
 				}
 			case ormpb.Type_TYPE_UUID:
 				w.P("	if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(", u, "); err != nil {")
-				w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")
+				w.P("		return nil, nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")
 				w.P("	} else {")
 				set("v")
 				w.P("	}")
@@ -117,7 +135,7 @@ func (w *fileWork) xAdd() {
 			}
 
 			w.P("	if k, err := ", m.Name(), "GetKey(ctx, st.Db, req.Get", name.Go(), "()); err != nil {")
-			w.P("		return nil, err")
+			w.P("		return nil, nil, err")
 			w.P("	} else {")
 			w.P("		q.Set", name.Ent(), "Id(k)")
 			w.P("		ds = append(ds, func(v *", w.Ident, "){")
@@ -166,6 +184,29 @@ func (w *fileWork) xAdd() {
 			w.P("	}")
 		}
 	}
+	w.P("	return q, ds, nil")
+	w.P("}")
+	w.P("")
+}
+
+// xAddOne emits Add, which writes the row [fileWork.xAddCreate] builds.
+func (w *fileWork) xAddOne() {
+	name := w.Ident.GoName
+	w.P("func (s ", name, "ServiceServer) Add(",
+		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
+		/* */ "req *", w.Src.GoImportPath.Ident(name+"AddRequest"),
+		") (*", w.Src.GoImportPath.Ident(name), ", error) {")
+
+	// The row and what a recorder writes about it are one write, so they are
+	// done inside one transaction -- and only when there is a recorder, since
+	// the row alone is a single statement with nothing to hold it together
+	// with. See xJoin.
+	w.xJoin("s.Rec != nil")
+
+	w.P("	q, ds, err := st.create(ctx, req)")
+	w.P("	if err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
 	w.P("")
 
 	// Read back only when recording: SQL timestamp precision, database defaults
@@ -191,9 +232,7 @@ func (w *fileWork) xAdd() {
 	w.P("")
 
 	w.P("	v := u.Proto()")
-	if len(edges) > 0 {
-		w.P("	for _, d := range ds { d(v) }")
-	}
+	w.P("	for _, d := range ds { d(v) }")
 	w.P("	var value *", w.Ident)
 	w.P("	if stored != nil {")
 	w.P("		value = s.image(stored.Proto())")
@@ -235,13 +274,13 @@ func (w *fileWork) xAddKey(f graph.Field) {
 	w.P("	var k ", work.IdentUuid)
 	w.P("	if ", has, " {")
 	w.P("		if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(req.Get", name.Go(), "()); err != nil {")
-	w.P("			return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", f.Name(), ": %s\", err)")
+	w.P("			return nil, nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", f.Name(), ": %s\", err)")
 	w.P("		} else {")
 	w.P("			k = v")
 	w.P("		}")
 	w.P("	}")
-	w.P("	if v, err := mint(ctx, s.Mint, ", strconv.Quote(string(w.Entity.FullName())), ", k, ", has, "); err != nil {")
-	w.P("		return nil, err")
+	w.P("	if v, err := mint(ctx, st.Mint, ", strconv.Quote(string(w.Entity.FullName())), ", k, ", has, "); err != nil {")
+	w.P("		return nil, nil, err")
 	w.P("	} else {")
 	w.P("		q.Set", name.Ent(), "(v)")
 	w.P("	}")

@@ -371,7 +371,10 @@ message ValueField {
   ];
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {
+      crud: true
+      add: {many: {}}
+    }
   };
 }
 
@@ -402,7 +405,10 @@ message MessageField {
   google.protobuf.Struct explicit_immutable = 0xF0 [(orm.field) = {immutable: true}];
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {
+      crud: true
+      add: {many: {}}
+    }
   };
 }
 
@@ -423,7 +429,10 @@ message MapField {
   map<string, google.protobuf.Struct> implicit_immutable_json = 0xD2 [(orm.field) = {immutable: true}];
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {
+      crud: true
+      add: {many: {}}
+    }
   };
 }
 

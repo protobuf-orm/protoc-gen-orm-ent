@@ -162,6 +162,7 @@ func (w *Work) xServer() {
 	w.xScopes()
 	w.xMinter()
 	w.xClock()
+	w.xItemError()
 
 	w.P("// NewServer refuses a client whose dialect this backend does not write")
 	w.P("// SQL for.")

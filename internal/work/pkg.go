@@ -26,6 +26,11 @@ var (
 	PkgGrpcCodes  = protogen.GoImportPath("google.golang.org/grpc/codes")
 	PkgGrpcStatus = protogen.GoImportPath("google.golang.org/grpc/status")
 
+	// What a refusal about one item of many says about which: see
+	// ItemError in the store.
+	PkgErrDetails = protogen.GoImportPath("google.golang.org/genproto/googleapis/rpc/errdetails")
+	PkgProtoAdapt = protogen.GoImportPath("google.golang.org/protobuf/protoadapt")
+
 	IdentContext = PkgContext.Ident("Context")
 	IdentUuid    = PkgUuid.Ident("UUID")
 	IdentEmpty   = PkgProtoEmpty.Ident("Empty")

@@ -18,7 +18,7 @@ The handler runs four sub-generators in order:
 | ---------- | ----------------------------------- | ------------------------------------------------------------------------ |
 | **Schema** | `schema/<name>.go`                  | ent schema types — `Fields()`, `Edges()`, `Indexes()`, `Annotations()`.  |
 | **Ent**    | `ent/<name>.go`, `ent/orm.g.go`     | proto ↔ ent conversion helpers for each entity, and what the ent client will not say about itself. |
-| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing Add/Get/Patch/Apply/Erase. |
+| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing Add/AddMany/Get/Patch/Apply/Erase, and the add rule. |
 | **Store**  | `store.g.go`                        | server/client registration wiring (like protoc-gen-orm-go's store).      |
 
 The generated ent schema (`schema/*.go`) is then consumed by ent's own code
@@ -187,6 +187,43 @@ package rather than only a method, because the read most likely to forget is the
 one nothing generates. A `List` is not CRUD, so it is written by hand, and what
 it has at hand is a client and a scope — given only a method it reaches for the
 hook directly and misses whatever narrowing means *besides* the hook.
+
+## AddMany, and a rule for the RPCs that add
+
+An entity whose schema says `add: {many: {}}` has `AddMany` beside its `Add`
+(protoc-gen-orm-service writes it into the contract). The server writes every
+item as an `Add` of it would be -- the one `create` builds both -- with one
+INSERT for every few hundred rows, in one transaction: all of them or none.
+
+- The rows come back in the order of the items, and a recorder is told about
+  each of them, `By` the AddMany, as an `Add` of each would have told it. An
+  image a recorder asks for is read by the INSERT itself where the dialect has
+  `RETURNING` (ent's `sql/returning`, in a `CreateBulk`).
+- An item that cannot be a row -- a key that is not sixteen bytes, a reference
+  by alias that names nothing -- is refused before anything is written, naming
+  the item: `ItemError` puts `items[i]: ` before the message, and an
+  `InvalidArgument`'s `google.rpc.BadRequest` fields under `items[i]`. A refusal
+  by the database is the whole statement's and does not say which row.
+- `max` (1000 when unset) bounds the items one call carries; more are refused.
+
+A layer in front that has something to say about the rows an `Add` writes
+says it once, as a rule, and has `AddMany` asked the same:
+
+```go
+func (s gate) User() api.UserServiceServer {
+	return bare.UserWithAddRule(s.Next().User(), func(ctx context.Context, req *api.UserAddRequest) (*api.UserAddRequest, error) {
+		// nil, or a copy it changed, is what is written.
+		return req, s.mayAddTo(ctx, req.GetTenant())
+	})
+}
+```
+
+The rule is asked about an `Add`, and about every item of an `AddMany` in
+order; the call is refused for the first item it refuses, naming the item. What
+reaches the server behind is one call either way, so an `AddMany` stays one
+`AddMany` and one statement below. Written as an `Add` a layer overrides
+instead, the same rule is silently not asked about an `AddMany` the day the
+entity asks for one.
 
 ## Soft deletion
 

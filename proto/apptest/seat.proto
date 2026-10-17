@@ -28,7 +28,10 @@ message Seat {
   User deputy = 4 [(orm.edge) = {nullable: true}];
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {
+      crud: true
+      add: {many: {max: 3}}
+    }
     indexes: [
       {
         name: "place"

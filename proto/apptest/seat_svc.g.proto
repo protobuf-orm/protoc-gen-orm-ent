@@ -15,6 +15,8 @@ option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest
 service SeatService {
 	// Add creates a new Seat
 	rpc Add(SeatAddRequest) returns (Seat);
+	// AddMany creates up to 3 new Seat rows in one call, all of them or none
+	rpc AddMany(SeatAddManyRequest) returns (SeatAddManyResponse);
 	// Get retrieves a Seat
 	rpc Get(SeatGetRequest) returns (Seat);
 	// Patch updates an existing Seat
@@ -30,6 +32,14 @@ message SeatAddRequest {
 	UserRef holder = 2;
 	TenantRef org = 3;
 	UserRef deputy = 4;
+}
+
+message SeatAddManyRequest {
+	repeated SeatAddRequest items = 1;
+}
+
+message SeatAddManyResponse {
+	repeated Seat items = 1;
 }
 
 message SeatRefByPlace {
