@@ -167,85 +167,115 @@ func (ValueField) Fields() []ent.Field {
 			Nillable().
 			Optional(),
 		field.Float("implicit_f64_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Float32("implicit_f32_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int32("implicit_i32_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int64("implicit_i64_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint32("implicit_u32_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint64("implicit_u64_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int32("implicit_si32_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int64("implicit_si64_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint32("implicit_fi32_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint64("implicit_fi64_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int32("implicit_sfi32_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int64("implicit_sfi64_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Bool("implicit_bool_with_default").
-			Optional(),
+			Optional().
+			Default(false),
 		field.String("implicit_string_with_default").
-			Optional(),
+			Optional().
+			Default(""),
 		field.Bytes("implicit_bytes_with_default").
 			Optional(),
 		field.Int32("implicit_level_with_default").
-			Optional(),
+			Optional().
+			Default(0),
 		field.Float("explicit_f64_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Float32("explicit_f32_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int32("explicit_i32_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int64("explicit_i64_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint32("explicit_u32_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint64("explicit_u64_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int32("explicit_si32_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int64("explicit_si64_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint32("explicit_fi32_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Uint64("explicit_fi64_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int32("explicit_sfi32_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Int64("explicit_sfi64_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Bool("explicit_bool_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(false),
 		field.String("explicit_string_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(""),
 		field.Bytes("explicit_bytes_with_default").
 			Nillable().
 			Optional(),
 		field.Int32("explicit_level_with_default").
 			Nillable().
-			Optional(),
+			Optional().
+			Default(0),
 		field.Float("implicit_immutable_f64").
 			Immutable(),
 		field.Float32("implicit_immutable_f32").
@@ -342,6 +372,21 @@ func (ValueField) Fields() []ent.Field {
 			Nillable().
 			Immutable().
 			Optional(),
+		field.Int32("implicit_i32_seven").
+			Optional().
+			Default(7),
+		field.Bool("implicit_bool_on").
+			Optional().
+			Default(true),
+		field.String("implicit_string_nobody").
+			Optional().
+			Default("nobody"),
+		field.Int32("implicit_level_hard").
+			Optional().
+			Default(3),
+		field.Float("implicit_f64_half").
+			Optional().
+			Default(0.5),
 	}
 }
 

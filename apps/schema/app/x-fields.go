@@ -216,6 +216,20 @@ func xFields(w *work.FileWork) {
 			w.P(".")
 			fmt.Fprint(w, "			Optional()")
 		}
+
+		// A default that is a value is the column's as well as the server's,
+		// so a row that predates the column holds it. Without it the column
+		// came to a table with rows as a nullable one -- a default makes a
+		// field optional, and optional is nullable in ent -- and every row
+		// already there held NULL: the zero value read back into Go, and
+		// nothing like it in SQL, where `= ''` and `<> 'x'` both pass NULL by.
+		//
+		// Not for bytes, whose default ent writes into the DDL as `[]`; see
+		// `work.Default`.
+		if d, ok := work.Default(p); ok && !is_key && t != ormpb.Type_TYPE_BYTES {
+			w.P(".")
+			fmt.Fprintf(w, "			Default(%s)", d)
+		}
 		w.P(",")
 	}
 

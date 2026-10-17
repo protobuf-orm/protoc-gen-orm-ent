@@ -21,11 +21,14 @@ func (Note) Fields() []ent.Field {
 			Unique().
 			Immutable(),
 		field.String("alias").
-			Optional(),
+			Optional().
+			Default(""),
 		field.String("body").
-			Optional(),
+			Optional().
+			Default(""),
 		field.String("slug").
-			Optional(),
+			Optional().
+			Default(""),
 		field.Time("date_erased").
 			Nillable().
 			Optional(),

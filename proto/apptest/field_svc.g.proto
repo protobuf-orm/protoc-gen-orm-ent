@@ -218,6 +218,11 @@ message ValueFieldAddRequest {
 	string explicit_immutable_string = 253;
 	bytes explicit_immutable_bytes = 254;
 	Level explicit_immutable_level = 255;
+	int32 implicit_i32_seven = 256;
+	bool implicit_bool_on = 257;
+	string implicit_string_nobody = 258;
+	Level implicit_level_hard = 259;
+	double implicit_f64_half = 260;
 }
 
 message ValueFieldRef {
@@ -356,6 +361,11 @@ message ValueFieldSelect {
 	bool explicit_immutable_string = 253;
 	bool explicit_immutable_bytes = 254;
 	bool explicit_immutable_level = 255;
+	bool implicit_i32_seven = 256;
+	bool implicit_bool_on = 257;
+	bool implicit_string_nobody = 258;
+	bool implicit_level_hard = 259;
+	bool implicit_f64_half = 260;
 }
 
 message ValueFieldGetRequest {
@@ -701,6 +711,11 @@ message ValueFieldPatchRequest {
 	// "leave it alone", so no value could have meant NULL. It wins
 	// outright: setting both this and explicit_level_with_default clears.
 	bool explicit_level_with_default_null = 383;
+	int32 implicit_i32_seven = 512;
+	bool implicit_bool_on = 514;
+	string implicit_string_nobody = 516;
+	Level implicit_level_hard = 518;
+	double implicit_f64_half = 520;
 }
 
 message ValueFieldApplyRequest {
