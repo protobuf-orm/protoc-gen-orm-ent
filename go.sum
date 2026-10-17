@@ -36,12 +36,16 @@ github.com/protobuf-orm/protobuf-orm v0.0.0-20260906212449-04c0cd58f10a h1:EXbJ2
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260906212449-04c0cd58f10a/go.mod h1:OYlbo4/9t+Hgj/XZwdgN8Z9MyViTLPHxBWLUR4+j52o=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20261017194719-b1318979edf2 h1:5egMGCQDXK83woO1ZC3s+tydei9ViXFoDbRBcsb4TKY=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20261017194719-b1318979edf2/go.mod h1:OYlbo4/9t+Hgj/XZwdgN8Z9MyViTLPHxBWLUR4+j52o=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20261017212716-3430237a8656 h1:dVr9HD7HgeUh1c+xhTfjKzwfpKTUDNMcVfMPOt8HPkI=
+github.com/protobuf-orm/protobuf-orm v0.0.0-20261017212716-3430237a8656/go.mod h1:OYlbo4/9t+Hgj/XZwdgN8Z9MyViTLPHxBWLUR4+j52o=
 github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20261010065542-f9ac5b66df3e h1:g77on2k8uh1A8m7XwFwZI56cDpVofVohL07p8pf3W6A=
 github.com/protobuf-orm/protoc-gen-orm-go v0.0.0-20261010065542-f9ac5b66df3e/go.mod h1:/QT/BggjLKYPVwF7hsxF4dmLG0L9WoiRVzrX4kKFuk8=
 github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260906213434-46a5916d5339 h1:5n6G91XIVVUoHD+qYXAd9I1gb+XzO0EoJyZjCAjT04E=
 github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20260906213434-46a5916d5339/go.mod h1:0zV6CUB1IioAWwCtWYh8WI7+pQuu7Jjvbc2zg3j0r7c=
 github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20261017200014-a5d9b32c7e9e h1:wsPTY7aU7C1u/YDFRgsd6X1tuFyJbVtE9eHCwllFzuE=
 github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20261017200014-a5d9b32c7e9e/go.mod h1:Os7YH8dIEP0AmIShqsXPaM1yBe6F1OEOO3TMW7zDiIQ=
+github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20261017215512-5234846ec2e4 h1:Cm8rqcrSFbAHqbHTXWJLfzb6AUKDdGda1j9+zg7VXFw=
+github.com/protobuf-orm/protoc-gen-orm-service v0.0.0-20261017215512-5234846ec2e4/go.mod h1:n6Ms6XNBrDh5L/Gku0Lc0Pb7dtveVhgYpM/OjqpzWaA=
 github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWbZV6S5g=
 github.com/rogpeppe/go-internal v1.16.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=

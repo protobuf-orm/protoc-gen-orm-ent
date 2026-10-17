@@ -54,6 +54,8 @@ github.com/protobuf-orm/ent v0.0.0-20261017174831-c860506f95cd h1:4yvM0cjspkAP0m
 github.com/protobuf-orm/ent v0.0.0-20261017174831-c860506f95cd/go.mod h1:JKSVsmxOY0wMq7X+n6Kikb9T20FZHhXYwbY31ijmoM0=
 github.com/protobuf-orm/ent v0.0.0-20261017195509-ccb638a33740 h1:xrcbUGDWdxbwYgyl8jxnSLpv2/y462nq8wfHuuCJksA=
 github.com/protobuf-orm/ent v0.0.0-20261017195509-ccb638a33740/go.mod h1:JKSVsmxOY0wMq7X+n6Kikb9T20FZHhXYwbY31ijmoM0=
+github.com/protobuf-orm/ent v0.0.0-20261017215450-5460d907499b h1:1Nn8WogieNUYxfXhb6SH6i1NwW1OY5kL7mgBCwVsQs4=
+github.com/protobuf-orm/ent v0.0.0-20261017215450-5460d907499b/go.mod h1:JKSVsmxOY0wMq7X+n6Kikb9T20FZHhXYwbY31ijmoM0=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29 h1:yLrMWcjBT70hljInsE7zssdIZ8pwvotprlUGsLEs4ms=
 github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29/go.mod h1:jMdK+un3aGD6fB5zl3rBg0OMahe7vP5Dpfxe6Sws7mM=
 github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWbZV6S5g=
