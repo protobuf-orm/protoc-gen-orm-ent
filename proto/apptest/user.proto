@@ -52,6 +52,20 @@ message User {
           }
         ]
         unique: true
+      },
+      {
+        // An edge before a field, which is the order the columns are in.
+        name: "tenant_created"
+        refs: [
+          {
+            name: "tenant"
+            number: 2
+          },
+          {
+            name: "date_created"
+            number: 15
+          }
+        ]
       }
     ]
   };

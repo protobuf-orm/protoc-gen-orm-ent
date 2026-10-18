@@ -51,9 +51,9 @@ func (User) Edges() []ent.Edge {
 
 func (User) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("alias").
-			Edges("tenant").
+		index.Fields("alias", "tenant_id").
 			Unique(),
+		index.Fields("tenant_id", "date_created"),
 	}
 }
 
