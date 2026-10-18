@@ -326,6 +326,20 @@ because ent writes a `[]byte` default into the DDL as `[]`.
 Anything else is refused at generation rather than read as the zero value: a
 default that is not honoured is a value somebody chose and nothing kept.
 
+### Indexes
+
+`(orm.message).indexes` are written as `index.Fields(...)` with every ref by its
+column, in the order the refs are declared. An edge is its key's column,
+`<edge>_id` (the field `Edges()` binds it to), so `refs: [tenant, date_created]`
+is the index `(tenant_id, date_created)`.
+
+The order is the point of most indexes: one is read from its first column, so
+`(tenant_id, date_created)` reads a tenant's rows in time order and
+`(date_created, tenant_id)` reads every tenant's to find them. Ent's
+`index.Fields(...).Edges(...)`, which this wrote before, puts the edges' columns
+after every field whatever order they were declared in. An edge to many has no
+column and is refused.
+
 ## Usage
 
 This plugin is the last stage of a multi-plugin `buf.gen.yaml` (it relies on the

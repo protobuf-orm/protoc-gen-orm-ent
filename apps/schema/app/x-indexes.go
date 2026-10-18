@@ -20,30 +20,27 @@ func xIndexes(w *work.FileWork) {
 			continue
 		}
 
-		fields := []string{}
-		edges := []string{}
+		// Every part by its column, in the order the index declares them. An
+		// index is read from its first column, so the order is what it is
+		// for -- and ent's `Fields(...).Edges(...)` puts the edges' columns
+		// after every field whatever order they were declared in, so that
+		// an index declared `(tenant, created)` was `(created, tenant_id)`.
+		// An edge's column is its key's field, the one [xEdgeFields] wrote.
+		columns := []string{}
 		for _, p := range props {
-			name := fmt.Sprintf("%q", p.Name())
-			switch p.(type) {
+			switch p := p.(type) {
 			case graph.Field:
-				fields = append(fields, name)
+				columns = append(columns, fmt.Sprintf("%q", p.Name()))
 			case graph.Edge:
-				edges = append(edges, name)
+				if p.IsList() {
+					panic(fmt.Sprintf("an index over %s, an edge to many, which has no column to index", p.FullName()))
+				}
+				columns = append(columns, fmt.Sprintf("%q", work.EdgeField(p.Name())))
 			default:
 				panic("unknown type of graph prop")
 			}
 		}
-		if len(fields) > 0 {
-			w.Pf("		%s(%s)", index.Ident("Fields"), strings.Join(fields, ", "))
-		}
-		if len(edges) > 0 {
-			if len(fields) > 0 {
-				w.P(".")
-				w.Pf("			Edges(%s)", strings.Join(edges, ","))
-			} else {
-				w.Pf("		%s(%s)", index.Ident("Edges"), strings.Join(edges, ", "))
-			}
-		}
+		w.Pf("		%s(%s)", index.Ident("Fields"), strings.Join(columns, ", "))
 		if v.IsUnique() {
 			w.P(".")
 			w.Pf("			Unique()")
