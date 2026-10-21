@@ -24,7 +24,11 @@ const addManyRows = 500
 // one INSERT for every few hundred of them, in one transaction.
 //
 // One transaction always, recorder or not: there may be more than one
-// statement, and the call is all of its rows or none of them.
+// statement, and the call is all of its rows or none of them. In a
+// transaction it joined, which is not its to take back, "none" is that
+// transaction's commit being refused when the call fails partway (xWriting);
+// and every row a statement wrote is recorded before the next statement is
+// sent, so no row is ever in the transaction without its record.
 //
 // A refusal about one item -- a key that is not sixteen bytes, a reference
 // that names nothing -- is refused naming the item, before anything is
@@ -57,7 +61,9 @@ func (w *fileWork) xAddMany() {
 	w.P("")
 
 	w.P("// AddMany adds every item as Add would add it, in one transaction: all of")
-	w.P("// the rows or none of them. The rows come back in the order of the items.")
+	w.P("// the rows or none of them -- in a transaction this joined, by that one's")
+	w.P("// commit being refused when this fails partway. The rows come back in the")
+	w.P("// order of the items, each recorded as soon as its statement holds.")
 	w.P("//")
 	w.P("// An item that cannot be a row is refused naming the item, before anything")
 	w.P("// is written. A refusal by the database is the whole statement's, and does")
@@ -99,35 +105,43 @@ func (w *fileWork) xAddMany() {
 	w.P("		qs[i], dss[i] = q, ds")
 	w.P("	}")
 	w.P("")
-	w.P("	us := make([]*", w.ent.Ident(name), ", 0, len(qs))")
+	// Each statement's rows are recorded as soon as it holds, and before the
+	// next is sent. Written all first and recorded after, a statement refused
+	// halfway through left the rows before it in the transaction with nothing
+	// recorded of them -- which a transaction this call joined, rather than
+	// began, kept. Recorded as they go, nothing is written that is not
+	// recorded, and what a failure leaves partway is refused its commit; see
+	// xWriting.
+	w.xWriting()
+	w.P("	out := make([]*", w.Ident, ", 0, len(qs))")
 	w.P("	for lo := 0; lo < len(qs); lo += ", lowerFirst(name), "AddManyRows {")
-	w.P("		vs, err := st.Db.", name, ".CreateBulk(qs[lo:min(lo+", lowerFirst(name), "AddManyRows, len(qs))]...).Save(ctx)")
+	w.P("		hi := min(lo+", lowerFirst(name), "AddManyRows, len(qs))")
+	w.P("		vs, err := st.Db.", name, ".CreateBulk(qs[lo:hi]...).Save(ctx)")
 	w.P("		if err != nil {")
 	w.xConstraintError()
 	w.P("			return nil, err")
 	w.P("		}")
-	w.P("		us = append(us, vs...)")
-	w.P("	}")
 	w.P("")
-	w.P("	out := make([]*", w.Ident, ", len(us))")
-	w.P("	for i, u := range us {")
-	w.P("		v := u.Proto()")
-	w.P("		for _, d := range dss[i] { d(v) }")
-	w.P("		out[i] = v")
+	w.P("		for j, u := range vs {")
+	w.P("			i := lo + j")
+	w.P("			v := u.Proto()")
+	w.P("			for _, d := range dss[i] { d(v) }")
+	w.P("			out = append(out, v)")
 	w.P("")
-	w.P("		var value *", w.Ident)
-	w.P("		if stored[i] != nil {")
-	w.P("			value = s.image(stored[i].Proto())")
-	w.P("		}")
+	w.P("			var value *", w.Ident)
+	w.P("			if stored[i] != nil {")
+	w.P("				value = s.image(stored[i].Proto())")
+	w.P("			}")
 	// A row each, as an Add of each would have been told: whatever keeps a
 	// trail, drops a cache or publishes an event goes on doing it a row at a
 	// time without knowing there was a batch.
-	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
-	w.P("			By: ", w.Src.GoImportPath.Ident(name+"Service_AddMany_FullMethodName"), ",")
-	w.P("			Key: u.Id,")
-	w.P("			Value: value,")
-	w.P("		}); err != nil {")
-	w.P("			return nil, err")
+	w.P("			if err := record(ctx, s.Rec, st.Db, Change{")
+	w.P("				By: ", w.Src.GoImportPath.Ident(name+"Service_AddMany_FullMethodName"), ",")
+	w.P("				Key: u.Id,")
+	w.P("				Value: value,")
+	w.P("			}); err != nil {")
+	w.P("				return nil, err")
+	w.P("			}")
 	w.P("		}")
 	w.P("	}")
 	w.P("	if err := tx.Commit(); err != nil {")

@@ -538,6 +538,7 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -582,7 +583,9 @@ const ValueFieldAddManyMax = 1000
 const valueFieldAddManyRows = 238
 
 // AddMany adds every item as Add would add it, in one transaction: all of
-// the rows or none of them. The rows come back in the order of the items.
+// the rows or none of them -- in a transaction this joined, by that one's
+// commit being refused when this fails partway. The rows come back in the
+// order of the items, each recorded as soon as its statement holds.
 //
 // An item that cannot be a row is refused naming the item, before anything
 // is written. A refusal by the database is the whole statement's, and does
@@ -620,9 +623,11 @@ func (s ValueFieldServiceServer) AddMany(ctx context.Context, req *apptest.Value
 		qs[i], dss[i] = q, ds
 	}
 
-	us := make([]*ent.ValueField, 0, len(qs))
+	tx.Writing()
+	out := make([]*apptest.ValueField, 0, len(qs))
 	for lo := 0; lo < len(qs); lo += valueFieldAddManyRows {
-		vs, err := st.Db.ValueField.CreateBulk(qs[lo:min(lo+valueFieldAddManyRows, len(qs))]...).Save(ctx)
+		hi := min(lo+valueFieldAddManyRows, len(qs))
+		vs, err := st.Db.ValueField.CreateBulk(qs[lo:hi]...).Save(ctx)
 		if err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -634,27 +639,26 @@ func (s ValueFieldServiceServer) AddMany(ctx context.Context, req *apptest.Value
 			}
 			return nil, err
 		}
-		us = append(us, vs...)
-	}
 
-	out := make([]*apptest.ValueField, len(us))
-	for i, u := range us {
-		v := u.Proto()
-		for _, d := range dss[i] {
-			d(v)
-		}
-		out[i] = v
+		for j, u := range vs {
+			i := lo + j
+			v := u.Proto()
+			for _, d := range dss[i] {
+				d(v)
+			}
+			out = append(out, v)
 
-		var value *apptest.ValueField
-		if stored[i] != nil {
-			value = s.image(stored[i].Proto())
-		}
-		if err := record(ctx, s.Rec, st.Db, Change{
-			By:    apptest.ValueFieldService_AddMany_FullMethodName,
-			Key:   u.Id,
-			Value: value,
-		}); err != nil {
-			return nil, err
+			var value *apptest.ValueField
+			if stored[i] != nil {
+				value = s.image(stored[i].Proto())
+			}
+			if err := record(ctx, s.Rec, st.Db, Change{
+				By:    apptest.ValueFieldService_AddMany_FullMethodName,
+				Key:   u.Id,
+				Value: value,
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -1306,6 +1310,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 			q.Where(predicate.ValueField(pred))
 		}
 		q.Modify(mod)
+		tx.Writing()
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -1397,6 +1402,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		p = valuefield.And(p, valuefield.IdEQ(v.Id))
 	}
 
+	tx.Writing()
 	n, err := st.Db.ValueField.Delete().Where(p).Exec(ctx)
 	if err != nil {
 		return nil, err
@@ -1560,6 +1566,7 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -1604,7 +1611,9 @@ const MessageFieldAddManyMax = 1000
 const messageFieldAddManyRows = 500
 
 // AddMany adds every item as Add would add it, in one transaction: all of
-// the rows or none of them. The rows come back in the order of the items.
+// the rows or none of them -- in a transaction this joined, by that one's
+// commit being refused when this fails partway. The rows come back in the
+// order of the items, each recorded as soon as its statement holds.
 //
 // An item that cannot be a row is refused naming the item, before anything
 // is written. A refusal by the database is the whole statement's, and does
@@ -1642,9 +1651,11 @@ func (s MessageFieldServiceServer) AddMany(ctx context.Context, req *apptest.Mes
 		qs[i], dss[i] = q, ds
 	}
 
-	us := make([]*ent.MessageField, 0, len(qs))
+	tx.Writing()
+	out := make([]*apptest.MessageField, 0, len(qs))
 	for lo := 0; lo < len(qs); lo += messageFieldAddManyRows {
-		vs, err := st.Db.MessageField.CreateBulk(qs[lo:min(lo+messageFieldAddManyRows, len(qs))]...).Save(ctx)
+		hi := min(lo+messageFieldAddManyRows, len(qs))
+		vs, err := st.Db.MessageField.CreateBulk(qs[lo:hi]...).Save(ctx)
 		if err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -1656,27 +1667,26 @@ func (s MessageFieldServiceServer) AddMany(ctx context.Context, req *apptest.Mes
 			}
 			return nil, err
 		}
-		us = append(us, vs...)
-	}
 
-	out := make([]*apptest.MessageField, len(us))
-	for i, u := range us {
-		v := u.Proto()
-		for _, d := range dss[i] {
-			d(v)
-		}
-		out[i] = v
+		for j, u := range vs {
+			i := lo + j
+			v := u.Proto()
+			for _, d := range dss[i] {
+				d(v)
+			}
+			out = append(out, v)
 
-		var value *apptest.MessageField
-		if stored[i] != nil {
-			value = s.image(stored[i].Proto())
-		}
-		if err := record(ctx, s.Rec, st.Db, Change{
-			By:    apptest.MessageFieldService_AddMany_FullMethodName,
-			Key:   u.Id,
-			Value: value,
-		}); err != nil {
-			return nil, err
+			var value *apptest.MessageField
+			if stored[i] != nil {
+				value = s.image(stored[i].Proto())
+			}
+			if err := record(ctx, s.Rec, st.Db, Change{
+				By:    apptest.MessageFieldService_AddMany_FullMethodName,
+				Key:   u.Id,
+				Value: value,
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -1953,6 +1963,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 			q.Where(predicate.MessageField(pred))
 		}
 		q.Modify(mod)
+		tx.Writing()
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -2044,6 +2055,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		p = messagefield.And(p, messagefield.IdEQ(v.Id))
 	}
 
+	tx.Writing()
 	n, err := st.Db.MessageField.Delete().Where(p).Exec(ctx)
 	if err != nil {
 		return nil, err
@@ -2217,6 +2229,7 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -2261,7 +2274,9 @@ const MapFieldAddManyMax = 1000
 const mapFieldAddManyRows = 500
 
 // AddMany adds every item as Add would add it, in one transaction: all of
-// the rows or none of them. The rows come back in the order of the items.
+// the rows or none of them -- in a transaction this joined, by that one's
+// commit being refused when this fails partway. The rows come back in the
+// order of the items, each recorded as soon as its statement holds.
 //
 // An item that cannot be a row is refused naming the item, before anything
 // is written. A refusal by the database is the whole statement's, and does
@@ -2299,9 +2314,11 @@ func (s MapFieldServiceServer) AddMany(ctx context.Context, req *apptest.MapFiel
 		qs[i], dss[i] = q, ds
 	}
 
-	us := make([]*ent.MapField, 0, len(qs))
+	tx.Writing()
+	out := make([]*apptest.MapField, 0, len(qs))
 	for lo := 0; lo < len(qs); lo += mapFieldAddManyRows {
-		vs, err := st.Db.MapField.CreateBulk(qs[lo:min(lo+mapFieldAddManyRows, len(qs))]...).Save(ctx)
+		hi := min(lo+mapFieldAddManyRows, len(qs))
+		vs, err := st.Db.MapField.CreateBulk(qs[lo:hi]...).Save(ctx)
 		if err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -2313,27 +2330,26 @@ func (s MapFieldServiceServer) AddMany(ctx context.Context, req *apptest.MapFiel
 			}
 			return nil, err
 		}
-		us = append(us, vs...)
-	}
 
-	out := make([]*apptest.MapField, len(us))
-	for i, u := range us {
-		v := u.Proto()
-		for _, d := range dss[i] {
-			d(v)
-		}
-		out[i] = v
+		for j, u := range vs {
+			i := lo + j
+			v := u.Proto()
+			for _, d := range dss[i] {
+				d(v)
+			}
+			out = append(out, v)
 
-		var value *apptest.MapField
-		if stored[i] != nil {
-			value = s.image(stored[i].Proto())
-		}
-		if err := record(ctx, s.Rec, st.Db, Change{
-			By:    apptest.MapFieldService_AddMany_FullMethodName,
-			Key:   u.Id,
-			Value: value,
-		}); err != nil {
-			return nil, err
+			var value *apptest.MapField
+			if stored[i] != nil {
+				value = s.image(stored[i].Proto())
+			}
+			if err := record(ctx, s.Rec, st.Db, Change{
+				By:    apptest.MapFieldService_AddMany_FullMethodName,
+				Key:   u.Id,
+				Value: value,
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -2616,6 +2632,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 			q.Where(predicate.MapField(pred))
 		}
 		q.Modify(mod)
+		tx.Writing()
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -2707,6 +2724,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		p = mapfield.And(p, mapfield.IdEQ(v.Id))
 	}
 
+	tx.Writing()
 	n, err := st.Db.MapField.Delete().Where(p).Exec(ctx)
 	if err != nil {
 		return nil, err

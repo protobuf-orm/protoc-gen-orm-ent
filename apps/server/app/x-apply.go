@@ -201,6 +201,9 @@ func (w *fileWork) xApply() {
 	// broke a unique index answered `Unknown` with the index name in it, while
 	// the identical conflict on an Add answered `AlreadyExists`. See
 	// [fileWork.xConstraintError].
+	// Only the branch that writes: a document of nothing but tests reads the
+	// row, and a failure there leaves nothing to take back.
+	w.xWriting()
 	w.P("		if n, err := q.Save(ctx); err != nil {")
 	w.xConstraintError()
 	w.P("			return nil, err")

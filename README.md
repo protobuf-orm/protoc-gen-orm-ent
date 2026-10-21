@@ -162,6 +162,12 @@ Three things follow from where they are:
   open a transaction they would not otherwise need, and only while a recorder is
   configured. `Erase` also reads the row before deleting it, since a request may
   have named it by an alias and an alias is not what a trail is read back with.
+  A write inside a transaction somebody else began joins it rather than opening
+  one, and cannot take back what it wrote -- there are no savepoints, and that
+  transaction is not its to end. So it says when it begins writing
+  (`ent.Joined.Writing`), and when it fails after that, the transaction it
+  joined is refused its commit (`ent.ErrPartial`), on a transaction begun with
+  `dialect.BeginTx`: nothing of a write that answered with an error holds.
 - **Narrowing is not refusing.** A row out of scope is a row the query does not
   match, so a `Get` of it is `NotFound` and an `Apply` of it says no row was
   matched. That is usually the right answer: that something exists is itself
@@ -196,9 +202,13 @@ item as an `Add` of it would be -- the one `create` builds both -- with one
 INSERT for every few hundred rows, in one transaction: all of them or none.
 
 - The rows come back in the order of the items, and a recorder is told about
-  each of them, `By` the AddMany, as an `Add` of each would have told it. An
-  image a recorder asks for is read by the INSERT itself where the dialect has
-  `RETURNING` (ent's `sql/returning`, in a `CreateBulk`).
+  each of them, `By` the AddMany, as an `Add` of each would have told it -- as
+  soon as the statement that wrote it holds, and before the next is sent, so no
+  row is in the transaction with nothing recorded of it. An image a recorder
+  asks for is read by the INSERT itself where the dialect has `RETURNING`
+  (ent's `sql/returning`, in a `CreateBulk`).
+- In a transaction it joined, "none" is that transaction's commit being
+  refused when the call fails partway, as any write's is.
 - An item that cannot be a row -- a key that is not sixteen bytes, a reference
   by alias that names nothing -- is refused before anything is written, naming
   the item: `ItemError` puts `items[i]: ` before the message, and an

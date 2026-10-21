@@ -209,6 +209,7 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -253,7 +254,9 @@ const SeatAddManyMax = 3
 const seatAddManyRows = 500
 
 // AddMany adds every item as Add would add it, in one transaction: all of
-// the rows or none of them. The rows come back in the order of the items.
+// the rows or none of them -- in a transaction this joined, by that one's
+// commit being refused when this fails partway. The rows come back in the
+// order of the items, each recorded as soon as its statement holds.
 //
 // An item that cannot be a row is refused naming the item, before anything
 // is written. A refusal by the database is the whole statement's, and does
@@ -291,9 +294,11 @@ func (s SeatServiceServer) AddMany(ctx context.Context, req *apptest.SeatAddMany
 		qs[i], dss[i] = q, ds
 	}
 
-	us := make([]*ent.Seat, 0, len(qs))
+	tx.Writing()
+	out := make([]*apptest.Seat, 0, len(qs))
 	for lo := 0; lo < len(qs); lo += seatAddManyRows {
-		vs, err := st.Db.Seat.CreateBulk(qs[lo:min(lo+seatAddManyRows, len(qs))]...).Save(ctx)
+		hi := min(lo+seatAddManyRows, len(qs))
+		vs, err := st.Db.Seat.CreateBulk(qs[lo:hi]...).Save(ctx)
 		if err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -305,27 +310,26 @@ func (s SeatServiceServer) AddMany(ctx context.Context, req *apptest.SeatAddMany
 			}
 			return nil, err
 		}
-		us = append(us, vs...)
-	}
 
-	out := make([]*apptest.Seat, len(us))
-	for i, u := range us {
-		v := u.Proto()
-		for _, d := range dss[i] {
-			d(v)
-		}
-		out[i] = v
+		for j, u := range vs {
+			i := lo + j
+			v := u.Proto()
+			for _, d := range dss[i] {
+				d(v)
+			}
+			out = append(out, v)
 
-		var value *apptest.Seat
-		if stored[i] != nil {
-			value = s.image(stored[i].Proto())
-		}
-		if err := record(ctx, s.Rec, st.Db, Change{
-			By:    apptest.SeatService_AddMany_FullMethodName,
-			Key:   u.Id,
-			Value: value,
-		}); err != nil {
-			return nil, err
+			var value *apptest.Seat
+			if stored[i] != nil {
+				value = s.image(stored[i].Proto())
+			}
+			if err := record(ctx, s.Rec, st.Db, Change{
+				By:    apptest.SeatService_AddMany_FullMethodName,
+				Key:   u.Id,
+				Value: value,
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -619,6 +623,7 @@ func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc 
 			q.Where(predicate.Seat(pred))
 		}
 		q.Modify(mod)
+		tx.Writing()
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -710,6 +715,7 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 		p = seat.And(p, seat.IdEQ(v.Id))
 	}
 
+	tx.Writing()
 	n, err := st.Db.Seat.Delete().Where(p).Exec(ctx)
 	if err != nil {
 		return nil, err

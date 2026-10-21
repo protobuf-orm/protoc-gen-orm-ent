@@ -156,6 +156,7 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -420,6 +421,7 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 			q.Where(predicate.Tenant(pred))
 		}
 		q.Modify(mod)
+		tx.Writing()
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -511,6 +513,7 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 		p = tenant.And(p, tenant.IdEQ(v.Id))
 	}
 
+	tx.Writing()
 	n, err := st.Db.Tenant.Delete().Where(p).Exec(ctx)
 	if err != nil {
 		return nil, err

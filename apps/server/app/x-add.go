@@ -224,6 +224,7 @@ func (w *fileWork) xAddOne() {
 	w.P("		q.Stored(&stored)")
 	w.P("	}")
 	w.P("")
+	w.xWriting()
 	w.P("	u, err := q.Save(ctx)")
 	w.P("	if err != nil {")
 	w.xConstraintError()
