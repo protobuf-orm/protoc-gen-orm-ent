@@ -219,7 +219,20 @@ func (w *fileWork) xAddRule() {
 	w.P("		}")
 	w.P("		rs[i] = r")
 	w.P("	}")
-	w.P("	return s.", name, "ServiceServer.AddMany(ctx, ", w.Src.GoImportPath.Ident(name+"AddManyRequest_builder"), "{Items: rs}.Build())")
+	// What the call asks besides its items -- an app's own fields on it, a dry
+	// run, an idempotency key -- is the server behind's to read as much as the
+	// items are: carried over as it came, beside the items the rule made.
+	w.P("	out := &", w.Src.GoImportPath.Ident(name+"AddManyRequest"), "{}")
+	w.P("	req.ProtoReflect().Range(func(fd ", work.PkgProtoReflect.Ident("FieldDescriptor"), ", v ", work.PkgProtoReflect.Ident("Value"), ") bool {")
+	w.P("		if fd.Name() != \"items\" {")
+	w.P("			out.ProtoReflect().Set(fd, v)")
+	w.P("		}")
+	w.P("		return true")
+	w.P("	})")
+	w.P("	out.ProtoReflect().SetUnknown(req.ProtoReflect().GetUnknown())")
+	w.P("	out.SetItems(rs)")
+	w.P("")
+	w.P("	return s.", name, "ServiceServer.AddMany(ctx, out)")
 	w.P("}")
 	w.P("")
 }

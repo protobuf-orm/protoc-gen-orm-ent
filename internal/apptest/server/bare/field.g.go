@@ -22,6 +22,7 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	proto "google.golang.org/protobuf/proto"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type ValueFieldServiceServer struct {
@@ -712,7 +713,17 @@ func (s valueFieldAddRuled) AddMany(ctx context.Context, req *apptest.ValueField
 		}
 		rs[i] = r
 	}
-	return s.ValueFieldServiceServer.AddMany(ctx, apptest.ValueFieldAddManyRequest_builder{Items: rs}.Build())
+	out := &apptest.ValueFieldAddManyRequest{}
+	req.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.Name() != "items" {
+			out.ProtoReflect().Set(fd, v)
+		}
+		return true
+	})
+	out.ProtoReflect().SetUnknown(req.ProtoReflect().GetUnknown())
+	out.SetItems(rs)
+
+	return s.ValueFieldServiceServer.AddMany(ctx, out)
 }
 
 func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFieldGetRequest) (*apptest.ValueField, error) {
@@ -1724,7 +1735,17 @@ func (s messageFieldAddRuled) AddMany(ctx context.Context, req *apptest.MessageF
 		}
 		rs[i] = r
 	}
-	return s.MessageFieldServiceServer.AddMany(ctx, apptest.MessageFieldAddManyRequest_builder{Items: rs}.Build())
+	out := &apptest.MessageFieldAddManyRequest{}
+	req.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.Name() != "items" {
+			out.ProtoReflect().Set(fd, v)
+		}
+		return true
+	})
+	out.ProtoReflect().SetUnknown(req.ProtoReflect().GetUnknown())
+	out.SetItems(rs)
+
+	return s.MessageFieldServiceServer.AddMany(ctx, out)
 }
 
 func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.MessageFieldGetRequest) (*apptest.MessageField, error) {
@@ -2371,7 +2392,17 @@ func (s mapFieldAddRuled) AddMany(ctx context.Context, req *apptest.MapFieldAddM
 		}
 		rs[i] = r
 	}
-	return s.MapFieldServiceServer.AddMany(ctx, apptest.MapFieldAddManyRequest_builder{Items: rs}.Build())
+	out := &apptest.MapFieldAddManyRequest{}
+	req.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.Name() != "items" {
+			out.ProtoReflect().Set(fd, v)
+		}
+		return true
+	})
+	out.ProtoReflect().SetUnknown(req.ProtoReflect().GetUnknown())
+	out.SetItems(rs)
+
+	return s.MapFieldServiceServer.AddMany(ctx, out)
 }
 
 func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGetRequest) (*apptest.MapField, error) {

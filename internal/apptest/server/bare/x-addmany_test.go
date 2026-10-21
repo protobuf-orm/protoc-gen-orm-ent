@@ -19,6 +19,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -322,6 +323,27 @@ func TestAddRule(t *testing.T) {
 		x.Zero(c.Server.Db.User.Query().CountX(ctx))
 	}))
 
+	// What the call asks besides its items is the server behind's to read: an
+	// app's own fields on the request are what this app's schema has none of,
+	// so what it is held to here is what it does not know.
+	t.Run("and what the call asks besides its items reaches the server behind", T(func(ctx context.Context, x *require.Assertions, c *Client) {
+		tenant, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
+		x.NoError(err)
+
+		behind := &keepsAddMany{UserServiceServer: c.Server.User()}
+		var seen []string
+		s := bare.UserWithAddRule(behind, asked(&seen, "no"))
+		req := users(tenant, "a", "b")
+		besides := protowire.AppendBytes(protowire.AppendTag(nil, 100, protowire.BytesType), []byte("dry run"))
+		req.ProtoReflect().SetUnknown(besides)
+
+		_, err = s.AddMany(ctx, req)
+		x.NoError(err)
+		x.Equal([]byte(besides), []byte(behind.got.ProtoReflect().GetUnknown()), "what the call asked besides its items was dropped")
+		x.Len(behind.got.GetItems(), 2)
+		x.Equal("ruled A", behind.got.GetItems()[0].GetName(), "the items the rule made were not handed on")
+	}))
+
 	t.Run("and a call over the max before the rule is asked at all", T(func(ctx context.Context, x *require.Assertions, c *Client) {
 		tenant, err := c.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
 		x.NoError(err)
@@ -480,4 +502,15 @@ func TestPostgresAddManyImages(t *testing.T) {
 		x.True(proto.Equal(got, ch.Value), "change %d: %v, and the row is %v", i, ch.Value, got)
 		x.Equal(at().Round(time.Microsecond), ch.Value.(*pb.User).GetDateCreated().AsTime(), "rounded to the column, as PostgreSQL does")
 	}
+}
+
+// keepsAddMany is the server behind a rule, keeping what an AddMany handed it.
+type keepsAddMany struct {
+	pb.UserServiceServer
+	got *pb.UserAddManyRequest
+}
+
+func (s *keepsAddMany) AddMany(ctx context.Context, req *pb.UserAddManyRequest) (*pb.UserAddManyResponse, error) {
+	s.got = req
+	return s.UserServiceServer.AddMany(ctx, req)
 }
