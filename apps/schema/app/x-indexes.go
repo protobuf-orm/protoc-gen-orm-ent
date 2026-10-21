@@ -12,6 +12,17 @@ import (
 func xIndexes(w *work.FileWork) {
 	index := work.PkgIndex
 
+	// What every index of this entity is stored as, so that two called the
+	// same are refused here rather than by the database, which refuses the
+	// second when a migration makes it. That is the ones a name is declared
+	// for, and the ones ent names after their columns -- an index that declares
+	// none, and the unique fields promoted to partial indexes below -- since a
+	// declared `slug` and a unique field `slug` would both be `<table>_slug`.
+	keys := map[string]string{}
+	for _, f := range promotedUniques(w.Entity) {
+		keys[work.IndexKey(w.Entity, f.Name())] = "the unique field " + f.Name()
+	}
+
 	w.P("func (", w.Ident.GoName, ")", "Indexes() []", work.PkgEnt.Ident("Index"), " {")
 	w.P("	return []", work.PkgEnt.Ident("Index"), "{")
 	for v := range w.Entity.Indexes() {
@@ -26,21 +37,49 @@ func xIndexes(w *work.FileWork) {
 		// after every field whatever order they were declared in, so that
 		// an index declared `(tenant, created)` was `(created, tenant_id)`.
 		// An edge's column is its key's field, the one [xEdgeFields] wrote.
-		columns := []string{}
+		columns, names := []string{}, []string{}
 		for _, p := range props {
 			switch p := p.(type) {
 			case graph.Field:
-				columns = append(columns, fmt.Sprintf("%q", p.Name()))
+				names = append(names, p.Name())
 			case graph.Edge:
 				if p.IsList() {
 					panic(fmt.Sprintf("an index over %s, an edge to many, which has no column to index", p.FullName()))
 				}
-				columns = append(columns, fmt.Sprintf("%q", work.EdgeField(p.Name())))
+				names = append(names, work.EdgeField(p.Name()))
 			default:
 				panic("unknown type of graph prop")
 			}
+			columns = append(columns, fmt.Sprintf("%q", names[len(names)-1]))
 		}
 		w.Pf("		%s(%s)", index.Ident("Fields"), strings.Join(columns, ", "))
+
+		// Under the name it declares, and not the one ent makes up out of its
+		// columns. That name is the index: a migration finds the index by it,
+		// so one whose columns change is the same index changed -- rebuilt
+		// where it stands -- where a name made of the columns is a new index
+		// beside the old one, which a migration never drops, and which goes on
+		// being written on every insert and read by nothing.
+		name, what := v.Name(), fmt.Sprintf("index %q", v.Name())
+		if name == "" {
+			// Nothing declared, so ent's name, which is what it always was.
+			name, what = strings.Join(names, "_"), "an index of no name"
+		}
+		key := work.IndexKey(w.Entity, name)
+		if was, ok := keys[key]; ok {
+			panic(fmt.Sprintf("%s: %s and %s are both stored as %q, and a database holds one index of a name",
+				w.Entity.FullName(), was, what, key))
+		}
+		keys[key] = what
+		if v.Name() != "" {
+			if len(key) > work.MaxIndexKey {
+				panic(fmt.Sprintf("%s: %s is stored as %q, which is %d bytes, and PostgreSQL keeps the first %d of a name: two that begin alike would be one",
+					w.Entity.FullName(), what, key, len(key), work.MaxIndexKey))
+			}
+
+			w.P(".")
+			w.Pf("			StorageKey(%q)", key)
+		}
 		if v.IsUnique() {
 			w.P(".")
 			w.Pf("			Unique()")

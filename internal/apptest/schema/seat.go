@@ -47,8 +47,10 @@ func (Seat) Edges() []ent.Edge {
 func (Seat) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("holder_id", "org_id").
+			StorageKey("seat_place").
 			Unique(),
 		index.Fields("deputy_id").
+			StorageKey("seat_deputy").
 			Unique(),
 	}
 }

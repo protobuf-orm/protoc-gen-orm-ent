@@ -42,9 +42,11 @@ func (Note) Fields() []ent.Field {
 func (Note) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("alias").
+			StorageKey("note_alias").
 			Unique().
 			Annotations(entsql.IndexWhere("date_erased IS NULL")),
 		index.Fields("body").
+			StorageKey("note_body").
 			Unique(),
 		index.Fields("slug").
 			Unique().

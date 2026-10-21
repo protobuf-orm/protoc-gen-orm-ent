@@ -350,6 +350,22 @@ The order is the point of most indexes: one is read from its first column, so
 after every field whatever order they were declared in. An edge to many has no
 column and is refused.
 
+An index is stored under the name it declares, after its table's:
+`{name: "page"}` on `Robot` is the index `robot_page`. The name is what a
+migration finds an index by, so an index whose columns change is the same index
+changed -- PostgreSQL drops and makes it again under that name, SQLite rebuilds
+the table -- where a name made of the columns, which ent gives an index it is
+not told one for, is a new index beside the old one, and a migration drops no
+index. An index that declares no name keeps ent's, `<table>_<column>_<column>`,
+and so does a unique field an entity that erases softly promotes to a partial
+index. Two indexes of one entity stored as one name are refused, and so is a
+declared name longer than PostgreSQL keeps (63 bytes, with the table's).
+
+A database made before this holds every declared index under ent's name. The
+first migration makes each again under its own and leaves the old one, so
+rename them first -- `ALTER INDEX IF EXISTS <table>_<columns> RENAME TO
+<table>_<name>` on PostgreSQL costs no rebuild -- or drop the old names after.
+
 ## Usage
 
 This plugin is the last stage of a multi-plugin `buf.gen.yaml` (it relies on the
