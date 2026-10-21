@@ -141,6 +141,7 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -399,6 +400,7 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 			q.Where(predicate.Shift(pred))
 		}
 		q.Modify(mod)
+		tx.Writing()
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -490,6 +492,7 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 		p = shift.And(p, shift.IdEQ(v.Id))
 	}
 
+	tx.Writing()
 	n, err := st.Db.Shift.Delete().Where(p).Exec(ctx)
 	if err != nil {
 		return nil, err
@@ -636,6 +639,7 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {

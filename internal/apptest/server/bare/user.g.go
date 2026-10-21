@@ -185,6 +185,7 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 		q.Stored(&stored)
 	}
 
+	tx.Writing()
 	u, err := q.Save(ctx)
 	if err != nil {
 		if err, ok := err.(*ent.ConstraintError); ok {
@@ -229,7 +230,9 @@ const UserAddManyMax = 1000
 const userAddManyRows = 500
 
 // AddMany adds every item as Add would add it, in one transaction: all of
-// the rows or none of them. The rows come back in the order of the items.
+// the rows or none of them -- in a transaction this joined, by that one's
+// commit being refused when this fails partway. The rows come back in the
+// order of the items, each recorded as soon as its statement holds.
 //
 // An item that cannot be a row is refused naming the item, before anything
 // is written. A refusal by the database is the whole statement's, and does
@@ -267,9 +270,11 @@ func (s UserServiceServer) AddMany(ctx context.Context, req *apptest.UserAddMany
 		qs[i], dss[i] = q, ds
 	}
 
-	us := make([]*ent.User, 0, len(qs))
+	tx.Writing()
+	out := make([]*apptest.User, 0, len(qs))
 	for lo := 0; lo < len(qs); lo += userAddManyRows {
-		vs, err := st.Db.User.CreateBulk(qs[lo:min(lo+userAddManyRows, len(qs))]...).Save(ctx)
+		hi := min(lo+userAddManyRows, len(qs))
+		vs, err := st.Db.User.CreateBulk(qs[lo:hi]...).Save(ctx)
 		if err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -281,27 +286,26 @@ func (s UserServiceServer) AddMany(ctx context.Context, req *apptest.UserAddMany
 			}
 			return nil, err
 		}
-		us = append(us, vs...)
-	}
 
-	out := make([]*apptest.User, len(us))
-	for i, u := range us {
-		v := u.Proto()
-		for _, d := range dss[i] {
-			d(v)
-		}
-		out[i] = v
+		for j, u := range vs {
+			i := lo + j
+			v := u.Proto()
+			for _, d := range dss[i] {
+				d(v)
+			}
+			out = append(out, v)
 
-		var value *apptest.User
-		if stored[i] != nil {
-			value = s.image(stored[i].Proto())
-		}
-		if err := record(ctx, s.Rec, st.Db, Change{
-			By:    apptest.UserService_AddMany_FullMethodName,
-			Key:   u.Id,
-			Value: value,
-		}); err != nil {
-			return nil, err
+			var value *apptest.User
+			if stored[i] != nil {
+				value = s.image(stored[i].Proto())
+			}
+			if err := record(ctx, s.Rec, st.Db, Change{
+				By:    apptest.UserService_AddMany_FullMethodName,
+				Key:   u.Id,
+				Value: value,
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -594,6 +598,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		if !plan.WritesTo(14) {
 			q.SetDateUpdated(st.now())
 		}
+		tx.Writing()
 		if n, err := q.Save(ctx); err != nil {
 			if err, ok := err.(*ent.ConstraintError); ok {
 				if sqlgraph.IsUniqueConstraintError(err) {
@@ -685,6 +690,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 		p = user.And(p, user.IdEQ(v.Id))
 	}
 
+	tx.Writing()
 	n, err := st.Db.User.Delete().Where(p).Exec(ctx)
 	if err != nil {
 		return nil, err

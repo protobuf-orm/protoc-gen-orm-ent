@@ -89,6 +89,7 @@ func (w *fileWork) xErase() {
 	w.P("	}")
 	w.P("")
 
+	w.xWriting()
 	if del := w.Entity.GetErasedField(); del == nil {
 		w.P("	n, err := st.Db.", name, ".Delete().Where(p).Exec(ctx)")
 		w.P("	if err != nil {")
