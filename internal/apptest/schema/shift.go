@@ -28,6 +28,7 @@ func (Shift) Fields() []ent.Field {
 func (Shift) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("desk", "starts_at").
+			StorageKey("shift_slot").
 			Unique(),
 	}
 }
