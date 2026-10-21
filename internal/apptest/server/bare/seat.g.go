@@ -384,7 +384,17 @@ func (s seatAddRuled) AddMany(ctx context.Context, req *apptest.SeatAddManyReque
 		}
 		rs[i] = r
 	}
-	return s.SeatServiceServer.AddMany(ctx, apptest.SeatAddManyRequest_builder{Items: rs}.Build())
+	out := &apptest.SeatAddManyRequest{}
+	req.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.Name() != "items" {
+			out.ProtoReflect().Set(fd, v)
+		}
+		return true
+	})
+	out.ProtoReflect().SetUnknown(req.ProtoReflect().GetUnknown())
+	out.SetItems(rs)
+
+	return s.SeatServiceServer.AddMany(ctx, out)
 }
 
 func (s SeatServiceServer) Get(ctx context.Context, req *apptest.SeatGetRequest) (*apptest.Seat, error) {

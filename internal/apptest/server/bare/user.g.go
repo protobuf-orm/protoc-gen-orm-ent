@@ -360,7 +360,17 @@ func (s userAddRuled) AddMany(ctx context.Context, req *apptest.UserAddManyReque
 		}
 		rs[i] = r
 	}
-	return s.UserServiceServer.AddMany(ctx, apptest.UserAddManyRequest_builder{Items: rs}.Build())
+	out := &apptest.UserAddManyRequest{}
+	req.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.Name() != "items" {
+			out.ProtoReflect().Set(fd, v)
+		}
+		return true
+	})
+	out.ProtoReflect().SetUnknown(req.ProtoReflect().GetUnknown())
+	out.SetItems(rs)
+
+	return s.UserServiceServer.AddMany(ctx, out)
 }
 
 func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest) (*apptest.User, error) {
