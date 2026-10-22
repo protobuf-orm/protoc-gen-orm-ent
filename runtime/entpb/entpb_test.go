@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/typepb"
 
 	"github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpb"
 )
@@ -69,6 +70,30 @@ func TestFromValue(t *testing.T) {
 
 		_, err := vs.FromValue("a bare string")
 		x.ErrorContains(err, "expected *sql.NullString")
+	})
+}
+
+// A row written before a field was removed still has its name, and a row
+// written by a newer binary has names this one has never seen. Neither is a
+// reason the row cannot be read.
+func TestFromValueUnknownField(t *testing.T) {
+	const doc = `{"removed":"running","name":"kept"}`
+
+	t.Run("a message", func(t *testing.T) {
+		x := require.New(t)
+
+		v, err := entpb.ValueScanner[*typepb.Type]{}.FromValue(&sql.NullString{String: doc, Valid: true})
+		x.NoError(err)
+		x.Equal("kept", v.GetName())
+	})
+
+	t.Run("a list", func(t *testing.T) {
+		x := require.New(t)
+
+		vs, err := entpb.ListValueScanner[*typepb.Type]{}.FromValue(&sql.NullString{String: "[" + doc + "]", Valid: true})
+		x.NoError(err)
+		x.Len(vs, 1)
+		x.Equal("kept", vs[0].GetName())
 	})
 }
 

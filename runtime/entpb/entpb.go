@@ -42,6 +42,15 @@
 // it silently stops finding the old value. Renumbering is what the wire cares
 // about and it is guarded elsewhere; renaming is what this cares about, and it
 // is a migration. There is nothing here that can check it.
+//
+// **A name the message no longer has is skipped, not refused.** Removing a
+// field -- `reserved` where it used to be -- leaves its name in every row
+// written before, and the rows are not rewritten when the schema changes.
+// Refusing them would make every read of every such row an error from the
+// moment the new binary starts, which is a deployment that cannot read its own
+// database. It is the same in the other direction: a binary rolled back reads
+// rows the newer one wrote, with fields it has never heard of. The wire has
+// always tolerated both; this is the column doing the same.
 package entpb
 
 import (
@@ -54,6 +63,10 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
+
+// unmarshal reads what is stored, skipping names the message does not have;
+// see the package doc for why.
+var unmarshal = protojson.UnmarshalOptions{DiscardUnknown: true}
 
 // ValueScanner stores `T` as its canonical protobuf JSON.
 //
@@ -107,7 +120,7 @@ func (ValueScanner[T]) FromValue(v driver.Value) (T, error) {
 	// ProtoReflect still answers with the descriptor -- which is the whole
 	// reason a generic like this can build a message at all.
 	m := zero.ProtoReflect().New().Interface()
-	if err := protojson.Unmarshal([]byte(s.String), m); err != nil {
+	if err := unmarshal.Unmarshal([]byte(s.String), m); err != nil {
 		return zero, err
 	}
 
@@ -277,7 +290,7 @@ func messageFrom[T proto.Message](b []byte) (T, error) {
 	}
 
 	m := zero.ProtoReflect().New().Interface()
-	if err := protojson.Unmarshal(b, m); err != nil {
+	if err := unmarshal.Unmarshal(b, m); err != nil {
 		return zero, err
 	}
 
