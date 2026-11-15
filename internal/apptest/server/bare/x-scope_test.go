@@ -247,3 +247,106 @@ func TestScopeLeavesAddAlone(t *testing.T) {
 		x.Equal(codes.NotFound, status.Code(err))
 	}))
 }
+
+// TestScopeSelect: an edge a select names is read through the scope of the
+// entity it reaches, and one it keeps from this caller is answered as an edge
+// nobody asked for -- the reference, and nothing of the row.
+//
+// It was read with no scope at all. The row a Get names was narrowed and the
+// row at the other end of an edge was loaded whole, so a caller a scope keeps
+// from somebody read them entire by naming any row that points at them and
+// asking for the edge.
+func TestScopeSelect(t *testing.T) {
+	// A Seat held by the User the scope hides, with the one it shows as its
+	// deputy: two edges to one kind, one each side of the scope.
+	seat := func(ctx context.Context, x *require.Assertions, c *Client) (*pb.Seat, *pb.User, *pb.User) {
+		seen, unseen := sow(ctx, x, c)
+
+		v, err := c.Seat().Add(ctx, pb.SeatAddRequest_builder{
+			Holder: unseen.Ref(),
+			Org:    seen.GetTenant().Ref(),
+			Deputy: seen.Ref(),
+		}.Build())
+		x.NoError(err)
+
+		return v, seen, unseen
+	}
+	whole := func(s *pb.SeatSelect) {
+		s.SetHolder(pb.UserSelect_builder{All: z.Ptr(true)}.Build())
+		s.SetDeputy(pb.UserSelect_builder{All: z.Ptr(true)}.Build())
+	}
+
+	t.Run("an edge out of scope is its reference alone", S(notHidden, func(ctx context.Context, x *require.Assertions, c *Client, _ *Server) {
+		v, seen, unseen := seat(ctx, x, c)
+
+		got, err := c.Seat().Get(ctx, v.Pick().WithSelect(whole))
+		x.NoError(err, "a row in scope is answered, whatever it points at")
+
+		// The reference is a column of the Seat, which this caller reads.
+		x.Equal(unseen.GetId(), got.GetHolder().GetId())
+		// The row is not.
+		x.Empty(got.GetHolder().GetAlias(), "a User the scope hides was read through an edge")
+		x.False(got.GetHolder().HasDateCreated())
+
+		// And an edge in scope is answered as it was asked for.
+		x.Equal(seen.GetId(), got.GetDeputy().GetId())
+		x.Equal(seen.GetAlias(), got.GetDeputy().GetAlias())
+	}))
+
+	t.Run("as it is with no select at all", S(notHidden, func(ctx context.Context, x *require.Assertions, c *Client, _ *Server) {
+		v, _, unseen := seat(ctx, x, c)
+
+		got, err := c.Seat().Get(ctx, v.Pick())
+		x.NoError(err)
+		x.Equal(unseen.GetId(), got.GetHolder().GetId())
+		x.Empty(got.GetHolder().GetAlias())
+	}))
+
+	t.Run("and an edge under an edge", S(notHidden, func(ctx context.Context, x *require.Assertions, c *Client, _ *Server) {
+		v, _, _ := seat(ctx, x, c)
+
+		// The Tenant is in scope and is reached through a User who is not:
+		// nothing under an edge that was not loaded is.
+		got, err := c.Seat().Get(ctx, v.Pick().WithSelect(func(s *pb.SeatSelect) {
+			s.SetHolder(pb.UserSelect_builder{
+				Tenant: pb.TenantSelect_builder{All: z.Ptr(true)}.Build(),
+			}.Build())
+		}))
+		x.NoError(err)
+		x.False(got.GetHolder().HasTenant(), "what a hidden User points at was answered")
+	}))
+
+	t.Run("a scope that refuses is the caller's answer for the edge too", S(
+		func(context.Context) (predicate.User, error) {
+			return nil, status.Error(codes.PermissionDenied, "not today")
+		},
+		func(ctx context.Context, x *require.Assertions, c *Client, s *Server) {
+			v, _, _ := seat(ctx, x, c)
+
+			// The Seat has no scope of its own here, so naming it is fine.
+			_, err := c.Seat().Get(ctx, v.Pick())
+			x.NoError(err)
+
+			// Asking for a User through it asks the User's scope.
+			_, err = c.Seat().Get(ctx, v.Pick().WithSelect(whole))
+			x.Equal(codes.PermissionDenied, status.Code(err))
+		},
+	))
+
+	t.Run("and a server with no scope reads the edge whole", func(t *testing.T) {
+		x := require.New(t)
+
+		s := NewServerWith(t)
+		defer s.Close()
+
+		c := NewClient(t, s)
+		defer c.Close()
+
+		ctx := t.Context()
+		v, _, unseen := seat(ctx, x, c)
+
+		got, err := c.Seat().Get(ctx, v.Pick().WithSelect(whole))
+		x.NoError(err)
+		x.Equal(unseen.GetAlias(), got.GetHolder().GetAlias())
+	})
+}

@@ -220,7 +220,9 @@ func (s ShiftServiceServer) Get(ctx context.Context, req *apptest.ShiftGetReques
 	}
 
 	q := s.Db.Shift.Query().Where(p)
-	ShiftSelectInit(q, req.GetSelect())
+	if err := ShiftSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -255,6 +257,12 @@ func ShiftSelectedFields(m *apptest.ShiftSelect) []string {
 	return vs
 }
 
+// ShiftSelect loads what `m` asks for, each edge with no scope.
+//
+// Deprecated: a row at the other end of an edge is read here whatever a
+// scope says of it, so a caller who may not read that row is answered with
+// it by asking for it through this one. [ShiftSelectWithin] narrows each
+// edge by its target's own Narrow, and is what the generated Get calls.
 func ShiftSelect(q *ent.ShiftQuery, m *apptest.ShiftSelect) {
 	if !m.GetAll() {
 		fields := ShiftSelectedFields(m)
@@ -262,10 +270,35 @@ func ShiftSelect(q *ent.ShiftQuery, m *apptest.ShiftSelect) {
 	}
 }
 
+// ShiftSelectWithin loads what `m` asks for, each edge through the
+// Narrow of the entity it reaches: an edge whose target `scope` keeps from
+// this caller is answered as its reference alone, as an edge nobody asked
+// for is.
+func ShiftSelectWithin(ctx context.Context, scope Scope, q *ent.ShiftQuery, m *apptest.ShiftSelect) error {
+	if !m.GetAll() {
+		fields := ShiftSelectedFields(m)
+		q.Select(fields...)
+	}
+	return nil
+}
+
+// ShiftSelectInit is [ShiftSelect] for a select that may be nil.
+//
+// Deprecated: it reads each edge with no scope, as [ShiftSelect] does.
+// [ShiftSelectInitWithin] is what the generated Get calls.
 func ShiftSelectInit(q *ent.ShiftQuery, m *apptest.ShiftSelect) {
 	if m != nil {
 		ShiftSelect(q, m)
 	}
+}
+
+// ShiftSelectInitWithin is [ShiftSelectWithin] for a select that
+// may be nil, which loads the keys of a list edge and nothing else.
+func ShiftSelectInitWithin(ctx context.Context, scope Scope, q *ent.ShiftQuery, m *apptest.ShiftSelect) error {
+	if m != nil {
+		return ShiftSelectWithin(ctx, scope, q, m)
+	}
+	return nil
 }
 
 func (s ShiftServiceServer) Patch(ctx context.Context, req *apptest.ShiftPatchRequest) (*apptest.Shift, error) {

@@ -26,7 +26,11 @@ func (w *fileWork) xGet() {
 	w.P("	}")
 	w.P("")
 	w.P("	q := s.Db.", name_x, ".Query().Where(p)")
-	w.P("	", name_x, "SelectInit(q, req.GetSelect())")
+	// Each edge a select names is read through its target's own Narrow, with
+	// this server's scope: see [fileWork.xSelectWithin].
+	w.P("	if err := ", name_x, "SelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {")
+	w.P("		return nil, err")
+	w.P("	}")
 	w.P("")
 	w.P("	v, err := q.Only(ctx)")
 	w.P("	if err != nil {")

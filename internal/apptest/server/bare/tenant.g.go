@@ -235,7 +235,9 @@ func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequ
 	}
 
 	q := s.Db.Tenant.Query().Where(p)
-	TenantSelectInit(q, req.GetSelect())
+	if err := TenantSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -276,6 +278,12 @@ func TenantSelectedFields(m *apptest.TenantSelect) []string {
 	return vs
 }
 
+// TenantSelect loads what `m` asks for, each edge with no scope.
+//
+// Deprecated: a row at the other end of an edge is read here whatever a
+// scope says of it, so a caller who may not read that row is answered with
+// it by asking for it through this one. [TenantSelectWithin] narrows each
+// edge by its target's own Narrow, and is what the generated Get calls.
 func TenantSelect(q *ent.TenantQuery, m *apptest.TenantSelect) {
 	if !m.GetAll() {
 		fields := TenantSelectedFields(m)
@@ -283,10 +291,35 @@ func TenantSelect(q *ent.TenantQuery, m *apptest.TenantSelect) {
 	}
 }
 
+// TenantSelectWithin loads what `m` asks for, each edge through the
+// Narrow of the entity it reaches: an edge whose target `scope` keeps from
+// this caller is answered as its reference alone, as an edge nobody asked
+// for is.
+func TenantSelectWithin(ctx context.Context, scope Scope, q *ent.TenantQuery, m *apptest.TenantSelect) error {
+	if !m.GetAll() {
+		fields := TenantSelectedFields(m)
+		q.Select(fields...)
+	}
+	return nil
+}
+
+// TenantSelectInit is [TenantSelect] for a select that may be nil.
+//
+// Deprecated: it reads each edge with no scope, as [TenantSelect] does.
+// [TenantSelectInitWithin] is what the generated Get calls.
 func TenantSelectInit(q *ent.TenantQuery, m *apptest.TenantSelect) {
 	if m != nil {
 		TenantSelect(q, m)
 	}
+}
+
+// TenantSelectInitWithin is [TenantSelectWithin] for a select that
+// may be nil, which loads the keys of a list edge and nothing else.
+func TenantSelectInitWithin(ctx context.Context, scope Scope, q *ent.TenantQuery, m *apptest.TenantSelect) error {
+	if m != nil {
+		return TenantSelectWithin(ctx, scope, q, m)
+	}
+	return nil
 }
 
 func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*apptest.Tenant, error) {

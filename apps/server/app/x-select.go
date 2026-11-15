@@ -52,6 +52,12 @@ func (w *fileWork) xSelectedFields() {
 
 func (w *fileWork) xSelect() {
 	name_x := w.Entity.Name()
+	w.P("// ", name_x, "Select loads what `m` asks for, each edge with no scope.")
+	w.P("//")
+	w.P("// Deprecated: a row at the other end of an edge is read here whatever a")
+	w.P("// scope says of it, so a caller who may not read that row is answered with")
+	w.P("// it by asking for it through this one. [", name_x, "SelectWithin] narrows each")
+	w.P("// edge by its target's own Narrow, and is what the generated Get calls.")
 	w.P("func ", name_x, "Select(",
 		/* */ "q *", w.ent.Ident(name_x+"Query"), ", ",
 		/* */ "m *", w.Src.GoImportPath.Ident(name_x+"Select"),
@@ -70,6 +76,79 @@ func (w *fileWork) xSelect() {
 		w.P("		})")
 		w.P("	}")
 	}
+	w.P("}")
+	w.P("")
+}
+
+// xSelectWithin emits the select a served read uses: the same columns and the
+// same edges as [fileWork.xSelect], with every edge read through the Narrow of
+// the entity at its other end.
+//
+// # What the other one let through
+//
+// `<Entity>Narrow` is "the one place a read of this entity is narrowed, so
+// that every query narrows the same way and none of them can be the one that
+// forgot" -- and a select through an edge was one that forgot. The row a Get
+// names is narrowed; the row at the other end of an edge it asks for was loaded
+// with the target's `Select` and no predicate but liveness. So a caller a wall
+// keeps from a row read it whole, by naming any row they may read that points
+// at it: `select: {holder: {all: true}}` on a child, and the parent of another
+// tenant came back with it. A reference to a row is a column and is answered
+// either way; the row is what the scope was for.
+//
+// # What it answers instead
+//
+// An edge whose target the scope keeps from this caller is not loaded, which
+// `Proto()` answers as it answers an edge nobody asked for: the reference, and
+// nothing of the row. That is what the caller holds already by reading the
+// child, so it tells them nothing more -- and it is not an error, for the
+// reason a Get out of scope is NotFound and not a refusal.
+//
+// The scope is asked once for each edge a select names and again for each edge
+// under it, with the context of the read that began it: an edge is read by the
+// rule of what it reaches, as the caller who asked.
+//
+// # Why it answers with an error
+//
+// A scope may fail -- it reads who is asking, and that can be a database that
+// would not answer. Loaded anyway, the edge would be the row the scope was
+// about to keep back.
+func (w *fileWork) xSelectWithin() {
+	name_x := w.Entity.Name()
+	w.P("// ", name_x, "SelectWithin loads what `m` asks for, each edge through the")
+	w.P("// Narrow of the entity it reaches: an edge whose target `scope` keeps from")
+	w.P("// this caller is answered as its reference alone, as an edge nobody asked")
+	w.P("// for is.")
+	w.P("func ", name_x, "SelectWithin(",
+		/* */ "ctx ", work.IdentContext, ", ",
+		/* */ "scope Scope, ",
+		/* */ "q *", w.ent.Ident(name_x+"Query"), ", ",
+		/* */ "m *", w.Src.GoImportPath.Ident(name_x+"Select"),
+		") error {")
+	w.P("	if !m.GetAll() {")
+	w.P("		fields := ", name_x, "SelectedFields(m)")
+	w.P("		q.Select(fields...)")
+	w.P("	}")
+	for p := range w.Entity.Edges() {
+		name_p := work.Name(p.Name()).Ent()
+		name_y := p.Target().Name()
+		w.P("	if m.Has", name_p, "() {")
+		w.P("		p, err := ", name_y, "Narrow(ctx, scope, nil)")
+		w.P("		if err != nil {")
+		w.P("			return err")
+		w.P("		}")
+		w.P("		q.With", name_p, "(func(q *", w.ent.Ident(name_y+"Query"), ") {")
+		w.P("			if p != nil {")
+		w.P("				q.Where(p)")
+		w.P("			}")
+		w.P("			err = ", name_y, "SelectWithin(ctx, scope, q, m.Get", name_p, "())")
+		w.P("		})")
+		w.P("		if err != nil {")
+		w.P("			return err")
+		w.P("		}")
+		w.P("	}")
+	}
+	w.P("	return nil")
 	w.P("}")
 	w.P("")
 }
@@ -112,6 +191,10 @@ func (w *fileWork) emitSelectLive(p graph.Edge) {
 
 func (w *fileWork) xSelectInit() {
 	name_x := w.Entity.Name()
+	w.P("// ", name_x, "SelectInit is [", name_x, "Select] for a select that may be nil.")
+	w.P("//")
+	w.P("// Deprecated: it reads each edge with no scope, as [", name_x, "Select] does.")
+	w.P("// [", name_x, "SelectInitWithin] is what the generated Get calls.")
 	w.P("func ", name_x, "SelectInit(",
 		/* */ "q *", w.ent.Ident(name_x+"Query"), ", ",
 		/* */ "m *", w.Src.GoImportPath.Ident(name_x+"Select"),
@@ -139,6 +222,49 @@ func (w *fileWork) xSelectInit() {
 		w.P("		q.With", name_p, "(select", name_y, "Key)")
 	}
 	w.P("	}")
+	w.P("}")
+	w.P("")
+}
+
+// xSelectInitWithin is [fileWork.xSelectInit] through a scope.
+//
+// With no select, the keys of a list edge are loaded and nothing else, since
+// those are in no column of the row. They are narrowed too: a key in that list
+// says the row it names is there and is this one's, which is what a scope
+// keeps from a caller who may not read it.
+func (w *fileWork) xSelectInitWithin() {
+	name_x := w.Entity.Name()
+	w.P("// ", name_x, "SelectInitWithin is [", name_x, "SelectWithin] for a select that")
+	w.P("// may be nil, which loads the keys of a list edge and nothing else.")
+	w.P("func ", name_x, "SelectInitWithin(",
+		/* */ "ctx ", work.IdentContext, ", ",
+		/* */ "scope Scope, ",
+		/* */ "q *", w.ent.Ident(name_x+"Query"), ", ",
+		/* */ "m *", w.Src.GoImportPath.Ident(name_x+"Select"),
+		") error {")
+	w.P("	if m != nil {")
+	w.P("		return ", name_x, "SelectWithin(ctx, scope, q, m)")
+	w.P("	}")
+	for p := range w.Entity.Edges() {
+		if !p.IsList() {
+			continue
+		}
+		name_p := work.Name(p.Name()).Ent()
+		name_y := p.Target().Name()
+		w.P("	{")
+		w.P("		p, err := ", name_y, "Narrow(ctx, scope, nil)")
+		w.P("		if err != nil {")
+		w.P("			return err")
+		w.P("		}")
+		w.P("		q.With", name_p, "(func(q *", w.ent.Ident(name_y+"Query"), ") {")
+		w.P("			select", name_y, "Key(q)")
+		w.P("			if p != nil {")
+		w.P("				q.Where(p)")
+		w.P("			}")
+		w.P("		})")
+		w.P("	}")
+	}
+	w.P("	return nil")
 	w.P("}")
 	w.P("")
 }

@@ -388,7 +388,9 @@ func (s UserServiceServer) Get(ctx context.Context, req *apptest.UserGetRequest)
 	}
 
 	q := s.Db.User.Query().Where(p)
-	UserSelectInit(q, req.GetSelect())
+	if err := UserSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -435,6 +437,12 @@ func UserSelectedFields(m *apptest.UserSelect) []string {
 	return vs
 }
 
+// UserSelect loads what `m` asks for, each edge with no scope.
+//
+// Deprecated: a row at the other end of an edge is read here whatever a
+// scope says of it, so a caller who may not read that row is answered with
+// it by asking for it through this one. [UserSelectWithin] narrows each
+// edge by its target's own Narrow, and is what the generated Get calls.
 func UserSelect(q *ent.UserQuery, m *apptest.UserSelect) {
 	if !m.GetAll() {
 		fields := UserSelectedFields(m)
@@ -447,10 +455,50 @@ func UserSelect(q *ent.UserQuery, m *apptest.UserSelect) {
 	}
 }
 
+// UserSelectWithin loads what `m` asks for, each edge through the
+// Narrow of the entity it reaches: an edge whose target `scope` keeps from
+// this caller is answered as its reference alone, as an edge nobody asked
+// for is.
+func UserSelectWithin(ctx context.Context, scope Scope, q *ent.UserQuery, m *apptest.UserSelect) error {
+	if !m.GetAll() {
+		fields := UserSelectedFields(m)
+		q.Select(fields...)
+	}
+	if m.HasTenant() {
+		p, err := TenantNarrow(ctx, scope, nil)
+		if err != nil {
+			return err
+		}
+		q.WithTenant(func(q *ent.TenantQuery) {
+			if p != nil {
+				q.Where(p)
+			}
+			err = TenantSelectWithin(ctx, scope, q, m.GetTenant())
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UserSelectInit is [UserSelect] for a select that may be nil.
+//
+// Deprecated: it reads each edge with no scope, as [UserSelect] does.
+// [UserSelectInitWithin] is what the generated Get calls.
 func UserSelectInit(q *ent.UserQuery, m *apptest.UserSelect) {
 	if m != nil {
 		UserSelect(q, m)
 	}
+}
+
+// UserSelectInitWithin is [UserSelectWithin] for a select that
+// may be nil, which loads the keys of a list edge and nothing else.
+func UserSelectInitWithin(ctx context.Context, scope Scope, q *ent.UserQuery, m *apptest.UserSelect) error {
+	if m != nil {
+		return UserSelectWithin(ctx, scope, q, m)
+	}
+	return nil
 }
 
 func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*apptest.User, error) {

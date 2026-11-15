@@ -412,7 +412,9 @@ func (s SeatServiceServer) Get(ctx context.Context, req *apptest.SeatGetRequest)
 	}
 
 	q := s.Db.Seat.Query().Where(p)
-	SeatSelectInit(q, req.GetSelect())
+	if err := SeatSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -441,6 +443,12 @@ func SeatSelectedFields(m *apptest.SeatSelect) []string {
 	return vs
 }
 
+// SeatSelect loads what `m` asks for, each edge with no scope.
+//
+// Deprecated: a row at the other end of an edge is read here whatever a
+// scope says of it, so a caller who may not read that row is answered with
+// it by asking for it through this one. [SeatSelectWithin] narrows each
+// edge by its target's own Narrow, and is what the generated Get calls.
 func SeatSelect(q *ent.SeatQuery, m *apptest.SeatSelect) {
 	if !m.GetAll() {
 		fields := SeatSelectedFields(m)
@@ -463,10 +471,80 @@ func SeatSelect(q *ent.SeatQuery, m *apptest.SeatSelect) {
 	}
 }
 
+// SeatSelectWithin loads what `m` asks for, each edge through the
+// Narrow of the entity it reaches: an edge whose target `scope` keeps from
+// this caller is answered as its reference alone, as an edge nobody asked
+// for is.
+func SeatSelectWithin(ctx context.Context, scope Scope, q *ent.SeatQuery, m *apptest.SeatSelect) error {
+	if !m.GetAll() {
+		fields := SeatSelectedFields(m)
+		q.Select(fields...)
+	}
+	if m.HasHolder() {
+		p, err := UserNarrow(ctx, scope, nil)
+		if err != nil {
+			return err
+		}
+		q.WithHolder(func(q *ent.UserQuery) {
+			if p != nil {
+				q.Where(p)
+			}
+			err = UserSelectWithin(ctx, scope, q, m.GetHolder())
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if m.HasOrg() {
+		p, err := TenantNarrow(ctx, scope, nil)
+		if err != nil {
+			return err
+		}
+		q.WithOrg(func(q *ent.TenantQuery) {
+			if p != nil {
+				q.Where(p)
+			}
+			err = TenantSelectWithin(ctx, scope, q, m.GetOrg())
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if m.HasDeputy() {
+		p, err := UserNarrow(ctx, scope, nil)
+		if err != nil {
+			return err
+		}
+		q.WithDeputy(func(q *ent.UserQuery) {
+			if p != nil {
+				q.Where(p)
+			}
+			err = UserSelectWithin(ctx, scope, q, m.GetDeputy())
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SeatSelectInit is [SeatSelect] for a select that may be nil.
+//
+// Deprecated: it reads each edge with no scope, as [SeatSelect] does.
+// [SeatSelectInitWithin] is what the generated Get calls.
 func SeatSelectInit(q *ent.SeatQuery, m *apptest.SeatSelect) {
 	if m != nil {
 		SeatSelect(q, m)
 	}
+}
+
+// SeatSelectInitWithin is [SeatSelectWithin] for a select that
+// may be nil, which loads the keys of a list edge and nothing else.
+func SeatSelectInitWithin(ctx context.Context, scope Scope, q *ent.SeatQuery, m *apptest.SeatSelect) error {
+	if m != nil {
+		return SeatSelectWithin(ctx, scope, q, m)
+	}
+	return nil
 }
 
 func (s SeatServiceServer) Patch(ctx context.Context, req *apptest.SeatPatchRequest) (*apptest.Seat, error) {
