@@ -178,11 +178,10 @@ Three things follow from where they are:
   caller. An edge whose target is out of scope is answered as an edge nobody
   asked for -- the reference, which is a column of the row the caller may read,
   and nothing of the row it names. It used to be loaded whole: a caller a wall
-  kept from a row read it by naming any row that points at it.
-  `<Entity>SelectWithin(ctx, scope, q, m)` is that, for a read written by hand;
-  `<Entity>Select(q, m)` is the one with no scope, kept for a read that has
-  none and marked deprecated so that nothing reaches for it by its shorter
-  name.
+  kept from a row read it by naming any row that points at it. So
+  `<Entity>Select(ctx, scope, q, m)` takes the context and the scope and
+  answers with an error, and there is no form of it without them: a read that
+  has no scope passes `nil`, and says so where it is written.
 - **Neither applies to `Add`.** It builds a row rather than finding one. Whether
   a caller may create something, or point an edge at something they cannot see,
   is not a predicate, and it belongs in front.

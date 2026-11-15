@@ -103,9 +103,7 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 		w.xSelectKey()
 		w.xSelectedFields()
 		w.xSelect()
-		w.xSelectWithin()
 		w.xSelectInit()
-		w.xSelectInitWithin()
 		need_pick = true
 	}
 	if rpcs.HasPatch() {

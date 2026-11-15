@@ -741,7 +741,7 @@ func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFiel
 	}
 
 	q := s.Db.ValueField.Query().Where(p)
-	if err := ValueFieldSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+	if err := ValueFieldSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
 		return nil, err
 	}
 
@@ -1171,24 +1171,11 @@ func ValueFieldSelectedFields(m *apptest.ValueFieldSelect) []string {
 	return vs
 }
 
-// ValueFieldSelect loads what `m` asks for, each edge with no scope.
-//
-// Deprecated: a row at the other end of an edge is read here whatever a
-// scope says of it, so a caller who may not read that row is answered with
-// it by asking for it through this one. [ValueFieldSelectWithin] narrows each
-// edge by its target's own Narrow, and is what the generated Get calls.
-func ValueFieldSelect(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
-	if !m.GetAll() {
-		fields := ValueFieldSelectedFields(m)
-		q.Select(fields...)
-	}
-}
-
-// ValueFieldSelectWithin loads what `m` asks for, each edge through the
-// Narrow of the entity it reaches: an edge whose target `scope` keeps from
-// this caller is answered as its reference alone, as an edge nobody asked
-// for is.
-func ValueFieldSelectWithin(ctx context.Context, scope Scope, q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) error {
+// ValueFieldSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func ValueFieldSelect(ctx context.Context, scope Scope, q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) error {
 	if !m.GetAll() {
 		fields := ValueFieldSelectedFields(m)
 		q.Select(fields...)
@@ -1196,21 +1183,11 @@ func ValueFieldSelectWithin(ctx context.Context, scope Scope, q *ent.ValueFieldQ
 	return nil
 }
 
-// ValueFieldSelectInit is [ValueFieldSelect] for a select that may be nil.
-//
-// Deprecated: it reads each edge with no scope, as [ValueFieldSelect] does.
-// [ValueFieldSelectInitWithin] is what the generated Get calls.
-func ValueFieldSelectInit(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
+// ValueFieldSelectInit is [ValueFieldSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func ValueFieldSelectInit(ctx context.Context, scope Scope, q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) error {
 	if m != nil {
-		ValueFieldSelect(q, m)
-	}
-}
-
-// ValueFieldSelectInitWithin is [ValueFieldSelectWithin] for a select that
-// may be nil, which loads the keys of a list edge and nothing else.
-func ValueFieldSelectInitWithin(ctx context.Context, scope Scope, q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) error {
-	if m != nil {
-		return ValueFieldSelectWithin(ctx, scope, q, m)
+		return ValueFieldSelect(ctx, scope, q, m)
 	}
 	return nil
 }
@@ -1802,7 +1779,7 @@ func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.Message
 	}
 
 	q := s.Db.MessageField.Query().Where(p)
-	if err := MessageFieldSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+	if err := MessageFieldSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
 		return nil, err
 	}
 
@@ -1857,24 +1834,11 @@ func MessageFieldSelectedFields(m *apptest.MessageFieldSelect) []string {
 	return vs
 }
 
-// MessageFieldSelect loads what `m` asks for, each edge with no scope.
-//
-// Deprecated: a row at the other end of an edge is read here whatever a
-// scope says of it, so a caller who may not read that row is answered with
-// it by asking for it through this one. [MessageFieldSelectWithin] narrows each
-// edge by its target's own Narrow, and is what the generated Get calls.
-func MessageFieldSelect(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) {
-	if !m.GetAll() {
-		fields := MessageFieldSelectedFields(m)
-		q.Select(fields...)
-	}
-}
-
-// MessageFieldSelectWithin loads what `m` asks for, each edge through the
-// Narrow of the entity it reaches: an edge whose target `scope` keeps from
-// this caller is answered as its reference alone, as an edge nobody asked
-// for is.
-func MessageFieldSelectWithin(ctx context.Context, scope Scope, q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) error {
+// MessageFieldSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func MessageFieldSelect(ctx context.Context, scope Scope, q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) error {
 	if !m.GetAll() {
 		fields := MessageFieldSelectedFields(m)
 		q.Select(fields...)
@@ -1882,21 +1846,11 @@ func MessageFieldSelectWithin(ctx context.Context, scope Scope, q *ent.MessageFi
 	return nil
 }
 
-// MessageFieldSelectInit is [MessageFieldSelect] for a select that may be nil.
-//
-// Deprecated: it reads each edge with no scope, as [MessageFieldSelect] does.
-// [MessageFieldSelectInitWithin] is what the generated Get calls.
-func MessageFieldSelectInit(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) {
+// MessageFieldSelectInit is [MessageFieldSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func MessageFieldSelectInit(ctx context.Context, scope Scope, q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) error {
 	if m != nil {
-		MessageFieldSelect(q, m)
-	}
-}
-
-// MessageFieldSelectInitWithin is [MessageFieldSelectWithin] for a select that
-// may be nil, which loads the keys of a list edge and nothing else.
-func MessageFieldSelectInitWithin(ctx context.Context, scope Scope, q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) error {
-	if m != nil {
-		return MessageFieldSelectWithin(ctx, scope, q, m)
+		return MessageFieldSelect(ctx, scope, q, m)
 	}
 	return nil
 }
@@ -2498,7 +2452,7 @@ func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGet
 	}
 
 	q := s.Db.MapField.Query().Where(p)
-	if err := MapFieldSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+	if err := MapFieldSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
 		return nil, err
 	}
 
@@ -2559,24 +2513,11 @@ func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
 	return vs
 }
 
-// MapFieldSelect loads what `m` asks for, each edge with no scope.
-//
-// Deprecated: a row at the other end of an edge is read here whatever a
-// scope says of it, so a caller who may not read that row is answered with
-// it by asking for it through this one. [MapFieldSelectWithin] narrows each
-// edge by its target's own Narrow, and is what the generated Get calls.
-func MapFieldSelect(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
-	if !m.GetAll() {
-		fields := MapFieldSelectedFields(m)
-		q.Select(fields...)
-	}
-}
-
-// MapFieldSelectWithin loads what `m` asks for, each edge through the
-// Narrow of the entity it reaches: an edge whose target `scope` keeps from
-// this caller is answered as its reference alone, as an edge nobody asked
-// for is.
-func MapFieldSelectWithin(ctx context.Context, scope Scope, q *ent.MapFieldQuery, m *apptest.MapFieldSelect) error {
+// MapFieldSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func MapFieldSelect(ctx context.Context, scope Scope, q *ent.MapFieldQuery, m *apptest.MapFieldSelect) error {
 	if !m.GetAll() {
 		fields := MapFieldSelectedFields(m)
 		q.Select(fields...)
@@ -2584,21 +2525,11 @@ func MapFieldSelectWithin(ctx context.Context, scope Scope, q *ent.MapFieldQuery
 	return nil
 }
 
-// MapFieldSelectInit is [MapFieldSelect] for a select that may be nil.
-//
-// Deprecated: it reads each edge with no scope, as [MapFieldSelect] does.
-// [MapFieldSelectInitWithin] is what the generated Get calls.
-func MapFieldSelectInit(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
+// MapFieldSelectInit is [MapFieldSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func MapFieldSelectInit(ctx context.Context, scope Scope, q *ent.MapFieldQuery, m *apptest.MapFieldSelect) error {
 	if m != nil {
-		MapFieldSelect(q, m)
-	}
-}
-
-// MapFieldSelectInitWithin is [MapFieldSelectWithin] for a select that
-// may be nil, which loads the keys of a list edge and nothing else.
-func MapFieldSelectInitWithin(ctx context.Context, scope Scope, q *ent.MapFieldQuery, m *apptest.MapFieldSelect) error {
-	if m != nil {
-		return MapFieldSelectWithin(ctx, scope, q, m)
+		return MapFieldSelect(ctx, scope, q, m)
 	}
 	return nil
 }

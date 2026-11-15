@@ -242,7 +242,7 @@ func (s NoteServiceServer) Get(ctx context.Context, req *apptest.NoteGetRequest)
 	}
 
 	q := s.Db.Note.Query().Where(p)
-	if err := NoteSelectInitWithin(ctx, s.Scope, q, req.GetSelect()); err != nil {
+	if err := NoteSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
 		return nil, err
 	}
 
@@ -291,24 +291,11 @@ func NoteSelectedFields(m *apptest.NoteSelect) []string {
 	return vs
 }
 
-// NoteSelect loads what `m` asks for, each edge with no scope.
-//
-// Deprecated: a row at the other end of an edge is read here whatever a
-// scope says of it, so a caller who may not read that row is answered with
-// it by asking for it through this one. [NoteSelectWithin] narrows each
-// edge by its target's own Narrow, and is what the generated Get calls.
-func NoteSelect(q *ent.NoteQuery, m *apptest.NoteSelect) {
-	if !m.GetAll() {
-		fields := NoteSelectedFields(m)
-		q.Select(fields...)
-	}
-}
-
-// NoteSelectWithin loads what `m` asks for, each edge through the
-// Narrow of the entity it reaches: an edge whose target `scope` keeps from
-// this caller is answered as its reference alone, as an edge nobody asked
-// for is.
-func NoteSelectWithin(ctx context.Context, scope Scope, q *ent.NoteQuery, m *apptest.NoteSelect) error {
+// NoteSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func NoteSelect(ctx context.Context, scope Scope, q *ent.NoteQuery, m *apptest.NoteSelect) error {
 	if !m.GetAll() {
 		fields := NoteSelectedFields(m)
 		q.Select(fields...)
@@ -316,21 +303,11 @@ func NoteSelectWithin(ctx context.Context, scope Scope, q *ent.NoteQuery, m *app
 	return nil
 }
 
-// NoteSelectInit is [NoteSelect] for a select that may be nil.
-//
-// Deprecated: it reads each edge with no scope, as [NoteSelect] does.
-// [NoteSelectInitWithin] is what the generated Get calls.
-func NoteSelectInit(q *ent.NoteQuery, m *apptest.NoteSelect) {
+// NoteSelectInit is [NoteSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func NoteSelectInit(ctx context.Context, scope Scope, q *ent.NoteQuery, m *apptest.NoteSelect) error {
 	if m != nil {
-		NoteSelect(q, m)
-	}
-}
-
-// NoteSelectInitWithin is [NoteSelectWithin] for a select that
-// may be nil, which loads the keys of a list edge and nothing else.
-func NoteSelectInitWithin(ctx context.Context, scope Scope, q *ent.NoteQuery, m *apptest.NoteSelect) error {
-	if m != nil {
-		return NoteSelectWithin(ctx, scope, q, m)
+		return NoteSelect(ctx, scope, q, m)
 	}
 	return nil
 }
