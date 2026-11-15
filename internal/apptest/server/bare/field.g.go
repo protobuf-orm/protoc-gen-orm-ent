@@ -741,7 +741,9 @@ func (s ValueFieldServiceServer) Get(ctx context.Context, req *apptest.ValueFiel
 	}
 
 	q := s.Db.ValueField.Query().Where(p)
-	ValueFieldSelectInit(q, req.GetSelect())
+	if err := ValueFieldSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -1169,17 +1171,25 @@ func ValueFieldSelectedFields(m *apptest.ValueFieldSelect) []string {
 	return vs
 }
 
-func ValueFieldSelect(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
+// ValueFieldSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func ValueFieldSelect(ctx context.Context, scope Scope, q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) error {
 	if !m.GetAll() {
 		fields := ValueFieldSelectedFields(m)
 		q.Select(fields...)
 	}
+	return nil
 }
 
-func ValueFieldSelectInit(q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) {
+// ValueFieldSelectInit is [ValueFieldSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func ValueFieldSelectInit(ctx context.Context, scope Scope, q *ent.ValueFieldQuery, m *apptest.ValueFieldSelect) error {
 	if m != nil {
-		ValueFieldSelect(q, m)
+		return ValueFieldSelect(ctx, scope, q, m)
 	}
+	return nil
 }
 
 func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFieldPatchRequest) (*apptest.ValueField, error) {
@@ -1769,7 +1779,9 @@ func (s MessageFieldServiceServer) Get(ctx context.Context, req *apptest.Message
 	}
 
 	q := s.Db.MessageField.Query().Where(p)
-	MessageFieldSelectInit(q, req.GetSelect())
+	if err := MessageFieldSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -1822,17 +1834,25 @@ func MessageFieldSelectedFields(m *apptest.MessageFieldSelect) []string {
 	return vs
 }
 
-func MessageFieldSelect(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) {
+// MessageFieldSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func MessageFieldSelect(ctx context.Context, scope Scope, q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) error {
 	if !m.GetAll() {
 		fields := MessageFieldSelectedFields(m)
 		q.Select(fields...)
 	}
+	return nil
 }
 
-func MessageFieldSelectInit(q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) {
+// MessageFieldSelectInit is [MessageFieldSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func MessageFieldSelectInit(ctx context.Context, scope Scope, q *ent.MessageFieldQuery, m *apptest.MessageFieldSelect) error {
 	if m != nil {
-		MessageFieldSelect(q, m)
+		return MessageFieldSelect(ctx, scope, q, m)
 	}
+	return nil
 }
 
 func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.MessageFieldPatchRequest) (*apptest.MessageField, error) {
@@ -2432,7 +2452,9 @@ func (s MapFieldServiceServer) Get(ctx context.Context, req *apptest.MapFieldGet
 	}
 
 	q := s.Db.MapField.Query().Where(p)
-	MapFieldSelectInit(q, req.GetSelect())
+	if err := MapFieldSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -2491,17 +2513,25 @@ func MapFieldSelectedFields(m *apptest.MapFieldSelect) []string {
 	return vs
 }
 
-func MapFieldSelect(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
+// MapFieldSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func MapFieldSelect(ctx context.Context, scope Scope, q *ent.MapFieldQuery, m *apptest.MapFieldSelect) error {
 	if !m.GetAll() {
 		fields := MapFieldSelectedFields(m)
 		q.Select(fields...)
 	}
+	return nil
 }
 
-func MapFieldSelectInit(q *ent.MapFieldQuery, m *apptest.MapFieldSelect) {
+// MapFieldSelectInit is [MapFieldSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func MapFieldSelectInit(ctx context.Context, scope Scope, q *ent.MapFieldQuery, m *apptest.MapFieldSelect) error {
 	if m != nil {
-		MapFieldSelect(q, m)
+		return MapFieldSelect(ctx, scope, q, m)
 	}
+	return nil
 }
 
 func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldPatchRequest) (*apptest.MapField, error) {

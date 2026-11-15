@@ -172,6 +172,16 @@ Three things follow from where they are:
   match, so a `Get` of it is `NotFound` and an `Apply` of it says no row was
   matched. That is usually the right answer: that something exists is itself
   something a caller who may not see it should not be told.
+- **A select reads an edge through the scope of what it reaches.** The row a
+  `Get` names is narrowed, and so is the row at the other end of every edge its
+  `select` asks for, by that entity's own `<Entity>Narrow` and as the same
+  caller. An edge whose target is out of scope is answered as an edge nobody
+  asked for -- the reference, which is a column of the row the caller may read,
+  and nothing of the row it names. It used to be loaded whole: a caller a wall
+  kept from a row read it by naming any row that points at it. So
+  `<Entity>Select(ctx, scope, q, m)` takes the context and the scope and
+  answers with an error, and there is no form of it without them: a read that
+  has no scope passes `nil`, and says so where it is written.
 - **Neither applies to `Add`.** It builds a row rather than finding one. Whether
   a caller may create something, or point an edge at something they cannot see,
   is not a predicate, and it belongs in front.

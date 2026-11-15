@@ -220,7 +220,9 @@ func (s ShiftServiceServer) Get(ctx context.Context, req *apptest.ShiftGetReques
 	}
 
 	q := s.Db.Shift.Query().Where(p)
-	ShiftSelectInit(q, req.GetSelect())
+	if err := ShiftSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -255,17 +257,25 @@ func ShiftSelectedFields(m *apptest.ShiftSelect) []string {
 	return vs
 }
 
-func ShiftSelect(q *ent.ShiftQuery, m *apptest.ShiftSelect) {
+// ShiftSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func ShiftSelect(ctx context.Context, scope Scope, q *ent.ShiftQuery, m *apptest.ShiftSelect) error {
 	if !m.GetAll() {
 		fields := ShiftSelectedFields(m)
 		q.Select(fields...)
 	}
+	return nil
 }
 
-func ShiftSelectInit(q *ent.ShiftQuery, m *apptest.ShiftSelect) {
+// ShiftSelectInit is [ShiftSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func ShiftSelectInit(ctx context.Context, scope Scope, q *ent.ShiftQuery, m *apptest.ShiftSelect) error {
 	if m != nil {
-		ShiftSelect(q, m)
+		return ShiftSelect(ctx, scope, q, m)
 	}
+	return nil
 }
 
 func (s ShiftServiceServer) Patch(ctx context.Context, req *apptest.ShiftPatchRequest) (*apptest.Shift, error) {

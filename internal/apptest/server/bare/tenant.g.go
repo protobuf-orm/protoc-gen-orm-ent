@@ -235,7 +235,9 @@ func (s TenantServiceServer) Get(ctx context.Context, req *apptest.TenantGetRequ
 	}
 
 	q := s.Db.Tenant.Query().Where(p)
-	TenantSelectInit(q, req.GetSelect())
+	if err := TenantSelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
 
 	v, err := q.Only(ctx)
 	if err != nil {
@@ -276,17 +278,25 @@ func TenantSelectedFields(m *apptest.TenantSelect) []string {
 	return vs
 }
 
-func TenantSelect(q *ent.TenantQuery, m *apptest.TenantSelect) {
+// TenantSelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func TenantSelect(ctx context.Context, scope Scope, q *ent.TenantQuery, m *apptest.TenantSelect) error {
 	if !m.GetAll() {
 		fields := TenantSelectedFields(m)
 		q.Select(fields...)
 	}
+	return nil
 }
 
-func TenantSelectInit(q *ent.TenantQuery, m *apptest.TenantSelect) {
+// TenantSelectInit is [TenantSelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func TenantSelectInit(ctx context.Context, scope Scope, q *ent.TenantQuery, m *apptest.TenantSelect) error {
 	if m != nil {
-		TenantSelect(q, m)
+		return TenantSelect(ctx, scope, q, m)
 	}
+	return nil
 }
 
 func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*apptest.Tenant, error) {
