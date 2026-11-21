@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
-	ent1 "github.com/protobuf-orm/ent"
 	dialect "github.com/protobuf-orm/ent/dialect"
 	sql "github.com/protobuf-orm/ent/dialect/sql"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
@@ -36,11 +35,14 @@ type SeatServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewSeatServiceServer(db *ent.Client, opts ...Option) apptest.SeatServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return SeatServiceServer{Store: s.Store}
 }
@@ -190,7 +192,10 @@ func (st SeatServiceServer) create(ctx context.Context, req *apptest.SeatAddRequ
 }
 
 func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest) (*apptest.Seat, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +210,7 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 	}
 
 	var stored *ent.Seat
-	if snapshotOptions(s.Rec, apptest.SeatService_Add_FullMethodName).Value {
+	if s.images(apptest.SeatService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -231,10 +236,11 @@ func (s SeatServiceServer) Add(ctx context.Context, req *apptest.SeatAddRequest)
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.SeatService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.Seat",
+		By:     apptest.SeatService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}
@@ -262,6 +268,9 @@ const seatAddManyRows = 500
 // is written. A refusal by the database is the whole statement's, and does
 // not say which row it was about.
 func (s SeatServiceServer) AddMany(ctx context.Context, req *apptest.SeatAddManyRequest) (*apptest.SeatAddManyResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	items := req.GetItems()
 	if len(items) > SeatAddManyMax {
 		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", SeatAddManyMax, len(items))
@@ -270,7 +279,7 @@ func (s SeatServiceServer) AddMany(ctx context.Context, req *apptest.SeatAddMany
 		return apptest.SeatAddManyResponse_builder{}.Build(), nil
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +288,7 @@ func (s SeatServiceServer) AddMany(ctx context.Context, req *apptest.SeatAddMany
 	st := s
 	st.Db = tx.Db
 
-	images := snapshotOptions(s.Rec, apptest.SeatService_AddMany_FullMethodName).Value
+	images := s.images(apptest.SeatService_AddMany_FullMethodName).Value
 	qs := make([]*ent.SeatCreate, len(items))
 	dss := make([][]func(v *apptest.Seat), len(items))
 	stored := make([]*ent.Seat, len(items))
@@ -323,10 +332,11 @@ func (s SeatServiceServer) AddMany(ctx context.Context, req *apptest.SeatAddMany
 			if stored[i] != nil {
 				value = s.image(stored[i].Proto())
 			}
-			if err := record(ctx, s.Rec, st.Db, Change{
-				By:    apptest.SeatService_AddMany_FullMethodName,
-				Key:   u.Id,
-				Value: value,
+			if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+				Entity: "apptest.Seat",
+				By:     apptest.SeatService_AddMany_FullMethodName,
+				Key:    u.Id,
+				Value:  value,
 			}); err != nil {
 				return nil, err
 			}
@@ -510,6 +520,9 @@ func SeatSelectInit(ctx context.Context, scope Scope, q *ent.SeatQuery, m *appte
 }
 
 func (s SeatServiceServer) Patch(ctx context.Context, req *apptest.SeatPatchRequest) (*apptest.Seat, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	doc, err := ormpatch.FromPatchRequest(seatOrmEntity, req.ProtoReflect(), func(ed graph.Edge, ref protoreflect.Message) (protoreflect.Value, error) {
 		switch ed.Number() {
 		case 2:
@@ -581,6 +594,9 @@ var seatPatchColumns = entpatch.Columns{
 	1: seat.FieldId, 2: seat.HolderColumn, 3: seat.OrgColumn, 4: seat.DeputyColumn}
 
 func (s SeatServiceServer) Apply(ctx context.Context, req *apptest.SeatApplyRequest) (*apptest.Seat, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
@@ -608,7 +624,7 @@ func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -629,7 +645,7 @@ func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc 
 	}
 
 	var previous *apptest.Seat
-	images := snapshotOptions(s.Rec, by)
+	images := s.images(by)
 	if images.Previous && mod != nil {
 		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
@@ -695,7 +711,8 @@ func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc 
 		if images.Value {
 			value = s.image(out)
 		}
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Seat",
 			By:       by,
 			Key:      k,
 			Patch:    doc,
@@ -712,6 +729,9 @@ func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc 
 }
 
 func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*apptest.SeatEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	p, err := SeatPick(req)
 	if err != nil {
 		return nil, err
@@ -721,7 +741,7 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 		return nil, err
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -732,8 +752,8 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 
 	var k any
 	var previous *apptest.Seat
-	if s.Rec != nil {
-		images := snapshotOptions(s.Rec, apptest.SeatService_Erase_FullMethodName)
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.SeatService_Erase_FullMethodName)
 		var v *ent.Seat
 		var err error
 		if images.Previous {
@@ -761,7 +781,8 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 		return nil, err
 	}
 	if n > 0 {
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Seat",
 			By:       apptest.SeatService_Erase_FullMethodName,
 			Key:      k,
 			Previous: previous,

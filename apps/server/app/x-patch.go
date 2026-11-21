@@ -27,6 +27,7 @@ func (w *fileWork) xPatch() {
 		/* */ "req *", w.Src.GoImportPath.Ident(name_x+"PatchRequest"),
 		") (*", w.Ident, ", error) {")
 
+	w.P(" if s.admission!=nil {ctx=request(ctx,req)}")
 	w.Pf("	doc, err := %s(%sOrmEntity, req.ProtoReflect(), ",
 		w.QualifiedGoIdent(work.PkgOrmPatch.Ident("FromPatchRequest")), v)
 	w.xPatchResolver()

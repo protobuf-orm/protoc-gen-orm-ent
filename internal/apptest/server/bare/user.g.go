@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
-	ent1 "github.com/protobuf-orm/ent"
 	dialect "github.com/protobuf-orm/ent/dialect"
 	sql "github.com/protobuf-orm/ent/dialect/sql"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
@@ -36,11 +35,14 @@ type UserServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewUserServiceServer(db *ent.Client, opts ...Option) apptest.UserServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return UserServiceServer{Store: s.Store}
 }
@@ -166,7 +168,10 @@ func (st UserServiceServer) create(ctx context.Context, req *apptest.UserAddRequ
 }
 
 func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest) (*apptest.User, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +186,7 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	}
 
 	var stored *ent.User
-	if snapshotOptions(s.Rec, apptest.UserService_Add_FullMethodName).Value {
+	if s.images(apptest.UserService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -207,10 +212,11 @@ func (s UserServiceServer) Add(ctx context.Context, req *apptest.UserAddRequest)
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.UserService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.User",
+		By:     apptest.UserService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}
@@ -238,6 +244,9 @@ const userAddManyRows = 500
 // is written. A refusal by the database is the whole statement's, and does
 // not say which row it was about.
 func (s UserServiceServer) AddMany(ctx context.Context, req *apptest.UserAddManyRequest) (*apptest.UserAddManyResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	items := req.GetItems()
 	if len(items) > UserAddManyMax {
 		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", UserAddManyMax, len(items))
@@ -246,7 +255,7 @@ func (s UserServiceServer) AddMany(ctx context.Context, req *apptest.UserAddMany
 		return apptest.UserAddManyResponse_builder{}.Build(), nil
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +264,7 @@ func (s UserServiceServer) AddMany(ctx context.Context, req *apptest.UserAddMany
 	st := s
 	st.Db = tx.Db
 
-	images := snapshotOptions(s.Rec, apptest.UserService_AddMany_FullMethodName).Value
+	images := s.images(apptest.UserService_AddMany_FullMethodName).Value
 	qs := make([]*ent.UserCreate, len(items))
 	dss := make([][]func(v *apptest.User), len(items))
 	stored := make([]*ent.User, len(items))
@@ -299,10 +308,11 @@ func (s UserServiceServer) AddMany(ctx context.Context, req *apptest.UserAddMany
 			if stored[i] != nil {
 				value = s.image(stored[i].Proto())
 			}
-			if err := record(ctx, s.Rec, st.Db, Change{
-				By:    apptest.UserService_AddMany_FullMethodName,
-				Key:   u.Id,
-				Value: value,
+			if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+				Entity: "apptest.User",
+				By:     apptest.UserService_AddMany_FullMethodName,
+				Key:    u.Id,
+				Value:  value,
 			}); err != nil {
 				return nil, err
 			}
@@ -474,6 +484,9 @@ func UserSelectInit(ctx context.Context, scope Scope, q *ent.UserQuery, m *appte
 }
 
 func (s UserServiceServer) Patch(ctx context.Context, req *apptest.UserPatchRequest) (*apptest.User, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	doc, err := ormpatch.FromPatchRequest(userOrmEntity, req.ProtoReflect(), func(ed graph.Edge, ref protoreflect.Message) (protoreflect.Value, error) {
 		switch ed.Number() {
 		case 2:
@@ -533,6 +546,9 @@ var userPatchColumns = entpatch.Columns{
 	1: user.FieldId, 2: user.TenantColumn, 4: user.FieldAlias, 5: user.FieldName, 7: user.FieldLabels, 8: user.FieldLock, 14: user.FieldDateUpdated, 15: user.FieldDateCreated}
 
 func (s UserServiceServer) Apply(ctx context.Context, req *apptest.UserApplyRequest) (*apptest.User, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
@@ -560,7 +576,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -581,7 +597,7 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 	}
 
 	var previous *apptest.User
-	images := snapshotOptions(s.Rec, by)
+	images := s.images(by)
 	if images.Previous && mod != nil {
 		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
@@ -650,7 +666,8 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 		if images.Value {
 			value = s.image(out)
 		}
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.User",
 			By:       by,
 			Key:      k,
 			Patch:    doc,
@@ -667,6 +684,9 @@ func (s UserServiceServer) apply(ctx context.Context, ref *apptest.UserRef, doc 
 }
 
 func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*apptest.UserEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	p, err := UserPick(req)
 	if err != nil {
 		return nil, err
@@ -676,7 +696,7 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 		return nil, err
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -687,8 +707,8 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 
 	var k any
 	var previous *apptest.User
-	if s.Rec != nil {
-		images := snapshotOptions(s.Rec, apptest.UserService_Erase_FullMethodName)
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.UserService_Erase_FullMethodName)
 		var v *ent.User
 		var err error
 		if images.Previous {
@@ -716,7 +736,8 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 		return nil, err
 	}
 	if n > 0 {
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.User",
 			By:       apptest.UserService_Erase_FullMethodName,
 			Key:      k,
 			Previous: previous,

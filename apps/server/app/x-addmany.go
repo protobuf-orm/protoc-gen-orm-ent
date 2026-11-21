@@ -1,6 +1,8 @@
 package app
 
 import (
+	"strconv"
+
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 )
@@ -72,6 +74,7 @@ func (w *fileWork) xAddMany() {
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
 		/* */ "req *", w.Src.GoImportPath.Ident(name+"AddManyRequest"),
 		") (*", w.Src.GoImportPath.Ident(name+"AddManyResponse"), ", error) {")
+	w.P(" if s.admission!=nil {ctx=request(ctx,req)}")
 	w.P("	items := req.GetItems()")
 	w.P("	if len(items) > ", name, "AddManyMax {")
 	w.P("		return nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"),
@@ -86,7 +89,7 @@ func (w *fileWork) xAddMany() {
 
 	w.xJoin("true")
 
-	w.P("	images := snapshotOptions(s.Rec, ", w.Src.GoImportPath.Ident(name+"Service_AddMany_FullMethodName"), ").Value")
+	w.P("	images := s.images( ", w.Src.GoImportPath.Ident(name+"Service_AddMany_FullMethodName"), ").Value")
 	w.P("	qs := make([]*", w.ent.Ident(name+"Create"), ", len(items))")
 	w.P("	dss := make([][]func(v *", w.Ident, "), len(items))")
 	w.P("	stored := make([]*", w.ent.Ident(name), ", len(items))")
@@ -135,7 +138,8 @@ func (w *fileWork) xAddMany() {
 	// A row each, as an Add of each would have been told: whatever keeps a
 	// trail, drops a cache or publishes an event goes on doing it a row at a
 	// time without knowing there was a batch.
-	w.P("			if err := record(ctx, s.Rec, st.Db, Change{")
+	w.P("			if err := record(ctx, s.Rec, s.admission, st.Db, Change{")
+	w.P(" Entity: ", strconv.Quote(string(w.Entity.FullName())), ",")
 	w.P("				By: ", w.Src.GoImportPath.Ident(name+"Service_AddMany_FullMethodName"), ",")
 	w.P("				Key: u.Id,")
 	w.P("				Value: value,")

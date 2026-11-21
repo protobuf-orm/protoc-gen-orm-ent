@@ -201,7 +201,8 @@ func (w *fileWork) xAddOne() {
 	// done inside one transaction -- and only when there is a recorder, since
 	// the row alone is a single statement with nothing to hold it together
 	// with. See xJoin.
-	w.xJoin("s.Rec != nil")
+	w.P(" if s.admission!=nil {ctx=request(ctx,req)}")
+	w.xJoin("s.Rec != nil || s.admission != nil")
 
 	w.P("	q, ds, err := st.create(ctx, req)")
 	w.P("	if err != nil {")
@@ -220,7 +221,7 @@ func (w *fileWork) xAddOne() {
 	// statement ago has nothing in it, and every other edge's key is in the
 	// row.
 	w.P("	var stored *", w.ent.Ident(name))
-	w.P("	if snapshotOptions(s.Rec, ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ").Value {")
+	w.P("	if s.images( ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ").Value {")
 	w.P("		q.Stored(&stored)")
 	w.P("	}")
 	w.P("")
@@ -242,7 +243,8 @@ func (w *fileWork) xAddOne() {
 	// The key is taken from the row rather than from the request: a request
 	// may leave it out, and then the one that exists is the one the database
 	// or the branch above settled on.
-	w.P("	if err := record(ctx, s.Rec, st.Db, Change{")
+	w.P("	if err := record(ctx, s.Rec, s.admission, st.Db, Change{")
+	w.P(" Entity: ", strconv.Quote(string(w.Entity.FullName())), ",")
 	w.P("		By: ", w.Src.GoImportPath.Ident(name+"Service_Add_FullMethodName"), ",")
 	w.P("		Key: u.Id,")
 	w.P("		Value: value,")

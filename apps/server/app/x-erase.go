@@ -1,6 +1,10 @@
 package app
 
-import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
+import (
+	"strconv"
+
+	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
+)
 
 // xErase emits Erase, which is a delete by whatever the reference selects on.
 //
@@ -26,6 +30,7 @@ func (w *fileWork) xErase() {
 		/* */ "ctx ", work.IdentContext, ", ",
 		/* */ "req *", w.Src.GoImportPath.Ident(name+"Ref"),
 		") (*", w.Src.GoImportPath.Ident(name+"EraseResponse"), ", error) {")
+	w.P(" if s.admission!=nil {ctx=request(ctx,req)}")
 	w.P("	p, err := ", name, "Pick(req)")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
@@ -40,7 +45,7 @@ func (w *fileWork) xErase() {
 	w.P("")
 
 	// The delete and what a recorder writes about it are one write; see xJoin.
-	w.xJoin("s.Rec != nil")
+	w.xJoin("s.Rec != nil || s.admission != nil")
 
 	// `any`, and not the key's own type spelled out. What a Change carries is
 	// an `any` either way, and Add fills it from the row ent handed back --
@@ -50,8 +55,8 @@ func (w *fileWork) xErase() {
 	// finds out when they stop.
 	w.P("	var k any")
 	w.P("	var previous *", w.Ident)
-	w.P("	if s.Rec != nil {")
-	w.P("		images := snapshotOptions(s.Rec,", w.Src.GoImportPath.Ident(name+"Service_Erase_FullMethodName"), ")")
+	w.P("	if s.Rec != nil || s.admission != nil {")
+	w.P("		images := s.images(", w.Src.GoImportPath.Ident(name+"Service_Erase_FullMethodName"), ")")
 	w.P("		var v *", w.ent.Ident(name))
 	w.P("		var err error")
 	w.P("		if images.Previous {v,err=st.snapshot(ctx,p,true)} else {")
@@ -124,7 +129,8 @@ func (w *fileWork) xErase() {
 	// somebody else erased it first, and a trail that claimed this request did
 	// it would be wrong about who.
 	w.P("	if n > 0 {")
-	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
+	w.P("		if err := record(ctx, s.Rec, s.admission, st.Db, Change{")
+	w.P(" Entity: ", strconv.Quote(string(w.Entity.FullName())), ",")
 	w.P("			By: ", w.Src.GoImportPath.Ident(name+"Service_Erase_FullMethodName"), ",")
 	w.P("			Key: k,")
 	w.P("			Previous: previous,")

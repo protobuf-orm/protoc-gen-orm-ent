@@ -7,6 +7,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
+	ent1 "github.com/protobuf-orm/ent"
 	dialect "github.com/protobuf-orm/ent/dialect"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
@@ -27,6 +28,7 @@ import (
 	status "google.golang.org/grpc/status"
 	proto "google.golang.org/protobuf/proto"
 	protoadapt "google.golang.org/protobuf/protoadapt"
+	strings "strings"
 	time "time"
 	uuid "uuid"
 )
@@ -43,7 +45,8 @@ type Store struct {
 
 	// Rec is told about every write these servers make, and nothing is
 	// told if it is nil. See [Recorder].
-	Rec Recorder
+	Rec       Recorder
+	admission *admission
 
 	// Scope narrows what these servers can see, and they see every row
 	// if it is nil. See [Scope].
@@ -192,6 +195,9 @@ type Change struct {
 	// an event to publish -- has to know which row and which write, and
 	// takes this.
 	By string
+	// Entity is the protobuf entity name. Request is captured by Admission or Origin.
+	Entity  string
+	Request proto.Message
 
 	// Key is the row, as Go holds the key of this entity: a uuid.UUID, a
 	// string, whatever the schema declared. It is the key and never the
@@ -208,7 +214,7 @@ type Change struct {
 	// on itself is not in it: the version stamp of an Apply, and the key and
 	// the timestamps an Add makes up for a request that left them out.
 	Patch *patchpb.Patch
-	// Previous and Value are optional images requested by SnapshotRecorder.
+	// Previous and Value are images requested by SnapshotRecorder or Admission.
 	// By default neither is captured. Add has no Previous; Erase has no
 	// Value. A missing image does not identify the operation; use By instead.
 	// Treat both as read-only.
@@ -228,11 +234,8 @@ type Change struct {
 // which is a hang rather than an error.
 //
 // An error it answers with is reported to the caller, and the write is
-// undone with it *when this server opened the transaction*. When it
-// joined one that a caller began -- see enttx -- undoing it is not this
-// server's to do: the refusal is reported, and whoever began the
-// transaction says whether the whole of it still holds. A caller that
-// carries on past a failed call commits a write that nothing recorded.
+// undone with it. A transaction this server joined is marked refused, so
+// even a caller that ignores the error cannot commit the unrecorded write.
 //
 // The guarantee is about the database and nothing else. Anything a
 // recorder does elsewhere -- a message published, a cache dropped --
@@ -320,8 +323,8 @@ func (rs Recorders) Record(ctx context.Context, s Server, c Change) error {
 // which RPC of this server they are, and the request knows what it was
 // asked for; asking gRPC once here is what keeps the two from being
 // spelled out at every one of them.
-func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
-	if rec == nil {
+func record(ctx context.Context, rec Recorder, admit *admission, db *ent.Client, c Change) error {
+	if rec == nil && admit == nil {
 		return nil
 	}
 	if v, ok := grpc.Method(ctx); ok {
@@ -329,8 +332,20 @@ func record(ctx context.Context, rec Recorder, db *ent.Client, c Change) error {
 	} else {
 		c.Method = c.By
 	}
+	if origin, ok := ctx.Value(admissionOriginKey{}).(admissionOrigin); ok {
+		c.Request = origin.request
+		if origin.method != "" {
+			c.Method = origin.method
+		}
+	}
 	c.Previous = snapshotOrNil(c.Previous)
 	c.Value = snapshotOrNil(c.Value)
+	if err := admit.admit(ctx, db, c); err != nil {
+		return err
+	}
+	if rec == nil {
+		return nil
+	}
 	if err := rec.Record(ctx, Server{Store: Store{Db: db}}, c); err != nil {
 		return status.Errorf(codes.Internal, "record the write by %s: %s", c.By, err)
 	}
@@ -342,6 +357,251 @@ func snapshotOrNil(v proto.Message) proto.Message {
 		return nil
 	}
 	return v
+}
+
+// Admission may refuse a write after its SQL checks and before its transaction commits.
+// Change includes the request and locked previous image. These are raw protobuf
+// messages; an adapter must redact secrets before passing them to external policy.
+// Each call owns its messages; changing them cannot change the write or its record.
+// It receives no server to write through. A refusal preserves its status code.
+type Admission interface {
+	Admit(context.Context, Change) error
+}
+type admission struct {
+	check    Admission
+	entities map[string]bool
+	types    map[string]string
+	methods  map[string]string
+}
+type admissionPending struct {
+	count  map[string]int
+	sealed bool
+}
+type admissionOrigin struct {
+	method  string
+	request proto.Message
+}
+type admissionOriginKey struct{}
+type admissionTrustedKey struct{}
+type writeTx struct {
+	ent1.Joined[*ent.Client]
+	end interface {
+		Commit() error
+		Rollback() error
+	}
+}
+
+func (t writeTx) Commit() error {
+	if err := t.Joined.Commit(); err != nil {
+		return err
+	}
+	if t.end != nil {
+		return t.end.Commit()
+	}
+	return nil
+}
+func (t writeTx) Close() {
+	t.Joined.Close()
+	if t.end != nil {
+		_ = t.end.Rollback()
+	}
+}
+func join(ctx context.Context, db *ent.Client, want, guarded bool) (writeTx, error) {
+	var end interface {
+		Commit() error
+		Rollback() error
+	}
+	if guarded {
+		drv, tx, err := dialect.BeginTx(ctx, db.Driver())
+		if err != nil {
+			return writeTx{}, err
+		}
+		end = tx
+		db = db.WithDriver(drv)
+	}
+	j, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, db, want)
+	if err != nil {
+		if end != nil {
+			_ = end.Rollback()
+		}
+		return writeTx{}, err
+	}
+	return writeTx{j, end}, nil
+}
+
+// Origin carries the outer RPC through writes it makes in-process. It copies the
+// message so normalization or a caller reusing a request cannot rewrite the ask.
+func Origin(ctx context.Context, method string, req proto.Message) context.Context {
+	return context.WithValue(ctx, admissionOriginKey{}, admissionOrigin{method, proto.Clone(req)})
+}
+func request(ctx context.Context, req proto.Message) context.Context {
+	if _, ok := ctx.Value(admissionOriginKey{}).(admissionOrigin); ok {
+		return ctx
+	}
+	return Origin(ctx, "", req)
+}
+
+// TrustAdmission is an explicit server-side bypass for deployment-owned work.
+// It is never read from request metadata. The ordinary recorder still runs.
+func TrustAdmission(ctx context.Context) context.Context {
+	return context.WithValue(ctx, admissionTrustedKey{}, true)
+}
+func admissionTrusted(ctx context.Context) bool {
+	v, _ := ctx.Value(admissionTrustedKey{}).(bool)
+	return v
+}
+
+// WithAdmission protects the named protobuf entities, or every entity when none
+// are named. Install once on the shared ent client. WithDriver retains its guard.
+// Start shared transactions with dialect.BeginTx; an ent.Tx has no commit ledger.
+// Direct ent writes need a kept transaction and a matching generated admission;
+// a missing admission refuses commit even when an application ignores an error.
+// A newly constructed client or raw SQL is outside this guard.
+func WithAdmission(check Admission, entities ...string) Option {
+	return func(s *Server) error {
+		if s.admission != nil {
+			return fmt.Errorf("admission: %w", ErrTwice)
+		}
+		if check == nil {
+			return fmt.Errorf("admission: no decision maker")
+		}
+		a := &admission{check: check, entities: map[string]bool{}, types: map[string]string{}, methods: map[string]string{}}
+		a.types["ValueField"] = "apptest.ValueField"
+		a.methods["/apptest.ValueFieldService"] = "apptest.ValueField"
+		a.types["MessageField"] = "apptest.MessageField"
+		a.methods["/apptest.MessageFieldService"] = "apptest.MessageField"
+		a.types["MapField"] = "apptest.MapField"
+		a.methods["/apptest.MapFieldService"] = "apptest.MapField"
+		a.types["Note"] = "apptest.Note"
+		a.methods["/apptest.NoteService"] = "apptest.Note"
+		a.types["Tenant"] = "apptest.Tenant"
+		a.methods["/apptest.TenantService"] = "apptest.Tenant"
+		a.types["User"] = "apptest.User"
+		a.methods["/apptest.UserService"] = "apptest.User"
+		a.types["Seat"] = "apptest.Seat"
+		a.methods["/apptest.SeatService"] = "apptest.Seat"
+		a.types["Shift"] = "apptest.Shift"
+		a.methods["/apptest.ShiftService"] = "apptest.Shift"
+		a.types["WriteOnly"] = "apptest.WriteOnly"
+		a.methods["/apptest.WriteOnlyService"] = "apptest.WriteOnly"
+		for _, name := range entities {
+			found := false
+			for _, v := range a.types {
+				if v == name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("admission: unknown entity %q", name)
+			}
+			a.entities[name] = true
+		}
+		if len(entities) == 0 {
+			for _, name := range a.types {
+				a.entities[name] = true
+			}
+		}
+		s.admission = a
+		s.Db.Use(a.guard())
+		return nil
+	}
+}
+func (s Store) images(method string) SnapshotOptions {
+	out := snapshotOptions(s.Rec, method)
+	if a := s.admission; a != nil {
+		service, _, _ := strings.Cut(strings.TrimPrefix(method, "/"), "/")
+		if a.entities[a.methods["/"+service]] {
+			out.Previous = true
+			out.Value = true
+		}
+	}
+	return out
+}
+func (a *admission) pending(k *dialect.Keep) *admissionPending {
+	return k.Value(a, func() any {
+		p := &admissionPending{count: map[string]int{}}
+		k.BeforeCommit(func(context.Context) error {
+			p.sealed = true
+			for name, n := range p.count {
+				if n != 0 {
+					return status.Errorf(codes.FailedPrecondition, "%s: an ent write bypassed admission", name)
+				}
+			}
+			return nil
+		})
+		return p
+	}).(*admissionPending)
+}
+func (a *admission) guard() ent.Hook {
+	return func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			name := a.types[m.Type()]
+			if !a.entities[name] || admissionTrusted(ctx) {
+				return next.Mutate(ctx, m)
+			}
+			client, ok := m.(interface{ Client() *ent.Client })
+			if !ok {
+				return nil, status.Error(codes.Internal, "admission: mutation has no client")
+			}
+			k, ok := dialect.KeepOf(client.Client().Driver())
+			if !ok {
+				return nil, status.Error(codes.FailedPrecondition, "admission: use the generated server or an explicit trusted write")
+			}
+			p := a.pending(k)
+			if p.sealed {
+				err := status.Error(codes.FailedPrecondition, "admission: protected writes cannot begin during commit")
+				k.Refuse(err)
+				return nil, err
+			}
+			v, err := next.Mutate(ctx, m)
+			if err != nil {
+				k.Refuse(err)
+				return v, err
+			}
+			if n, ok := v.(int); !ok || n != 0 {
+				p.count[name]++
+			}
+			return v, nil
+		})
+	}
+}
+func (a *admission) admit(ctx context.Context, db *ent.Client, c Change) error {
+	if a == nil || !a.entities[c.Entity] || admissionTrusted(ctx) {
+		return nil
+	}
+	k, ok := dialect.KeepOf(db.Driver())
+	if !ok {
+		return status.Error(codes.FailedPrecondition, "admission: write has no kept transaction")
+	}
+	p := a.pending(k)
+	if p.count[c.Entity] == 0 {
+		err := status.Error(codes.FailedPrecondition, "admission: mutation guard was not installed")
+		k.Refuse(err)
+		return err
+	}
+	c.Request = proto.Clone(c.Request)
+	c.Previous = proto.Clone(c.Previous)
+	c.Value = proto.Clone(c.Value)
+	if c.Patch != nil {
+		c.Patch = proto.Clone(c.Patch).(*patchpb.Patch)
+	}
+	if k, ok := c.Key.([]byte); ok {
+		c.Key = append([]byte(nil), k...)
+	}
+	err := ctx.Err()
+	if err == nil {
+		err = a.check.Admit(ctx, c)
+	}
+	if err == nil {
+		err = ctx.Err()
+	}
+	if err != nil {
+		k.Refuse(err)
+		return err
+	}
+	p.count[c.Entity]--
+	return nil
 }
 
 // Scope narrows what the servers of a [Server] can see, one entity at a

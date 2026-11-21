@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
-	ent1 "github.com/protobuf-orm/ent"
 	dialect "github.com/protobuf-orm/ent/dialect"
 	sql "github.com/protobuf-orm/ent/dialect/sql"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
@@ -34,11 +33,14 @@ type TenantServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewTenantServiceServer(db *ent.Client, opts ...Option) apptest.TenantServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return TenantServiceServer{Store: s.Store}
 }
@@ -137,7 +139,10 @@ func (st TenantServiceServer) create(ctx context.Context, req *apptest.TenantAdd
 }
 
 func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequest) (*apptest.Tenant, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +157,7 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	}
 
 	var stored *ent.Tenant
-	if snapshotOptions(s.Rec, apptest.TenantService_Add_FullMethodName).Value {
+	if s.images(apptest.TenantService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -178,10 +183,11 @@ func (s TenantServiceServer) Add(ctx context.Context, req *apptest.TenantAddRequ
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.TenantService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.Tenant",
+		By:     apptest.TenantService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}
@@ -300,6 +306,9 @@ func TenantSelectInit(ctx context.Context, scope Scope, q *ent.TenantQuery, m *a
 }
 
 func (s TenantServiceServer) Patch(ctx context.Context, req *apptest.TenantPatchRequest) (*apptest.Tenant, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	doc, err := ormpatch.FromPatchRequest(tenantOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -349,6 +358,9 @@ var tenantPatchColumns = entpatch.Columns{
 	1: tenant.FieldId, 4: tenant.FieldAlias, 5: tenant.FieldName, 7: tenant.FieldLabels, 15: tenant.FieldDateCreated}
 
 func (s TenantServiceServer) Apply(ctx context.Context, req *apptest.TenantApplyRequest) (*apptest.Tenant, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
@@ -376,7 +388,7 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +409,7 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 	}
 
 	var previous *apptest.Tenant
-	images := snapshotOptions(s.Rec, by)
+	images := s.images(by)
 	if images.Previous && mod != nil {
 		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
@@ -463,7 +475,8 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 		if images.Value {
 			value = s.image(out)
 		}
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Tenant",
 			By:       by,
 			Key:      k,
 			Patch:    doc,
@@ -480,6 +493,9 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 }
 
 func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) (*apptest.TenantEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	p, err := TenantPick(req)
 	if err != nil {
 		return nil, err
@@ -489,7 +505,7 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 		return nil, err
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -500,8 +516,8 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 
 	var k any
 	var previous *apptest.Tenant
-	if s.Rec != nil {
-		images := snapshotOptions(s.Rec, apptest.TenantService_Erase_FullMethodName)
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.TenantService_Erase_FullMethodName)
 		var v *ent.Tenant
 		var err error
 		if images.Previous {
@@ -529,7 +545,8 @@ func (s TenantServiceServer) Erase(ctx context.Context, req *apptest.TenantRef) 
 		return nil, err
 	}
 	if n > 0 {
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Tenant",
 			By:       apptest.TenantService_Erase_FullMethodName,
 			Key:      k,
 			Previous: previous,

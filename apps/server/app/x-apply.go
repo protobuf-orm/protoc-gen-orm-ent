@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/protobuf-orm/protobuf-orm/graph"
@@ -35,6 +36,7 @@ func (w *fileWork) xApply() {
 	// Apply requires the document; Patch is what may have nothing to say.
 	// Saying so here keeps that difference at the RPC boundary rather than
 	// inside the one path both of them run.
+	w.P(" if s.admission!=nil {ctx=request(ctx,req)}")
 	w.P("	if !req.HasPatch() {")
 	w.Pf("		return nil, %s(%s, \"%%s\", %s)",
 		w.QualifiedGoIdent(work.PkgGrpcStatus.Ident("Errorf")),
@@ -149,7 +151,7 @@ func (w *fileWork) xApply() {
 	w.P("")
 
 	w.P("	var previous *", w.Ident)
-	w.P("	images := snapshotOptions(s.Rec, by)")
+	w.P("	images := s.images( by)")
 	w.P("	if images.Previous && mod != nil {")
 	w.P("		u, err := st.snapshot(ctx, p, true)")
 	w.P("		if err != nil {")
@@ -225,7 +227,8 @@ func (w *fileWork) xApply() {
 	w.P("	if mod != nil {")
 	w.P("		var value *", w.Ident)
 	w.P("		if images.Value {value=s.image(out)}")
-	w.P("		if err := record(ctx, s.Rec, st.Db, Change{")
+	w.P("		if err := record(ctx, s.Rec, s.admission, st.Db, Change{")
+	w.P(" Entity: ", strconv.Quote(string(w.Entity.FullName())), ",")
 	w.P("			By: by,")
 	w.P("			Key: k,")
 	w.P("			Patch: doc,")

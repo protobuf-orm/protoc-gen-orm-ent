@@ -15,8 +15,8 @@ import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 //
 // It is told inside the transaction that makes the write, so what it does and
 // what it was told about hold or fall together, and it is told after the write
-// rather than before: a recorder is for what happened, and a rule about what
-// may happen belongs in a server in front of this one.
+// rather than before. Admission runs first, with the request and row images,
+// so policy can refuse a change before its recorder is asked to keep it.
 func (w *Work) xRecorder() {
 	w.P("// Change is one write: what was asked for, and what this server did about")
 	w.P("// it.")
@@ -53,6 +53,9 @@ func (w *Work) xRecorder() {
 	w.P("	// an event to publish -- has to know which row and which write, and")
 	w.P("	// takes this.")
 	w.P("	By string")
+	w.P(" // Entity is the protobuf entity name. Request is captured by Admission or Origin.")
+	w.P(" Entity string")
+	w.P(" Request ", work.PkgProto.Ident("Message"))
 	w.P("")
 	w.P("	// Key is the row, as Go holds the key of this entity: a uuid.UUID, a")
 	w.P("	// string, whatever the schema declared. It is the key and never the")
@@ -69,7 +72,7 @@ func (w *Work) xRecorder() {
 	w.P("	// on itself is not in it: the version stamp of an Apply, and the key and")
 	w.P("	// the timestamps an Add makes up for a request that left them out.")
 	w.P("	Patch *", work.PkgPatchPb.Ident("Patch"))
-	w.P("	// Previous and Value are optional images requested by SnapshotRecorder.")
+	w.P("	// Previous and Value are images requested by SnapshotRecorder or Admission.")
 	w.P("	// By default neither is captured. Add has no Previous; Erase has no")
 	w.P("	// Value. A missing image does not identify the operation; use By instead.")
 	w.P("	// Treat both as read-only.")
@@ -90,11 +93,8 @@ func (w *Work) xRecorder() {
 	w.P("// which is a hang rather than an error.")
 	w.P("//")
 	w.P("// An error it answers with is reported to the caller, and the write is")
-	w.P("// undone with it *when this server opened the transaction*. When it")
-	w.P("// joined one that a caller began -- see enttx -- undoing it is not this")
-	w.P("// server's to do: the refusal is reported, and whoever began the")
-	w.P("// transaction says whether the whole of it still holds. A caller that")
-	w.P("// carries on past a failed call commits a write that nothing recorded.")
+	w.P("// undone with it. A transaction this server joined is marked refused, so")
+	w.P("// even a caller that ignores the error cannot commit the unrecorded write.")
 	w.P("//")
 	w.P("// The guarantee is about the database and nothing else. Anything a")
 	w.P("// recorder does elsewhere -- a message published, a cache dropped --")
@@ -170,8 +170,8 @@ func (w *Work) xRecorder() {
 	w.P("// which RPC of this server they are, and the request knows what it was")
 	w.P("// asked for; asking gRPC once here is what keeps the two from being")
 	w.P("// spelled out at every one of them.")
-	w.P("func record(ctx ", work.IdentContext, ", rec Recorder, db *", w.Ent.Ident("Client"), ", c Change) error {")
-	w.P("	if rec == nil {")
+	w.P("func record(ctx ", work.IdentContext, ", rec Recorder, admit *admission, db *", w.Ent.Ident("Client"), ", c Change) error {")
+	w.P("	if rec == nil && admit == nil {")
 	w.P("		return nil")
 	w.P("	}")
 	w.P("	if v, ok := ", work.PkgGrpc.Ident("Method"), "(ctx); ok {")
@@ -179,8 +179,11 @@ func (w *Work) xRecorder() {
 	w.P("	} else {")
 	w.P("		c.Method = c.By")
 	w.P("	}")
+	w.P(`if origin,ok:=ctx.Value(admissionOriginKey{}).(admissionOrigin);ok {c.Request=origin.request;if origin.method!="" {c.Method=origin.method}}`)
 	w.P("	c.Previous = snapshotOrNil(c.Previous)")
 	w.P("	c.Value = snapshotOrNil(c.Value)")
+	w.P(" if err:=admit.admit(ctx,db,c);err!=nil {return err}")
+	w.P(" if rec==nil {return nil}")
 	w.P("	if err := rec.Record(ctx, Server{Store: Store{Db: db}}, c); err != nil {")
 	w.P("		return ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("Internal"),
 		", \"record the write by %s: %s\", c.By, err)")

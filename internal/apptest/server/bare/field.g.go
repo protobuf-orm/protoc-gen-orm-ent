@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
-	ent1 "github.com/protobuf-orm/ent"
 	dialect "github.com/protobuf-orm/ent/dialect"
 	sql "github.com/protobuf-orm/ent/dialect/sql"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
@@ -35,11 +34,14 @@ type ValueFieldServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewValueFieldServiceServer(db *ent.Client, opts ...Option) apptest.ValueFieldServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return ValueFieldServiceServer{Store: s.Store}
 }
@@ -519,7 +521,10 @@ func (st ValueFieldServiceServer) create(ctx context.Context, req *apptest.Value
 }
 
 func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFieldAddRequest) (*apptest.ValueField, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -534,7 +539,7 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	}
 
 	var stored *ent.ValueField
-	if snapshotOptions(s.Rec, apptest.ValueFieldService_Add_FullMethodName).Value {
+	if s.images(apptest.ValueFieldService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -560,10 +565,11 @@ func (s ValueFieldServiceServer) Add(ctx context.Context, req *apptest.ValueFiel
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.ValueFieldService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.ValueField",
+		By:     apptest.ValueFieldService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}
@@ -591,6 +597,9 @@ const valueFieldAddManyRows = 238
 // is written. A refusal by the database is the whole statement's, and does
 // not say which row it was about.
 func (s ValueFieldServiceServer) AddMany(ctx context.Context, req *apptest.ValueFieldAddManyRequest) (*apptest.ValueFieldAddManyResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	items := req.GetItems()
 	if len(items) > ValueFieldAddManyMax {
 		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", ValueFieldAddManyMax, len(items))
@@ -599,7 +608,7 @@ func (s ValueFieldServiceServer) AddMany(ctx context.Context, req *apptest.Value
 		return apptest.ValueFieldAddManyResponse_builder{}.Build(), nil
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -608,7 +617,7 @@ func (s ValueFieldServiceServer) AddMany(ctx context.Context, req *apptest.Value
 	st := s
 	st.Db = tx.Db
 
-	images := snapshotOptions(s.Rec, apptest.ValueFieldService_AddMany_FullMethodName).Value
+	images := s.images(apptest.ValueFieldService_AddMany_FullMethodName).Value
 	qs := make([]*ent.ValueFieldCreate, len(items))
 	dss := make([][]func(v *apptest.ValueField), len(items))
 	stored := make([]*ent.ValueField, len(items))
@@ -652,10 +661,11 @@ func (s ValueFieldServiceServer) AddMany(ctx context.Context, req *apptest.Value
 			if stored[i] != nil {
 				value = s.image(stored[i].Proto())
 			}
-			if err := record(ctx, s.Rec, st.Db, Change{
-				By:    apptest.ValueFieldService_AddMany_FullMethodName,
-				Key:   u.Id,
-				Value: value,
+			if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+				Entity: "apptest.ValueField",
+				By:     apptest.ValueFieldService_AddMany_FullMethodName,
+				Key:    u.Id,
+				Value:  value,
 			}); err != nil {
 				return nil, err
 			}
@@ -1193,6 +1203,9 @@ func ValueFieldSelectInit(ctx context.Context, scope Scope, q *ent.ValueFieldQue
 }
 
 func (s ValueFieldServiceServer) Patch(ctx context.Context, req *apptest.ValueFieldPatchRequest) (*apptest.ValueField, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	doc, err := ormpatch.FromPatchRequest(valueFieldOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -1238,6 +1251,9 @@ var valueFieldPatchColumns = entpatch.Columns{
 	1: valuefield.FieldId, 16: valuefield.FieldImplicitF64, 17: valuefield.FieldImplicitF32, 18: valuefield.FieldImplicitI32, 19: valuefield.FieldImplicitI64, 20: valuefield.FieldImplicitU32, 21: valuefield.FieldImplicitU64, 22: valuefield.FieldImplicitSi32, 23: valuefield.FieldImplicitSi64, 24: valuefield.FieldImplicitFi32, 25: valuefield.FieldImplicitFi64, 26: valuefield.FieldImplicitSfi32, 27: valuefield.FieldImplicitSfi64, 28: valuefield.FieldImplicitBool, 29: valuefield.FieldImplicitString, 30: valuefield.FieldImplicitBytes, 31: valuefield.FieldImplicitEnum, 48: valuefield.FieldExplicitF64, 49: valuefield.FieldExplicitF32, 50: valuefield.FieldExplicitI32, 51: valuefield.FieldExplicitI64, 52: valuefield.FieldExplicitU32, 53: valuefield.FieldExplicitU64, 54: valuefield.FieldExplicitSi32, 55: valuefield.FieldExplicitSi64, 56: valuefield.FieldExplicitFi32, 57: valuefield.FieldExplicitFi64, 58: valuefield.FieldExplicitSfi32, 59: valuefield.FieldExplicitSfi64, 60: valuefield.FieldExplicitBool, 61: valuefield.FieldExplicitString, 62: valuefield.FieldExplicitBytes, 63: valuefield.FieldExplicitEnum, 80: valuefield.FieldImplicitF64s, 81: valuefield.FieldImplicitF32s, 82: valuefield.FieldImplicitI32s, 83: valuefield.FieldImplicitI64s, 84: valuefield.FieldImplicitU32s, 85: valuefield.FieldImplicitU64s, 86: valuefield.FieldImplicitSi32s, 87: valuefield.FieldImplicitSi64s, 88: valuefield.FieldImplicitFi32s, 89: valuefield.FieldImplicitFi64s, 90: valuefield.FieldImplicitSfi32s, 91: valuefield.FieldImplicitSfi64s, 92: valuefield.FieldImplicitBools, 93: valuefield.FieldImplicitStrings, 94: valuefield.FieldImplicitBytess, 95: valuefield.FieldImplicitLevels, 112: valuefield.FieldNullableF64, 113: valuefield.FieldNullableF32, 114: valuefield.FieldNullableI32, 115: valuefield.FieldNullableI64, 116: valuefield.FieldNullableU32, 117: valuefield.FieldNullableU64, 118: valuefield.FieldNullableSi32, 119: valuefield.FieldNullableSi64, 120: valuefield.FieldNullableFi32, 121: valuefield.FieldNullableFi64, 122: valuefield.FieldNullableSfi32, 123: valuefield.FieldNullableSfi64, 124: valuefield.FieldNullableBool, 125: valuefield.FieldNullableString, 126: valuefield.FieldNullableBytes, 127: valuefield.FieldNullableLevel, 144: valuefield.FieldImplicitF64WithDefault, 145: valuefield.FieldImplicitF32WithDefault, 146: valuefield.FieldImplicitI32WithDefault, 147: valuefield.FieldImplicitI64WithDefault, 148: valuefield.FieldImplicitU32WithDefault, 149: valuefield.FieldImplicitU64WithDefault, 150: valuefield.FieldImplicitSi32WithDefault, 151: valuefield.FieldImplicitSi64WithDefault, 152: valuefield.FieldImplicitFi32WithDefault, 153: valuefield.FieldImplicitFi64WithDefault, 154: valuefield.FieldImplicitSfi32WithDefault, 155: valuefield.FieldImplicitSfi64WithDefault, 156: valuefield.FieldImplicitBoolWithDefault, 157: valuefield.FieldImplicitStringWithDefault, 158: valuefield.FieldImplicitBytesWithDefault, 159: valuefield.FieldImplicitLevelWithDefault, 176: valuefield.FieldExplicitF64WithDefault, 177: valuefield.FieldExplicitF32WithDefault, 178: valuefield.FieldExplicitI32WithDefault, 179: valuefield.FieldExplicitI64WithDefault, 180: valuefield.FieldExplicitU32WithDefault, 181: valuefield.FieldExplicitU64WithDefault, 182: valuefield.FieldExplicitSi32WithDefault, 183: valuefield.FieldExplicitSi64WithDefault, 184: valuefield.FieldExplicitFi32WithDefault, 185: valuefield.FieldExplicitFi64WithDefault, 186: valuefield.FieldExplicitSfi32WithDefault, 187: valuefield.FieldExplicitSfi64WithDefault, 188: valuefield.FieldExplicitBoolWithDefault, 189: valuefield.FieldExplicitStringWithDefault, 190: valuefield.FieldExplicitBytesWithDefault, 191: valuefield.FieldExplicitLevelWithDefault, 208: valuefield.FieldImplicitImmutableF64, 209: valuefield.FieldImplicitImmutableF32, 210: valuefield.FieldImplicitImmutableI32, 211: valuefield.FieldImplicitImmutableI64, 212: valuefield.FieldImplicitImmutableU32, 213: valuefield.FieldImplicitImmutableU64, 214: valuefield.FieldImplicitImmutableSi32, 215: valuefield.FieldImplicitImmutableSi64, 216: valuefield.FieldImplicitImmutableFi32, 217: valuefield.FieldImplicitImmutableFi64, 218: valuefield.FieldImplicitImmutableSfi32, 219: valuefield.FieldImplicitImmutableSfi64, 220: valuefield.FieldImplicitImmutableBool, 221: valuefield.FieldImplicitImmutableString, 222: valuefield.FieldImplicitImmutableBytes, 223: valuefield.FieldImplicitImmutableLevel, 240: valuefield.FieldExplicitImmutableF64, 241: valuefield.FieldExplicitImmutableF32, 242: valuefield.FieldExplicitImmutableI32, 243: valuefield.FieldExplicitImmutableI64, 244: valuefield.FieldExplicitImmutableU32, 245: valuefield.FieldExplicitImmutableU64, 246: valuefield.FieldExplicitImmutableSi32, 247: valuefield.FieldExplicitImmutableSi64, 248: valuefield.FieldExplicitImmutableFi32, 249: valuefield.FieldExplicitImmutableFi64, 250: valuefield.FieldExplicitImmutableSfi32, 251: valuefield.FieldExplicitImmutableSfi64, 252: valuefield.FieldExplicitImmutableBool, 253: valuefield.FieldExplicitImmutableString, 254: valuefield.FieldExplicitImmutableBytes, 255: valuefield.FieldExplicitImmutableLevel, 256: valuefield.FieldImplicitI32Seven, 257: valuefield.FieldImplicitBoolOn, 258: valuefield.FieldImplicitStringNobody, 259: valuefield.FieldImplicitLevelHard, 260: valuefield.FieldImplicitF64Half}
 
 func (s ValueFieldServiceServer) Apply(ctx context.Context, req *apptest.ValueFieldApplyRequest) (*apptest.ValueField, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
@@ -1265,7 +1281,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1286,7 +1302,7 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 	}
 
 	var previous *apptest.ValueField
-	images := snapshotOptions(s.Rec, by)
+	images := s.images(by)
 	if images.Previous && mod != nil {
 		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
@@ -1352,7 +1368,8 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 		if images.Value {
 			value = s.image(out)
 		}
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.ValueField",
 			By:       by,
 			Key:      k,
 			Patch:    doc,
@@ -1369,6 +1386,9 @@ func (s ValueFieldServiceServer) apply(ctx context.Context, ref *apptest.ValueFi
 }
 
 func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFieldRef) (*apptest.ValueFieldEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	p, err := ValueFieldPick(req)
 	if err != nil {
 		return nil, err
@@ -1378,7 +1398,7 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		return nil, err
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1389,8 +1409,8 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 
 	var k any
 	var previous *apptest.ValueField
-	if s.Rec != nil {
-		images := snapshotOptions(s.Rec, apptest.ValueFieldService_Erase_FullMethodName)
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.ValueFieldService_Erase_FullMethodName)
 		var v *ent.ValueField
 		var err error
 		if images.Previous {
@@ -1418,7 +1438,8 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 		return nil, err
 	}
 	if n > 0 {
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.ValueField",
 			By:       apptest.ValueFieldService_Erase_FullMethodName,
 			Key:      k,
 			Previous: previous,
@@ -1456,11 +1477,14 @@ type MessageFieldServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewMessageFieldServiceServer(db *ent.Client, opts ...Option) apptest.MessageFieldServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return MessageFieldServiceServer{Store: s.Store}
 }
@@ -1557,7 +1581,10 @@ func (st MessageFieldServiceServer) create(ctx context.Context, req *apptest.Mes
 }
 
 func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.MessageFieldAddRequest) (*apptest.MessageField, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1572,7 +1599,7 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	}
 
 	var stored *ent.MessageField
-	if snapshotOptions(s.Rec, apptest.MessageFieldService_Add_FullMethodName).Value {
+	if s.images(apptest.MessageFieldService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -1598,10 +1625,11 @@ func (s MessageFieldServiceServer) Add(ctx context.Context, req *apptest.Message
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.MessageFieldService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.MessageField",
+		By:     apptest.MessageFieldService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}
@@ -1629,6 +1657,9 @@ const messageFieldAddManyRows = 500
 // is written. A refusal by the database is the whole statement's, and does
 // not say which row it was about.
 func (s MessageFieldServiceServer) AddMany(ctx context.Context, req *apptest.MessageFieldAddManyRequest) (*apptest.MessageFieldAddManyResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	items := req.GetItems()
 	if len(items) > MessageFieldAddManyMax {
 		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", MessageFieldAddManyMax, len(items))
@@ -1637,7 +1668,7 @@ func (s MessageFieldServiceServer) AddMany(ctx context.Context, req *apptest.Mes
 		return apptest.MessageFieldAddManyResponse_builder{}.Build(), nil
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1646,7 +1677,7 @@ func (s MessageFieldServiceServer) AddMany(ctx context.Context, req *apptest.Mes
 	st := s
 	st.Db = tx.Db
 
-	images := snapshotOptions(s.Rec, apptest.MessageFieldService_AddMany_FullMethodName).Value
+	images := s.images(apptest.MessageFieldService_AddMany_FullMethodName).Value
 	qs := make([]*ent.MessageFieldCreate, len(items))
 	dss := make([][]func(v *apptest.MessageField), len(items))
 	stored := make([]*ent.MessageField, len(items))
@@ -1690,10 +1721,11 @@ func (s MessageFieldServiceServer) AddMany(ctx context.Context, req *apptest.Mes
 			if stored[i] != nil {
 				value = s.image(stored[i].Proto())
 			}
-			if err := record(ctx, s.Rec, st.Db, Change{
-				By:    apptest.MessageFieldService_AddMany_FullMethodName,
-				Key:   u.Id,
-				Value: value,
+			if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+				Entity: "apptest.MessageField",
+				By:     apptest.MessageFieldService_AddMany_FullMethodName,
+				Key:    u.Id,
+				Value:  value,
 			}); err != nil {
 				return nil, err
 			}
@@ -1856,6 +1888,9 @@ func MessageFieldSelectInit(ctx context.Context, scope Scope, q *ent.MessageFiel
 }
 
 func (s MessageFieldServiceServer) Patch(ctx context.Context, req *apptest.MessageFieldPatchRequest) (*apptest.MessageField, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	doc, err := ormpatch.FromPatchRequest(messageFieldOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -1901,6 +1936,9 @@ var messageFieldPatchColumns = entpatch.Columns{
 	1: messagefield.FieldId, 48: messagefield.FieldExplicit, 49: messagefield.FieldHeld, 80: messagefield.FieldRepeated, 81: messagefield.FieldHeldList, 112: messagefield.FieldNullable, 113: messagefield.FieldNullableHeld, 176: messagefield.FieldExplicitWithDefault, 240: messagefield.FieldExplicitImmutable}
 
 func (s MessageFieldServiceServer) Apply(ctx context.Context, req *apptest.MessageFieldApplyRequest) (*apptest.MessageField, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
@@ -1928,7 +1966,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1949,7 +1987,7 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 	}
 
 	var previous *apptest.MessageField
-	images := snapshotOptions(s.Rec, by)
+	images := s.images(by)
 	if images.Previous && mod != nil {
 		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
@@ -2015,7 +2053,8 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 		if images.Value {
 			value = s.image(out)
 		}
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.MessageField",
 			By:       by,
 			Key:      k,
 			Patch:    doc,
@@ -2032,6 +2071,9 @@ func (s MessageFieldServiceServer) apply(ctx context.Context, ref *apptest.Messa
 }
 
 func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.MessageFieldRef) (*apptest.MessageFieldEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	p, err := MessageFieldPick(req)
 	if err != nil {
 		return nil, err
@@ -2041,7 +2083,7 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		return nil, err
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2052,8 +2094,8 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 
 	var k any
 	var previous *apptest.MessageField
-	if s.Rec != nil {
-		images := snapshotOptions(s.Rec, apptest.MessageFieldService_Erase_FullMethodName)
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.MessageFieldService_Erase_FullMethodName)
 		var v *ent.MessageField
 		var err error
 		if images.Previous {
@@ -2081,7 +2123,8 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 		return nil, err
 	}
 	if n > 0 {
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.MessageField",
 			By:       apptest.MessageFieldService_Erase_FullMethodName,
 			Key:      k,
 			Previous: previous,
@@ -2119,11 +2162,14 @@ type MapFieldServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewMapFieldServiceServer(db *ent.Client, opts ...Option) apptest.MapFieldServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return MapFieldServiceServer{Store: s.Store}
 }
@@ -2230,7 +2276,10 @@ func (st MapFieldServiceServer) create(ctx context.Context, req *apptest.MapFiel
 }
 
 func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAddRequest) (*apptest.MapField, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2245,7 +2294,7 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	}
 
 	var stored *ent.MapField
-	if snapshotOptions(s.Rec, apptest.MapFieldService_Add_FullMethodName).Value {
+	if s.images(apptest.MapFieldService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -2271,10 +2320,11 @@ func (s MapFieldServiceServer) Add(ctx context.Context, req *apptest.MapFieldAdd
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.MapFieldService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.MapField",
+		By:     apptest.MapFieldService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}
@@ -2302,6 +2352,9 @@ const mapFieldAddManyRows = 500
 // is written. A refusal by the database is the whole statement's, and does
 // not say which row it was about.
 func (s MapFieldServiceServer) AddMany(ctx context.Context, req *apptest.MapFieldAddManyRequest) (*apptest.MapFieldAddManyResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	items := req.GetItems()
 	if len(items) > MapFieldAddManyMax {
 		return nil, status.Errorf(codes.InvalidArgument, "items: at most %d in one call, and there are %d", MapFieldAddManyMax, len(items))
@@ -2310,7 +2363,7 @@ func (s MapFieldServiceServer) AddMany(ctx context.Context, req *apptest.MapFiel
 		return apptest.MapFieldAddManyResponse_builder{}.Build(), nil
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2319,7 +2372,7 @@ func (s MapFieldServiceServer) AddMany(ctx context.Context, req *apptest.MapFiel
 	st := s
 	st.Db = tx.Db
 
-	images := snapshotOptions(s.Rec, apptest.MapFieldService_AddMany_FullMethodName).Value
+	images := s.images(apptest.MapFieldService_AddMany_FullMethodName).Value
 	qs := make([]*ent.MapFieldCreate, len(items))
 	dss := make([][]func(v *apptest.MapField), len(items))
 	stored := make([]*ent.MapField, len(items))
@@ -2363,10 +2416,11 @@ func (s MapFieldServiceServer) AddMany(ctx context.Context, req *apptest.MapFiel
 			if stored[i] != nil {
 				value = s.image(stored[i].Proto())
 			}
-			if err := record(ctx, s.Rec, st.Db, Change{
-				By:    apptest.MapFieldService_AddMany_FullMethodName,
-				Key:   u.Id,
-				Value: value,
+			if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+				Entity: "apptest.MapField",
+				By:     apptest.MapFieldService_AddMany_FullMethodName,
+				Key:    u.Id,
+				Value:  value,
 			}); err != nil {
 				return nil, err
 			}
@@ -2535,6 +2589,9 @@ func MapFieldSelectInit(ctx context.Context, scope Scope, q *ent.MapFieldQuery, 
 }
 
 func (s MapFieldServiceServer) Patch(ctx context.Context, req *apptest.MapFieldPatchRequest) (*apptest.MapField, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	doc, err := ormpatch.FromPatchRequest(mapFieldOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -2580,6 +2637,9 @@ var mapFieldPatchColumns = entpatch.Columns{
 	1: mapfield.FieldId, 16: mapfield.FieldImplicitString, 17: mapfield.FieldImplicitEnum, 18: mapfield.FieldImplicitJson, 19: mapfield.FieldImplicitHeld, 144: mapfield.FieldImplicitStringWithDefault, 145: mapfield.FieldImplicitEnumWithDefault, 146: mapfield.FieldImplicitJsonWithDefault, 208: mapfield.FieldImplicitImmutableString, 209: mapfield.FieldImplicitImmutableEnum, 210: mapfield.FieldImplicitImmutableJson}
 
 func (s MapFieldServiceServer) Apply(ctx context.Context, req *apptest.MapFieldApplyRequest) (*apptest.MapField, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
@@ -2607,7 +2667,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2628,7 +2688,7 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 	}
 
 	var previous *apptest.MapField
-	images := snapshotOptions(s.Rec, by)
+	images := s.images(by)
 	if images.Previous && mod != nil {
 		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
@@ -2694,7 +2754,8 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 		if images.Value {
 			value = s.image(out)
 		}
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.MapField",
 			By:       by,
 			Key:      k,
 			Patch:    doc,
@@ -2711,6 +2772,9 @@ func (s MapFieldServiceServer) apply(ctx context.Context, ref *apptest.MapFieldR
 }
 
 func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldRef) (*apptest.MapFieldEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	p, err := MapFieldPick(req)
 	if err != nil {
 		return nil, err
@@ -2720,7 +2784,7 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		return nil, err
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2731,8 +2795,8 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 
 	var k any
 	var previous *apptest.MapField
-	if s.Rec != nil {
-		images := snapshotOptions(s.Rec, apptest.MapFieldService_Erase_FullMethodName)
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.MapFieldService_Erase_FullMethodName)
 		var v *ent.MapField
 		var err error
 		if images.Previous {
@@ -2760,7 +2824,8 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 		return nil, err
 	}
 	if n > 0 {
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.MapField",
 			By:       apptest.MapFieldService_Erase_FullMethodName,
 			Key:      k,
 			Previous: previous,

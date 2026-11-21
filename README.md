@@ -475,3 +475,60 @@ go test ./...                # server integration tests against sqlite
 > `internal/apptest` only compiles once the codegen pipeline (buf generate + ent
 > generate) has produced the proto and ent runtime; a `go mod tidy` there is
 > meaningful only after that.
+
+## Refusing writes before commit
+
+`WithAdmission` asks a policy about each changed row, after constraints and
+scope have held and before the recorder or commit. `Change` carries the entity
+name, original request, outer method, generated operation, patch, and previous
+and resulting images. The previous image is locked until the transaction ends
+(on SQLite the database serializes writes). An Add has no previous image; an
+Erase has no resulting image. AddMany asks once per row in request order, and
+one refusal undoes the entire batch.
+
+```go
+type rules struct{}
+
+func (rules) Admit(ctx context.Context, c bare.Change) error {
+    if old, ok := c.Previous.(*app.Job); ok && old.GetApproved() {
+        return status.Error(codes.PermissionDenied, "approved jobs are immutable")
+    }
+    return nil
+}
+
+server, err := bare.NewServer(db,
+    bare.WithAdmission(rules{}, "app.Job"),
+    bare.WithRecorder(trail),
+)
+```
+
+Use full protobuf entity names. Omitting names protects every generated entity;
+unknown names and a nil policy fail configuration. Install the option once on
+the shared ent client, before it serves requests. Individual service constructors
+panic on invalid options; `NewServer` returns the error. The hook survives
+`WithDriver`. It leaves calls without an admission option as they were.
+
+A refusal retains its error code and also refuses the transaction, even if an
+app ignores the RPC's error and tries to commit. Direct ent mutations on that
+client are guarded too: without a kept transaction they fail before SQL; inside
+one they prevent commit unless the generated server accounts for them. Start a
+shared transaction with `dialect.BeginTx` and rebind the server with `WithDriver`
+or `enttx.Rebind`. An ordinary `ent.Tx` has no completion ledger and is refused
+when admission is enabled. Protected writes also cannot begin from a completion
+hook after the admission ledger has been checked. This uses `dialect.Keep.Refuse` from ent's
+2026-10-21 revision or later; regenerate after updating the generator.
+
+`Origin(ctx, method, request)` captures a custom outer RPC before it calls several
+inner writes. Without an Origin, each generated write captures its own request;
+gRPC still supplies the outer method name. Capture the outer request at the
+transport or application boundary when policy needs it. Each policy call owns
+copies of its messages, so mutating them changes neither the write nor its
+recorder. These are **raw** messages: an adapter that sends them to another policy
+engine must redact secrets and bound its execution time. The interface accepts
+refusal only and supplies no writer. Policy should make a decision without side
+effects, since its transaction may still roll back.
+
+`TrustAdmission(ctx)` explicitly bypasses the guard for deployment-owned writes,
+such as bootstrap or a recorder's internal tables; ordinary recording still
+runs. Never derive it from client metadata. The guard protects the installed
+client and its clones; a newly constructed client and raw SQL are outside it.
