@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	patchpb "github.com/lesomnus/protobuf-patch/patchpb"
-	ent1 "github.com/protobuf-orm/ent"
 	dialect "github.com/protobuf-orm/ent/dialect"
 	sql "github.com/protobuf-orm/ent/dialect/sql"
 	sqlgraph "github.com/protobuf-orm/ent/dialect/sql/sqlgraph"
@@ -35,11 +34,14 @@ type ShiftServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewShiftServiceServer(db *ent.Client, opts ...Option) apptest.ShiftServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return ShiftServiceServer{Store: s.Store}
 }
@@ -122,7 +124,10 @@ func (st ShiftServiceServer) create(ctx context.Context, req *apptest.ShiftAddRe
 }
 
 func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddRequest) (*apptest.Shift, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +142,7 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 	}
 
 	var stored *ent.Shift
-	if snapshotOptions(s.Rec, apptest.ShiftService_Add_FullMethodName).Value {
+	if s.images(apptest.ShiftService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -163,10 +168,11 @@ func (s ShiftServiceServer) Add(ctx context.Context, req *apptest.ShiftAddReques
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.ShiftService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.Shift",
+		By:     apptest.ShiftService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}
@@ -279,6 +285,9 @@ func ShiftSelectInit(ctx context.Context, scope Scope, q *ent.ShiftQuery, m *app
 }
 
 func (s ShiftServiceServer) Patch(ctx context.Context, req *apptest.ShiftPatchRequest) (*apptest.Shift, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	doc, err := ormpatch.FromPatchRequest(shiftOrmEntity, req.ProtoReflect(), nil)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -328,6 +337,9 @@ var shiftPatchColumns = entpatch.Columns{
 	1: shift.FieldId, 2: shift.FieldDesk, 3: shift.FieldStartsAt}
 
 func (s ShiftServiceServer) Apply(ctx context.Context, req *apptest.ShiftApplyRequest) (*apptest.Shift, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	if !req.HasPatch() {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
 	}
@@ -355,7 +367,7 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 		return nil, status.Errorf(codes.Internal, "%s", err)
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, true)
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +388,7 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 	}
 
 	var previous *apptest.Shift
-	images := snapshotOptions(s.Rec, by)
+	images := s.images(by)
 	if images.Previous && mod != nil {
 		u, err := st.snapshot(ctx, p, true)
 		if err != nil {
@@ -442,7 +454,8 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 		if images.Value {
 			value = s.image(out)
 		}
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Shift",
 			By:       by,
 			Key:      k,
 			Patch:    doc,
@@ -459,6 +472,9 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 }
 
 func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*apptest.ShiftEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
 	p, err := ShiftPick(req)
 	if err != nil {
 		return nil, err
@@ -468,7 +484,7 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 		return nil, err
 	}
 
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -479,8 +495,8 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 
 	var k any
 	var previous *apptest.Shift
-	if s.Rec != nil {
-		images := snapshotOptions(s.Rec, apptest.ShiftService_Erase_FullMethodName)
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.ShiftService_Erase_FullMethodName)
 		var v *ent.Shift
 		var err error
 		if images.Previous {
@@ -508,7 +524,8 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 		return nil, err
 	}
 	if n > 0 {
-		if err := record(ctx, s.Rec, st.Db, Change{
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Shift",
 			By:       apptest.ShiftService_Erase_FullMethodName,
 			Key:      k,
 			Previous: previous,
@@ -556,11 +573,14 @@ type WriteOnlyServiceServer struct {
 //
 // It takes the options of [Server] so that what is built here can be told
 // where to report its writes and what it may see. Built without them, it
-// reports nowhere and sees everything.
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
 func NewWriteOnlyServiceServer(db *ent.Client, opts ...Option) apptest.WriteOnlyServiceServer {
 	s := Server{Store: Store{Db: db}}
 	for _, opt := range opts {
-		opt(&s)
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
 	}
 	return WriteOnlyServiceServer{Store: s.Store}
 }
@@ -630,7 +650,10 @@ func (st WriteOnlyServiceServer) create(ctx context.Context, req *apptest.WriteO
 }
 
 func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyAddRequest) (*apptest.WriteOnly, error) {
-	tx, err := ent1.JoinTx[*ent.Client, *ent.Tx](ctx, s.Db, s.Rec != nil)
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -645,7 +668,7 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 	}
 
 	var stored *ent.WriteOnly
-	if snapshotOptions(s.Rec, apptest.WriteOnlyService_Add_FullMethodName).Value {
+	if s.images(apptest.WriteOnlyService_Add_FullMethodName).Value {
 		q.Stored(&stored)
 	}
 
@@ -671,10 +694,11 @@ func (s WriteOnlyServiceServer) Add(ctx context.Context, req *apptest.WriteOnlyA
 	if stored != nil {
 		value = s.image(stored.Proto())
 	}
-	if err := record(ctx, s.Rec, st.Db, Change{
-		By:    apptest.WriteOnlyService_Add_FullMethodName,
-		Key:   u.Id,
-		Value: value,
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.WriteOnly",
+		By:     apptest.WriteOnlyService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
 	}); err != nil {
 		return nil, err
 	}

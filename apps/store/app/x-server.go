@@ -37,6 +37,7 @@ func (w *Work) xServer() {
 	w.P("	// Rec is told about every write these servers make, and nothing is")
 	w.P("	// told if it is nil. See [Recorder].")
 	w.P("	Rec Recorder")
+	w.P(" admission *admission")
 	w.P("")
 	w.P("	// Scope narrows what these servers can see, and they see every row")
 	w.P("	// if it is nil. See [Scope].")
@@ -159,6 +160,7 @@ func (w *Work) xServer() {
 	w.P("")
 
 	w.xRecorder()
+	w.xAdmission()
 	w.xScopes()
 	w.xMinter()
 	w.xClock()

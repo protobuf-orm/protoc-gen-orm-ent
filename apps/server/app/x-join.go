@@ -1,7 +1,5 @@
 package app
 
-import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
-
 // xJoin emits the transaction a write is done inside, and the `st` that names
 // the client to do it with.
 //
@@ -21,8 +19,7 @@ import "github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 // statement's -- while Add and Erase want one only when there is a recorder,
 // since a write with nothing to record alongside it is a single statement.
 func (w *fileWork) xJoin(want string) {
-	w.P("	tx, err := ", work.PkgEnt.Ident("JoinTx"), "[*", w.ent.Ident("Client"), ", *", w.ent.Ident("Tx"),
-		"](ctx, s.Db, ", want, ")")
+	w.P("\ttx, err := join(ctx, s.Db, ", want, ", s.admission != nil)")
 	w.P("	if err != nil {")
 	w.P("		return nil, err")
 	w.P("	}")
