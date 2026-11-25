@@ -32,9 +32,11 @@ func xProto(w *work.FileWork) {
 				}
 			}
 			if !p.IsList() {
-				// Some types of the field defined in Ent are not same with the proto type.
-				// However, repeated field is store in the DB with JSON type so the type of
-				// the repeated fields is already aligned with the proto type.
+				// A single value of some types is kept as another Go type than
+				// the proto's -- a uuid.UUID, a time.Time, an int32 -- and is
+				// converted here. A list is kept as a JSON array of the proto's
+				// own element type whatever its type says, so it is handed over
+				// as it is.
 				switch p.Type() {
 				case ormpb.Type_TYPE_ENUM:
 					v = fmt.Sprintf("%s(%s)", gogen.GoTypeOf(p, w.QualifiedGoIdent), v)

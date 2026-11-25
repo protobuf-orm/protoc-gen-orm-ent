@@ -105,15 +105,16 @@ func (w *fileWork) xAddCreate() {
 				continue
 			}
 
+			// A list is kept as the proto holds it, whatever its type says,
+			// so it is handed over as it is: see the schema's fieldBuilder.
+			if p.IsList() {
+				set(u)
+				break
+			}
+
 			switch t {
 			case ormpb.Type_TYPE_ENUM:
-				if p.IsList() {
-					// Repeated field is stored as JSON in Ent
-					// so no type conversion is needed.
-					set(u)
-				} else {
-					set(fmt.Sprintf("int32(%s)", u))
-				}
+				set(fmt.Sprintf("int32(%s)", u))
 			case ormpb.Type_TYPE_UUID:
 				w.P("	if v, err := ", work.PkgEntUuid.Ident("FromBytes"), "(", u, "); err != nil {")
 				w.P("		return nil, nil, ", work.PkgGrpcStatus.Ident("Errorf"), "(", work.PkgGrpcCodes.Ident("InvalidArgument"), ", \"", name, ": %s\", err)")

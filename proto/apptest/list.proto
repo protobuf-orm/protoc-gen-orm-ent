@@ -1,0 +1,26 @@
+edition = "2023";
+
+package apptest;
+
+import "google/protobuf/timestamp.proto";
+import "orm.proto";
+
+option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
+
+// ListField holds repeated fields whose `type` says what their elements are.
+// A repeated field is kept as a JSON array of the proto's own element type,
+// whatever its type says, so each of these is stored as the same field
+// without the option would be.
+message ListField {
+  string id = 1 [(orm.field) = {key: true}];
+
+  // Identifiers, stored as `[][]byte`: what `blobs` is stored as.
+  repeated bytes subjects = 2 [(orm.field) = {type: TYPE_UUID}];
+  repeated bytes blobs = 3;
+
+  repeated google.protobuf.Timestamp times = 4;
+
+  option (orm.message) = {
+    rpc: {add: {}, get: {}, patch: {}, apply: {}, erase: {}}
+  };
+}

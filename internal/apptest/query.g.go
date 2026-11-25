@@ -137,6 +137,49 @@ func MapFieldGetById(v string) *MapFieldGetRequest {
 	return MapFieldGetRequest_builder{Ref: MapFieldById(v)}.Build()
 }
 
+func (x *ListFieldRef) Pick() *ListFieldGetRequest {
+	return ListFieldGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *ListField) Ref() *ListFieldRef {
+	if v := x.GetId(); len(v) > 0 {
+		return ListFieldById(v)
+	}
+
+	return nil
+}
+
+func (x *ListField) Pick() *ListFieldGetRequest {
+	return x.Ref().Pick()
+}
+
+func (x *ListFieldRef) Picks(v *ListField) bool {
+	switch x.WhichKey() {
+	case ListFieldRef_Id_case:
+		return x.GetId() == v.GetId()
+	default:
+		return false
+	}
+}
+
+func (x *ListFieldGetRequest) WithSelect(f func(s *ListFieldSelect)) *ListFieldGetRequest {
+	if !x.HasSelect() {
+		x.SetSelect(&ListFieldSelect{})
+	}
+	f(x.GetSelect())
+	return x
+}
+
+func ListFieldById(v string) *ListFieldRef {
+	x := &ListFieldRef{}
+	x.SetId(v)
+	return x
+}
+
+func ListFieldGetById(v string) *ListFieldGetRequest {
+	return ListFieldGetRequest_builder{Ref: ListFieldById(v)}.Build()
+}
+
 func (x *NoteRef) Pick() *NoteGetRequest {
 	return NoteGetRequest_builder{Ref: x}.Build()
 }

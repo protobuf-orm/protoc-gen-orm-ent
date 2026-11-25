@@ -29,6 +29,7 @@ type Server interface {
 	ValueField() ValueFieldServiceServer
 	MessageField() MessageFieldServiceServer
 	MapField() MapFieldServiceServer
+	ListField() ListFieldServiceServer
 	Note() NoteServiceServer
 	Tenant() TenantServiceServer
 	User() UserServiceServer
@@ -48,6 +49,7 @@ func RegisterServer(g grpc.ServiceRegistrar, s Server) {
 	RegisterValueFieldServiceServer(g, s.ValueField())
 	RegisterMessageFieldServiceServer(g, s.MessageField())
 	RegisterMapFieldServiceServer(g, s.MapField())
+	RegisterListFieldServiceServer(g, s.ListField())
 	RegisterNoteServiceServer(g, s.Note())
 	RegisterTenantServiceServer(g, s.Tenant())
 	RegisterUserServiceServer(g, s.User())
@@ -63,6 +65,7 @@ type UnimplementedServer struct {
 	ValueFieldServer   ValueFieldServiceServer
 	MessageFieldServer MessageFieldServiceServer
 	MapFieldServer     MapFieldServiceServer
+	ListFieldServer    ListFieldServiceServer
 	NoteServer         NoteServiceServer
 	TenantServer       TenantServiceServer
 	UserServer         UserServiceServer
@@ -83,6 +86,9 @@ func (UnimplementedServer) MessageField() MessageFieldServiceServer {
 func (UnimplementedServer) MapField() MapFieldServiceServer {
 	return UnimplementedMapFieldServiceServer{}
 }
+func (UnimplementedServer) ListField() ListFieldServiceServer {
+	return UnimplementedListFieldServiceServer{}
+}
 func (UnimplementedServer) Note() NoteServiceServer     { return UnimplementedNoteServiceServer{} }
 func (UnimplementedServer) Tenant() TenantServiceServer { return UnimplementedTenantServiceServer{} }
 func (UnimplementedServer) User() UserServiceServer     { return UnimplementedUserServiceServer{} }
@@ -99,6 +105,7 @@ type StaticServer struct {
 	ValueFieldServer   ValueFieldServiceServer
 	MessageFieldServer MessageFieldServiceServer
 	MapFieldServer     MapFieldServiceServer
+	ListFieldServer    ListFieldServiceServer
 	NoteServer         NoteServiceServer
 	TenantServer       TenantServiceServer
 	UserServer         UserServiceServer
@@ -113,6 +120,7 @@ type StaticServer struct {
 func (s StaticServer) ValueField() ValueFieldServiceServer     { return s.ValueFieldServer }
 func (s StaticServer) MessageField() MessageFieldServiceServer { return s.MessageFieldServer }
 func (s StaticServer) MapField() MapFieldServiceServer         { return s.MapFieldServer }
+func (s StaticServer) ListField() ListFieldServiceServer       { return s.ListFieldServer }
 func (s StaticServer) Note() NoteServiceServer                 { return s.NoteServer }
 func (s StaticServer) Tenant() TenantServiceServer             { return s.TenantServer }
 func (s StaticServer) User() UserServiceServer                 { return s.UserServer }
@@ -127,6 +135,7 @@ type Client interface {
 	ValueField() ValueFieldServiceClient
 	MessageField() MessageFieldServiceClient
 	MapField() MapFieldServiceClient
+	ListField() ListFieldServiceClient
 	Note() NoteServiceClient
 	Tenant() TenantServiceClient
 	User() UserServiceClient
@@ -143,6 +152,7 @@ func NewClient(c *grpc.ClientConn) Client {
 		_ValueField:   NewValueFieldServiceClient(c),
 		_MessageField: NewMessageFieldServiceClient(c),
 		_MapField:     NewMapFieldServiceClient(c),
+		_ListField:    NewListFieldServiceClient(c),
 		_Note:         NewNoteServiceClient(c),
 		_Tenant:       NewTenantServiceClient(c),
 		_User:         NewUserServiceClient(c),
@@ -159,6 +169,7 @@ type client struct {
 	_ValueField   ValueFieldServiceClient
 	_MessageField MessageFieldServiceClient
 	_MapField     MapFieldServiceClient
+	_ListField    ListFieldServiceClient
 	_Note         NoteServiceClient
 	_Tenant       TenantServiceClient
 	_User         UserServiceClient
@@ -173,6 +184,7 @@ type client struct {
 func (c *client) ValueField() ValueFieldServiceClient     { return c._ValueField }
 func (c *client) MessageField() MessageFieldServiceClient { return c._MessageField }
 func (c *client) MapField() MapFieldServiceClient         { return c._MapField }
+func (c *client) ListField() ListFieldServiceClient       { return c._ListField }
 func (c *client) Note() NoteServiceClient                 { return c._Note }
 func (c *client) Tenant() TenantServiceClient             { return c._Tenant }
 func (c *client) User() UserServiceClient                 { return c._User }
