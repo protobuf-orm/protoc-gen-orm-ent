@@ -512,6 +512,9 @@ func (s ShiftServiceServer) Erase(ctx context.Context, req *apptest.ShiftRef) (*
 	tx.Writing()
 	n, err := st.Db.Shift.Delete().Where(p).Exec(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsForeignKeyConstraintError(err) {
+			return nil, status.Error(codes.FailedPrecondition, "Shift is still named by another row and cannot be erased")
+		}
 		return nil, err
 	}
 	if n > 0 {
@@ -1194,6 +1197,9 @@ func (s TallyServiceServer) Erase(ctx context.Context, req *apptest.TallyRef) (*
 	tx.Writing()
 	n, err := st.Db.Tally.Delete().Where(p).Exec(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsForeignKeyConstraintError(err) {
+			return nil, status.Error(codes.FailedPrecondition, "Tally is still named by another row and cannot be erased")
+		}
 		return nil, err
 	}
 	if n > 0 {

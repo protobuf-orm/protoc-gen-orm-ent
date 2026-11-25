@@ -1435,6 +1435,9 @@ func (s ValueFieldServiceServer) Erase(ctx context.Context, req *apptest.ValueFi
 	tx.Writing()
 	n, err := st.Db.ValueField.Delete().Where(p).Exec(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsForeignKeyConstraintError(err) {
+			return nil, status.Error(codes.FailedPrecondition, "ValueField is still named by another row and cannot be erased")
+		}
 		return nil, err
 	}
 	if n > 0 {
@@ -2120,6 +2123,9 @@ func (s MessageFieldServiceServer) Erase(ctx context.Context, req *apptest.Messa
 	tx.Writing()
 	n, err := st.Db.MessageField.Delete().Where(p).Exec(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsForeignKeyConstraintError(err) {
+			return nil, status.Error(codes.FailedPrecondition, "MessageField is still named by another row and cannot be erased")
+		}
 		return nil, err
 	}
 	if n > 0 {
@@ -2821,6 +2827,9 @@ func (s MapFieldServiceServer) Erase(ctx context.Context, req *apptest.MapFieldR
 	tx.Writing()
 	n, err := st.Db.MapField.Delete().Where(p).Exec(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsForeignKeyConstraintError(err) {
+			return nil, status.Error(codes.FailedPrecondition, "MapField is still named by another row and cannot be erased")
+		}
 		return nil, err
 	}
 	if n > 0 {

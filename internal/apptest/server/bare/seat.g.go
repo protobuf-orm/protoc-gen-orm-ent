@@ -768,6 +768,9 @@ func (s SeatServiceServer) Erase(ctx context.Context, req *apptest.SeatRef) (*ap
 	tx.Writing()
 	n, err := st.Db.Seat.Delete().Where(p).Exec(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsForeignKeyConstraintError(err) {
+			return nil, status.Error(codes.FailedPrecondition, "Seat is still named by another row and cannot be erased")
+		}
 		return nil, err
 	}
 	if n > 0 {

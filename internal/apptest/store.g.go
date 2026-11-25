@@ -33,6 +33,8 @@ type Server interface {
 	Tenant() TenantServiceServer
 	User() UserServiceServer
 	Seat() SeatServiceServer
+	Shelf() ShelfServiceServer
+	Book() BookServiceServer
 	Shift() ShiftServiceServer
 	WriteOnly() WriteOnlyServiceServer
 	Tally() TallyServiceServer
@@ -50,6 +52,8 @@ func RegisterServer(g grpc.ServiceRegistrar, s Server) {
 	RegisterTenantServiceServer(g, s.Tenant())
 	RegisterUserServiceServer(g, s.User())
 	RegisterSeatServiceServer(g, s.Seat())
+	RegisterShelfServiceServer(g, s.Shelf())
+	RegisterBookServiceServer(g, s.Book())
 	RegisterShiftServiceServer(g, s.Shift())
 	RegisterWriteOnlyServiceServer(g, s.WriteOnly())
 	RegisterTallyServiceServer(g, s.Tally())
@@ -63,6 +67,8 @@ type UnimplementedServer struct {
 	TenantServer       TenantServiceServer
 	UserServer         UserServiceServer
 	SeatServer         SeatServiceServer
+	ShelfServer        ShelfServiceServer
+	BookServer         BookServiceServer
 	ShiftServer        ShiftServiceServer
 	WriteOnlyServer    WriteOnlyServiceServer
 	TallyServer        TallyServiceServer
@@ -81,6 +87,8 @@ func (UnimplementedServer) Note() NoteServiceServer     { return UnimplementedNo
 func (UnimplementedServer) Tenant() TenantServiceServer { return UnimplementedTenantServiceServer{} }
 func (UnimplementedServer) User() UserServiceServer     { return UnimplementedUserServiceServer{} }
 func (UnimplementedServer) Seat() SeatServiceServer     { return UnimplementedSeatServiceServer{} }
+func (UnimplementedServer) Shelf() ShelfServiceServer   { return UnimplementedShelfServiceServer{} }
+func (UnimplementedServer) Book() BookServiceServer     { return UnimplementedBookServiceServer{} }
 func (UnimplementedServer) Shift() ShiftServiceServer   { return UnimplementedShiftServiceServer{} }
 func (UnimplementedServer) WriteOnly() WriteOnlyServiceServer {
 	return UnimplementedWriteOnlyServiceServer{}
@@ -95,6 +103,8 @@ type StaticServer struct {
 	TenantServer       TenantServiceServer
 	UserServer         UserServiceServer
 	SeatServer         SeatServiceServer
+	ShelfServer        ShelfServiceServer
+	BookServer         BookServiceServer
 	ShiftServer        ShiftServiceServer
 	WriteOnlyServer    WriteOnlyServiceServer
 	TallyServer        TallyServiceServer
@@ -107,6 +117,8 @@ func (s StaticServer) Note() NoteServiceServer                 { return s.NoteSe
 func (s StaticServer) Tenant() TenantServiceServer             { return s.TenantServer }
 func (s StaticServer) User() UserServiceServer                 { return s.UserServer }
 func (s StaticServer) Seat() SeatServiceServer                 { return s.SeatServer }
+func (s StaticServer) Shelf() ShelfServiceServer               { return s.ShelfServer }
+func (s StaticServer) Book() BookServiceServer                 { return s.BookServer }
 func (s StaticServer) Shift() ShiftServiceServer               { return s.ShiftServer }
 func (s StaticServer) WriteOnly() WriteOnlyServiceServer       { return s.WriteOnlyServer }
 func (s StaticServer) Tally() TallyServiceServer               { return s.TallyServer }
@@ -119,6 +131,8 @@ type Client interface {
 	Tenant() TenantServiceClient
 	User() UserServiceClient
 	Seat() SeatServiceClient
+	Shelf() ShelfServiceClient
+	Book() BookServiceClient
 	Shift() ShiftServiceClient
 	WriteOnly() WriteOnlyServiceClient
 	Tally() TallyServiceClient
@@ -133,6 +147,8 @@ func NewClient(c *grpc.ClientConn) Client {
 		_Tenant:       NewTenantServiceClient(c),
 		_User:         NewUserServiceClient(c),
 		_Seat:         NewSeatServiceClient(c),
+		_Shelf:        NewShelfServiceClient(c),
+		_Book:         NewBookServiceClient(c),
 		_Shift:        NewShiftServiceClient(c),
 		_WriteOnly:    NewWriteOnlyServiceClient(c),
 		_Tally:        NewTallyServiceClient(c),
@@ -147,6 +163,8 @@ type client struct {
 	_Tenant       TenantServiceClient
 	_User         UserServiceClient
 	_Seat         SeatServiceClient
+	_Shelf        ShelfServiceClient
+	_Book         BookServiceClient
 	_Shift        ShiftServiceClient
 	_WriteOnly    WriteOnlyServiceClient
 	_Tally        TallyServiceClient
@@ -159,6 +177,8 @@ func (c *client) Note() NoteServiceClient                 { return c._Note }
 func (c *client) Tenant() TenantServiceClient             { return c._Tenant }
 func (c *client) User() UserServiceClient                 { return c._User }
 func (c *client) Seat() SeatServiceClient                 { return c._Seat }
+func (c *client) Shelf() ShelfServiceClient               { return c._Shelf }
+func (c *client) Book() BookServiceClient                 { return c._Book }
 func (c *client) Shift() ShiftServiceClient               { return c._Shift }
 func (c *client) WriteOnly() WriteOnlyServiceClient       { return c._WriteOnly }
 func (c *client) Tally() TallyServiceClient               { return c._Tally }

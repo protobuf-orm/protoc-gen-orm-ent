@@ -425,6 +425,92 @@ func SeatGetByDeputy(deputy *UserRef) *SeatGetRequest {
 	return SeatGetRequest_builder{Ref: SeatByDeputy(deputy)}.Build()
 }
 
+func (x *ShelfRef) Pick() *ShelfGetRequest {
+	return ShelfGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *Shelf) Ref() *ShelfRef {
+	if v := x.GetId(); len(v) > 0 {
+		return ShelfById(v)
+	}
+
+	return nil
+}
+
+func (x *Shelf) Pick() *ShelfGetRequest {
+	return x.Ref().Pick()
+}
+
+func (x *ShelfRef) Picks(v *Shelf) bool {
+	switch x.WhichKey() {
+	case ShelfRef_Id_case:
+		return x.GetId() == v.GetId()
+	default:
+		return false
+	}
+}
+
+func (x *ShelfGetRequest) WithSelect(f func(s *ShelfSelect)) *ShelfGetRequest {
+	if !x.HasSelect() {
+		x.SetSelect(&ShelfSelect{})
+	}
+	f(x.GetSelect())
+	return x
+}
+
+func ShelfById(v string) *ShelfRef {
+	x := &ShelfRef{}
+	x.SetId(v)
+	return x
+}
+
+func ShelfGetById(v string) *ShelfGetRequest {
+	return ShelfGetRequest_builder{Ref: ShelfById(v)}.Build()
+}
+
+func (x *BookRef) Pick() *BookGetRequest {
+	return BookGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *Book) Ref() *BookRef {
+	if v := x.GetId(); len(v) > 0 {
+		return BookById(v)
+	}
+
+	return nil
+}
+
+func (x *Book) Pick() *BookGetRequest {
+	return x.Ref().Pick()
+}
+
+func (x *BookRef) Picks(v *Book) bool {
+	switch x.WhichKey() {
+	case BookRef_Id_case:
+		return x.GetId() == v.GetId()
+	default:
+		return false
+	}
+}
+
+func (x *BookGetRequest) WithSelect(f func(s *BookSelect)) *BookGetRequest {
+	if !x.HasSelect() {
+		x.SetSelect(&BookSelect{})
+	}
+	f(x.GetSelect())
+	return x
+}
+
+func BookById(v string) *BookRef {
+	x := &BookRef{}
+	x.SetId(v)
+	return x
+}
+
+func BookGetById(v string) *BookGetRequest {
+	return BookGetRequest_builder{Ref: BookById(v)}.Build()
+}
+
 func (x *ShiftRef) Pick() *ShiftGetRequest {
 	return ShiftGetRequest_builder{Ref: x}.Build()
 }
