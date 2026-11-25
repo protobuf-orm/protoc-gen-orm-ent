@@ -419,6 +419,20 @@ first migration makes each again under its own and leaves the old one, so
 rename them first -- `ALTER INDEX IF EXISTS <table>_<columns> RENAME TO
 <table>_<name>` on PostgreSQL costs no rebuild -- or drop the old names after.
 
+## What it needs of a schema
+
+**A Patch or an Apply needs a Get.** The write reads the row it wrote back
+through the entity's own `Get`, so the answer is the row a `Get` gives and is
+narrowed the same way. An entity that asks for `patch` or `apply` and not `get`
+is refused, naming it:
+
+```
+apptest.Counter has Patch and no Get, and protoc-gen-orm-ent needs a Get for it: a Patch reads the row it wrote back through Get
+```
+
+This is this generator's limit, not a rule of protobuf-orm's. `Add`, `AddMany`
+and `Erase` read nothing back through `Get` and need none.
+
 ## Usage
 
 This plugin is the last stage of a multi-plugin `buf.gen.yaml` (it relies on the

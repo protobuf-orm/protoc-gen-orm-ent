@@ -41,6 +41,10 @@ func (a *App) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error
 		ok = false
 	}
 
+	if err := refuse(p, g); err != nil {
+		return err
+	}
+
 	w := work.NewWork()
 
 	// Every message first, and the work after. An edge may point at an entity
@@ -228,4 +232,47 @@ func (a *App) newGeneratedSchemaFile(p *protogen.Plugin, f *protogen.File) (*pro
 	gf.P("")
 
 	return gf, path, nil
+}
+
+// refuse answers why this generator cannot write a server for an entity of a
+// file it is asked to generate, for every such entity, or nil.
+//
+// A Patch and an Apply read the row they wrote back through the entity's own
+// Get, which is what makes their answer the row a Get would give and narrows
+// it the same way. Without a Get that call is the embedded Unimplemented
+// one, and the write would answer Unimplemented after it had committed. It is
+// this generator's limit and not a rule of protobuf-orm's: another storage
+// generator may read the row back some other way.
+func refuse(p *protogen.Plugin, g *graph.Graph) error {
+	errs := []error{}
+	for _, f := range p.Files {
+		if !f.Generate {
+			continue
+		}
+		for _, m := range f.Messages {
+			entity, ok := g.Entities[m.Desc.FullName()]
+			if !ok {
+				continue
+			}
+			rpcs := entity.Rpcs()
+			if rpcs.HasGet() {
+				continue
+			}
+			var has, which, it string
+			switch {
+			case rpcs.HasPatch() && rpcs.HasApply():
+				has, which, it = "Patch and Apply", "a Patch or an Apply", "them"
+			case rpcs.HasPatch():
+				has, which, it = "Patch", "a Patch", "it"
+			case rpcs.HasApply():
+				has, which, it = "Apply", "an Apply", "it"
+			default:
+				continue
+			}
+			errs = append(errs, fmt.Errorf(
+				"%s has %s and no Get, and protoc-gen-orm-ent needs a Get for %s: %s reads the row it wrote back through Get",
+				entity.FullName(), has, it, which))
+		}
+	}
+	return errors.Join(errs...)
 }
