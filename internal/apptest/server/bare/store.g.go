@@ -17,6 +17,7 @@ import (
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	seat "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/seat"
 	shift "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/shift"
+	tally "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tally"
 	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
@@ -484,6 +485,8 @@ func WithAdmission(check Admission, entities ...string) Option {
 		a.methods["/apptest.ShiftService"] = "apptest.Shift"
 		a.types["WriteOnly"] = "apptest.WriteOnly"
 		a.methods["/apptest.WriteOnlyService"] = "apptest.WriteOnly"
+		a.types["Tally"] = "apptest.Tally"
+		a.methods["/apptest.TallyService"] = "apptest.Tally"
 		for _, name := range entities {
 			found := false
 			for _, v := range a.types {
@@ -637,6 +640,7 @@ type Scope interface {
 	SeatScope(ctx context.Context) (predicate.Seat, error)
 	ShiftScope(ctx context.Context) (predicate.Shift, error)
 	WriteOnlyScope(ctx context.Context) (predicate.WriteOnly, error)
+	TallyScope(ctx context.Context) (predicate.Tally, error)
 }
 
 // Unscoped is a [Scope] that narrows nothing. Embed it and write out the
@@ -676,6 +680,9 @@ func (Unscoped) ShiftScope(_ context.Context) (predicate.Shift, error) {
 	return nil, nil
 }
 func (Unscoped) WriteOnlyScope(_ context.Context) (predicate.WriteOnly, error) {
+	return nil, nil
+}
+func (Unscoped) TallyScope(_ context.Context) (predicate.Tally, error) {
 	return nil, nil
 }
 
@@ -878,6 +885,26 @@ func (ss Scopes) WriteOnlyScope(ctx context.Context) (predicate.WriteOnly, error
 	return writeonly.And(ps...), nil
 }
 
+func (ss Scopes) TallyScope(ctx context.Context) (predicate.Tally, error) {
+	ps := make([]predicate.Tally, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.TallyScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return tally.And(ps...), nil
+}
+
 // Minter decides the key a row is stored under. It is asked once per Add,
 // for an entity whose key is a uuid, and only for those.
 //
@@ -1068,3 +1095,4 @@ func (s Server) Shift() apptest.ShiftServiceServer   { return ShiftServiceServer
 func (s Server) WriteOnly() apptest.WriteOnlyServiceServer {
 	return WriteOnlyServiceServer{Store: s.Store}
 }
+func (s Server) Tally() apptest.TallyServiceServer { return TallyServiceServer{Store: s.Store} }

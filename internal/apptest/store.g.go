@@ -35,6 +35,7 @@ type Server interface {
 	Seat() SeatServiceServer
 	Shift() ShiftServiceServer
 	WriteOnly() WriteOnlyServiceServer
+	Tally() TallyServiceServer
 }
 
 // RegisterServer registers every service of `s` with `g`.
@@ -51,6 +52,7 @@ func RegisterServer(g grpc.ServiceRegistrar, s Server) {
 	RegisterSeatServiceServer(g, s.Seat())
 	RegisterShiftServiceServer(g, s.Shift())
 	RegisterWriteOnlyServiceServer(g, s.WriteOnly())
+	RegisterTallyServiceServer(g, s.Tally())
 }
 
 type UnimplementedServer struct {
@@ -63,6 +65,7 @@ type UnimplementedServer struct {
 	SeatServer         SeatServiceServer
 	ShiftServer        ShiftServiceServer
 	WriteOnlyServer    WriteOnlyServiceServer
+	TallyServer        TallyServiceServer
 }
 
 func (UnimplementedServer) ValueField() ValueFieldServiceServer {
@@ -82,6 +85,7 @@ func (UnimplementedServer) Shift() ShiftServiceServer   { return UnimplementedSh
 func (UnimplementedServer) WriteOnly() WriteOnlyServiceServer {
 	return UnimplementedWriteOnlyServiceServer{}
 }
+func (UnimplementedServer) Tally() TallyServiceServer { return UnimplementedTallyServiceServer{} }
 
 type StaticServer struct {
 	ValueFieldServer   ValueFieldServiceServer
@@ -93,6 +97,7 @@ type StaticServer struct {
 	SeatServer         SeatServiceServer
 	ShiftServer        ShiftServiceServer
 	WriteOnlyServer    WriteOnlyServiceServer
+	TallyServer        TallyServiceServer
 }
 
 func (s StaticServer) ValueField() ValueFieldServiceServer     { return s.ValueFieldServer }
@@ -104,6 +109,7 @@ func (s StaticServer) User() UserServiceServer                 { return s.UserSe
 func (s StaticServer) Seat() SeatServiceServer                 { return s.SeatServer }
 func (s StaticServer) Shift() ShiftServiceServer               { return s.ShiftServer }
 func (s StaticServer) WriteOnly() WriteOnlyServiceServer       { return s.WriteOnlyServer }
+func (s StaticServer) Tally() TallyServiceServer               { return s.TallyServer }
 
 type Client interface {
 	ValueField() ValueFieldServiceClient
@@ -115,6 +121,7 @@ type Client interface {
 	Seat() SeatServiceClient
 	Shift() ShiftServiceClient
 	WriteOnly() WriteOnlyServiceClient
+	Tally() TallyServiceClient
 }
 
 func NewClient(c *grpc.ClientConn) Client {
@@ -128,6 +135,7 @@ func NewClient(c *grpc.ClientConn) Client {
 		_Seat:         NewSeatServiceClient(c),
 		_Shift:        NewShiftServiceClient(c),
 		_WriteOnly:    NewWriteOnlyServiceClient(c),
+		_Tally:        NewTallyServiceClient(c),
 	}
 }
 
@@ -141,6 +149,7 @@ type client struct {
 	_Seat         SeatServiceClient
 	_Shift        ShiftServiceClient
 	_WriteOnly    WriteOnlyServiceClient
+	_Tally        TallyServiceClient
 }
 
 func (c *client) ValueField() ValueFieldServiceClient     { return c._ValueField }
@@ -152,6 +161,7 @@ func (c *client) User() UserServiceClient                 { return c._User }
 func (c *client) Seat() SeatServiceClient                 { return c._Seat }
 func (c *client) Shift() ShiftServiceClient               { return c._Shift }
 func (c *client) WriteOnly() WriteOnlyServiceClient       { return c._WriteOnly }
+func (c *client) Tally() TallyServiceClient               { return c._Tally }
 
 // Middleware is a server that delegates to another server.
 type Middleware interface {

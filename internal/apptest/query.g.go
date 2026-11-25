@@ -489,3 +489,46 @@ func ShiftBySlot(desk string, starts_at *timestamppb.Timestamp) *ShiftRef {
 func ShiftGetBySlot(desk string, starts_at *timestamppb.Timestamp) *ShiftGetRequest {
 	return ShiftGetRequest_builder{Ref: ShiftBySlot(desk, starts_at)}.Build()
 }
+
+func (x *TallyRef) Pick() *TallyGetRequest {
+	return TallyGetRequest_builder{Ref: x}.Build()
+}
+
+func (x *Tally) Ref() *TallyRef {
+	if v := x.GetId(); len(v) > 0 {
+		return TallyById(v)
+	}
+
+	return nil
+}
+
+func (x *Tally) Pick() *TallyGetRequest {
+	return x.Ref().Pick()
+}
+
+func (x *TallyRef) Picks(v *Tally) bool {
+	switch x.WhichKey() {
+	case TallyRef_Id_case:
+		return x.GetId() == v.GetId()
+	default:
+		return false
+	}
+}
+
+func (x *TallyGetRequest) WithSelect(f func(s *TallySelect)) *TallyGetRequest {
+	if !x.HasSelect() {
+		x.SetSelect(&TallySelect{})
+	}
+	f(x.GetSelect())
+	return x
+}
+
+func TallyById(v string) *TallyRef {
+	x := &TallyRef{}
+	x.SetId(v)
+	return x
+}
+
+func TallyGetById(v string) *TallyGetRequest {
+	return TallyGetRequest_builder{Ref: TallyById(v)}.Build()
+}

@@ -871,7 +871,10 @@ func list(name string, number int32, kind descriptorpb.FieldDescriptorProto_Type
 func messageOptions() *descriptorpb.MessageOptions {
 	opts := &descriptorpb.MessageOptions{}
 	proto.SetExtension(opts, ormpb.E_Message, ormpb.MessageOptions_builder{
-		Rpc: ormpb.RpcOptions_builder{Crud: proto.Bool(true)}.Build(),
+		Rpc: ormpb.RpcOptions_builder{
+			Patch: &ormpb.RpcPatch{},
+			Apply: &ormpb.RpcApply{},
+		}.Build(),
 	}.Build())
 	return opts
 }

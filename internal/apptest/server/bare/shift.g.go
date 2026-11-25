@@ -15,6 +15,7 @@ import (
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	shift "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/shift"
+	tally "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tally"
 	writeonly "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/writeonly"
 	entpatch "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entpatch"
 	entuuid "github.com/protobuf-orm/protoc-gen-orm-ent/runtime/entuuid"
@@ -335,16 +336,6 @@ var shiftOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_shift_proto, "Sh
 
 var shiftPatchColumns = entpatch.Columns{
 	1: shift.FieldId, 2: shift.FieldDesk, 3: shift.FieldStartsAt}
-
-func (s ShiftServiceServer) Apply(ctx context.Context, req *apptest.ShiftApplyRequest) (*apptest.Shift, error) {
-	if s.admission != nil {
-		ctx = request(ctx, req)
-	}
-	if !req.HasPatch() {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
-	}
-	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.ShiftService_Apply_FullMethodName)
-}
 
 func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, doc *patchpb.Patch, by string) (*apptest.Shift, error) {
 	plan := &ormpatch.Plan{Entity: shiftOrmEntity}
@@ -739,4 +730,498 @@ func (s writeOnlyAddRuled) Add(ctx context.Context, req *apptest.WriteOnlyAddReq
 		r = req
 	}
 	return s.WriteOnlyServiceServer.Add(ctx, r)
+}
+
+type TallyServiceServer struct {
+	Store
+
+	apptest.UnimplementedTallyServiceServer
+}
+
+// NewTallyServiceServer answers with a server that runs its queries with `db`.
+//
+// It takes the options of [Server] so that what is built here can be told
+// where to report its writes and what it may see. Built without them, it
+// reports nowhere and sees everything. An invalid option panics; use NewServer
+// to handle configuration errors before constructing individual services.
+func NewTallyServiceServer(db *ent.Client, opts ...Option) apptest.TallyServiceServer {
+	s := Server{Store: Store{Db: db}}
+	for _, opt := range opts {
+		if err := opt(&s); err != nil {
+			panic(err)
+		}
+	}
+	return TallyServiceServer{Store: s.Store}
+}
+
+// TallyNarrow answers with `p` and everything else that narrows a
+// read of a Tally, which is whatever `scope` says.
+//
+// Every read this package makes goes through it, and a read written by
+// hand should too -- a List is the one read nothing generates, and so the
+// one that would otherwise answer with rows nobody should be given.
+func TallyNarrow(ctx context.Context, scope Scope, p predicate.Tally) (predicate.Tally, error) {
+	ps := make([]predicate.Tally, 0, 2)
+	if p != nil {
+		ps = append(ps, p)
+	}
+	if scope != nil {
+		q, err := scope.TallyScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if q != nil {
+			ps = append(ps, q)
+		}
+	}
+
+	switch len(ps) {
+	case 0:
+		return nil, nil
+	case 1:
+		return ps[0], nil
+	default:
+		return tally.And(ps...), nil
+	}
+}
+
+// narrow is [TallyNarrow] with this server's own scope.
+func (s TallyServiceServer) narrow(ctx context.Context, p predicate.Tally) (predicate.Tally, error) {
+	return TallyNarrow(ctx, s.Scope, p)
+}
+
+func (s TallyServiceServer) snapshot(ctx context.Context, p predicate.Tally, lock bool) (*ent.Tally, error) {
+	q := s.Db.Tally.Query().Where(p)
+	q.Modify(func(q *sql.Selector) {
+		if lock && s.Db.Dialect() != dialect.SQLite {
+			q.ForUpdate()
+		}
+	})
+	return q.Only(ctx)
+}
+func (s TallyServiceServer) image(v *apptest.Tally) *apptest.Tally {
+	if v == nil {
+		return nil
+	}
+	out := proto.Clone(v).(*apptest.Tally)
+	return out
+}
+
+// create is the row an Add of `req` writes, as a builder not yet saved,
+// and what the answer says about its edges. Add and AddMany both write
+// with it, so that an item of an AddMany is the row an Add of it would be.
+func (st TallyServiceServer) create(ctx context.Context, req *apptest.TallyAddRequest) (*ent.TallyCreate, []func(v *apptest.Tally), error) {
+	var ds []func(v *apptest.Tally)
+	q := st.Db.Tally.Create()
+	q.SetId(req.GetId())
+	if u := req.GetCounts(); len(u) > 0 {
+		q.SetCounts(u)
+	}
+	q.SetLabel(req.GetLabel())
+	return q, ds, nil
+}
+
+func (s TallyServiceServer) Add(ctx context.Context, req *apptest.TallyAddRequest) (*apptest.Tally, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	q, ds, err := st.create(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var stored *ent.Tally
+	if s.images(apptest.TallyService_Add_FullMethodName).Value {
+		q.Stored(&stored)
+	}
+
+	tx.Writing()
+	u, err := q.Save(ctx)
+	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok {
+			if sqlgraph.IsUniqueConstraintError(err) {
+				return nil, status.Error(codes.AlreadyExists, "Tally already exists")
+			}
+			if sqlgraph.IsForeignKeyConstraintError(err) {
+				return nil, status.Error(codes.NotFound, "Tally: referenced entity not found")
+			}
+		}
+		return nil, err
+	}
+
+	v := u.Proto()
+	for _, d := range ds {
+		d(v)
+	}
+	var value *apptest.Tally
+	if stored != nil {
+		value = s.image(stored.Proto())
+	}
+	if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+		Entity: "apptest.Tally",
+		By:     apptest.TallyService_Add_FullMethodName,
+		Key:    u.Id,
+		Value:  value,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+// TallyAddRule is what a layer in front says about one row an Add of Tally
+// would write: the request to write it with -- the one it was handed, or a
+// copy it changed -- or a refusal. Nil is the request it was handed.
+type TallyAddRule func(ctx context.Context, req *apptest.TallyAddRequest) (*apptest.TallyAddRequest, error)
+
+// TallyWithAddRule answers with `next` behind `rule` for the RPCs that add.
+// An Add is asked about, and every item of an AddMany in order, and the
+// call is refused for the first one that is -- an AddMany naming the item.
+// What reaches `next` is one call either way: an AddMany stays one AddMany.
+//
+// A layer that overrides Add itself, for something an Add does that a rule
+// cannot say, still has its AddMany asked through this.
+func TallyWithAddRule(next apptest.TallyServiceServer, rule TallyAddRule) apptest.TallyServiceServer {
+	return tallyAddRuled{next, rule}
+}
+
+type tallyAddRuled struct {
+	apptest.TallyServiceServer
+	rule TallyAddRule
+}
+
+func (s tallyAddRuled) Add(ctx context.Context, req *apptest.TallyAddRequest) (*apptest.Tally, error) {
+	r, err := s.rule(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		r = req
+	}
+	return s.TallyServiceServer.Add(ctx, r)
+}
+
+func (s TallyServiceServer) Get(ctx context.Context, req *apptest.TallyGetRequest) (*apptest.Tally, error) {
+	p, err := TallyPick(req.GetRef())
+	if err != nil {
+		return nil, err
+	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	q := s.Db.Tally.Query().Where(p)
+	if err := TallySelectInit(ctx, s.Scope, q, req.GetSelect()); err != nil {
+		return nil, err
+	}
+
+	v, err := q.Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, status.Error(codes.NotFound, "Tally not found")
+		}
+		return nil, err
+	}
+	return v.Proto(), nil
+}
+
+func selectTallyKey(q *ent.TallyQuery) {
+	q.Select(tally.FieldId)
+}
+
+func TallySelectedFields(m *apptest.TallySelect) []string {
+	if m.GetAll() {
+		return tally.Columns
+	}
+
+	vs := make([]string, 0, len(tally.Columns))
+	{
+		vs = append(vs, tally.FieldId)
+	}
+	if m.GetCounts() {
+		vs = append(vs, tally.FieldCounts)
+	}
+	if m.GetLabel() {
+		vs = append(vs, tally.FieldLabel)
+	}
+
+	return vs
+}
+
+// TallySelect loads what `m` asks for, each edge through the Narrow
+// of the entity it reaches: an edge whose target `scope` keeps from this
+// caller is answered as its reference alone, as an edge nobody asked for
+// is. A nil scope narrows by nothing but whether the row is still there.
+func TallySelect(ctx context.Context, scope Scope, q *ent.TallyQuery, m *apptest.TallySelect) error {
+	if !m.GetAll() {
+		fields := TallySelectedFields(m)
+		q.Select(fields...)
+	}
+	return nil
+}
+
+// TallySelectInit is [TallySelect] for a select that may be
+// nil, which loads the keys of a list edge and nothing else.
+func TallySelectInit(ctx context.Context, scope Scope, q *ent.TallyQuery, m *apptest.TallySelect) error {
+	if m != nil {
+		return TallySelect(ctx, scope, q, m)
+	}
+	return nil
+}
+
+func TallyGetKey(ctx context.Context, db *ent.Client, ref *apptest.TallyRef) (string, error) {
+	var z string
+	if ref.HasId() {
+		return ref.GetId(), nil
+	}
+
+	p, err := TallyPick(ref)
+	if err != nil {
+		return z, err
+	}
+
+	v, err := db.Tally.Query().Where(p).OnlyId(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return z, status.Error(codes.NotFound, "Tally not found")
+		}
+		return z, err
+	}
+
+	return v, nil
+}
+
+var tallyOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_shift_proto, "Tally")
+
+var tallyPatchColumns = entpatch.Columns{
+	1: tally.FieldId, 2: tally.FieldCounts, 3: tally.FieldLabel}
+
+func (s TallyServiceServer) Apply(ctx context.Context, req *apptest.TallyApplyRequest) (*apptest.Tally, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	if !req.HasPatch() {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
+	}
+	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.TallyService_Apply_FullMethodName)
+}
+
+func (s TallyServiceServer) apply(ctx context.Context, ref *apptest.TallyRef, doc *patchpb.Patch, by string) (*apptest.Tally, error) {
+	plan := &ormpatch.Plan{Entity: tallyOrmEntity}
+	if doc != nil {
+		v, err := ormpatch.Compile(tallyOrmEntity, doc)
+		if err != nil {
+			if errors.Is(err, ormpatch.ErrUnsupported) {
+				return nil, status.Errorf(codes.Unimplemented, "%s", err)
+			}
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		}
+		plan = v
+	}
+
+	pred, mod, err := entpatch.Build(plan, tallyPatchColumns, s.Db.Dialect())
+	if err != nil {
+		if errors.Is(err, entpatch.ErrValue) {
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
+		}
+		return nil, status.Errorf(codes.Internal, "%s", err)
+	}
+
+	tx, err := join(ctx, s.Db, true, s.admission != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	k, err := TallyGetKey(ctx, st.Db, ref)
+	if err != nil {
+		return nil, err
+	}
+	at := &apptest.TallyRef{}
+	at.SetId(k)
+	p, err := s.narrow(ctx, tally.IdEQ(k))
+	if err != nil {
+		return nil, err
+	}
+
+	var previous *apptest.Tally
+	images := s.images(by)
+	if images.Previous && mod != nil {
+		u, err := st.snapshot(ctx, p, true)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return nil, status.Error(codes.NotFound, "resource not found")
+			}
+			return nil, err
+		}
+		previous = s.image(u.Proto())
+	}
+	if mod == nil {
+		q := st.Db.Tally.Query().Where(p)
+		if pred != nil {
+			q.Where(predicate.Tally(pred))
+		}
+		if ok, err := q.Exist(ctx); err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, func() error {
+				if ok, err := st.Db.Tally.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "Tally not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
+		}
+	} else {
+		q := st.Db.Tally.Update().Where(p)
+		if pred != nil {
+			q.Where(predicate.Tally(pred))
+		}
+		q.Modify(mod)
+		tx.Writing()
+		if n, err := q.Save(ctx); err != nil {
+			if err, ok := err.(*ent.ConstraintError); ok {
+				if sqlgraph.IsUniqueConstraintError(err) {
+					return nil, status.Error(codes.AlreadyExists, "Tally already exists")
+				}
+				if sqlgraph.IsForeignKeyConstraintError(err) {
+					return nil, status.Error(codes.NotFound, "Tally: referenced entity not found")
+				}
+			}
+			return nil, err
+		} else if n == 0 {
+			return nil, func() error {
+				if ok, err := st.Db.Tally.Query().Where(p).Exist(ctx); err != nil {
+					return err
+				} else if !ok {
+					return status.Error(codes.NotFound, "Tally not found")
+				}
+				return status.Error(codes.FailedPrecondition, "a test in the patch did not hold")
+			}()
+		}
+	}
+
+	out, err := st.Get(ctx, at.Pick())
+	if err != nil {
+		return nil, err
+	}
+	if mod != nil {
+		var value *apptest.Tally
+		if images.Value {
+			value = s.image(out)
+		}
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Tally",
+			By:       by,
+			Key:      k,
+			Patch:    doc,
+			Previous: previous, Value: value,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s TallyServiceServer) Erase(ctx context.Context, req *apptest.TallyRef) (*apptest.TallyEraseResponse, error) {
+	if s.admission != nil {
+		ctx = request(ctx, req)
+	}
+	p, err := TallyPick(req)
+	if err != nil {
+		return nil, err
+	}
+	p, err = s.narrow(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := join(ctx, s.Db, s.Rec != nil || s.admission != nil, s.admission != nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Close()
+
+	st := s
+	st.Db = tx.Db
+
+	var k any
+	var previous *apptest.Tally
+	if s.Rec != nil || s.admission != nil {
+		images := s.images(apptest.TallyService_Erase_FullMethodName)
+		var v *ent.Tally
+		var err error
+		if images.Previous {
+			v, err = st.snapshot(ctx, p, true)
+		} else {
+			v, err = st.Db.Tally.Query().Where(p).Select(tally.FieldId).Only(ctx)
+		}
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return &apptest.TallyEraseResponse{}, nil
+			}
+			return nil, err
+		}
+
+		k = v.Id
+		if images.Previous {
+			previous = s.image(v.Proto())
+		}
+		p = tally.And(p, tally.IdEQ(v.Id))
+	}
+
+	tx.Writing()
+	n, err := st.Db.Tally.Delete().Where(p).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n > 0 {
+		if err := record(ctx, s.Rec, s.admission, st.Db, Change{
+			Entity:   "apptest.Tally",
+			By:       apptest.TallyService_Erase_FullMethodName,
+			Key:      k,
+			Previous: previous,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	res := &apptest.TallyEraseResponse{}
+	res.SetErased(n > 0)
+
+	return res, nil
+}
+
+func TallyPick(req *apptest.TallyRef) (predicate.Tally, error) {
+	switch req.WhichKey() {
+	case apptest.TallyRef_Id_case:
+		return tally.IdEQ(req.GetId()), nil
+	case apptest.TallyRef_Key_not_set_case:
+		return nil, status.Errorf(codes.InvalidArgument, "key not set: Tally")
+	default:
+		return nil, status.Errorf(codes.Unimplemented, "unknown type of key: %s", req.WhichKey())
+	}
 }

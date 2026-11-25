@@ -372,8 +372,11 @@ message ValueField {
 
   option (orm.message) = {
     rpc: {
-      crud: true
       add: {many: {}}
+      get: {}
+      patch: {}
+      apply: {}
+      erase: {}
     }
   };
 }
@@ -406,8 +409,11 @@ message MessageField {
 
   option (orm.message) = {
     rpc: {
-      crud: true
       add: {many: {}}
+      get: {}
+      patch: {}
+      apply: {}
+      erase: {}
     }
   };
 }
@@ -430,8 +436,11 @@ message MapField {
 
   option (orm.message) = {
     rpc: {
-      crud: true
       add: {many: {}}
+      get: {}
+      patch: {}
+      apply: {}
+      erase: {}
     }
   };
 }

@@ -18,7 +18,7 @@ The handler runs four sub-generators in order:
 | ---------- | ----------------------------------- | ------------------------------------------------------------------------ |
 | **Schema** | `schema/<name>.go`                  | ent schema types — `Fields()`, `Edges()`, `Indexes()`, `Annotations()`.  |
 | **Ent**    | `ent/<name>.go`, `ent/orm.g.go`     | proto ↔ ent conversion helpers for each entity, and what the ent client will not say about itself. |
-| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing Add/AddMany/Get/Patch/Apply/Erase, and the add rule. |
+| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing the verbs the entity names (Add/AddMany/Get/Patch/Apply/Erase), and the add rule. |
 | **Store**  | `store.g.go`                        | server/client registration wiring (like protoc-gen-orm-go's store).      |
 
 The generated ent schema (`schema/*.go`) is then consumed by ent's own code
@@ -93,7 +93,10 @@ stacked in front of these servers, and both are worse there.
 **A write cannot be watched from in front.** `Add`, `Get`, `Patch`, `Apply` and
 `Erase` are five RPCs and four code paths: `Patch` turns its request into a
 patch document and joins `Apply`'s path *inside* this server, below anything
-that can be stacked on top. A layer in front sees two shapes, has to convert one
+that can be stacked on top. That path is not the `Apply` RPC: an entity that
+names `patch` and not `apply` has a `Patch` and no `Apply`, and one that names
+`apply` and not `patch` the other way round, and a recorder is told the RPC
+that wrote. A layer in front sees two shapes, has to convert one
 of them itself, once per entity and once more for every entity added afterwards
 — and still cannot tell a document that wrote something from one that only
 asserted.

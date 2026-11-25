@@ -16,9 +16,10 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/protobuf-orm/ent v0.0.0-20261021205026-b333b8f2153a
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20260807003431-ce1156ba9f29
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20261125011452-a062a5dd25fc
 	github.com/protobuf-orm/protoc-gen-orm-ent/runtime v0.0.0-20260902051406-e51c5bac76bc
 	github.com/stretchr/testify v1.11.1
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
 )
@@ -46,7 +47,6 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

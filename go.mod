@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/protobuf-orm/ent v0.0.0-20260906224055-1575ccbff508
-	github.com/protobuf-orm/protobuf-orm v0.0.0-20261017212716-3430237a8656
+	github.com/protobuf-orm/protobuf-orm v0.0.0-20261125011452-a062a5dd25fc
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.11
 )

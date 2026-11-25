@@ -593,16 +593,6 @@ var seatOrmEntity = ormpatch.MustEntityOf(apptest.File_apptest_seat_proto, "Seat
 var seatPatchColumns = entpatch.Columns{
 	1: seat.FieldId, 2: seat.HolderColumn, 3: seat.OrgColumn, 4: seat.DeputyColumn}
 
-func (s SeatServiceServer) Apply(ctx context.Context, req *apptest.SeatApplyRequest) (*apptest.Seat, error) {
-	if s.admission != nil {
-		ctx = request(ctx, req)
-	}
-	if !req.HasPatch() {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", ormpatch.ErrNoPatch)
-	}
-	return s.apply(ctx, req.GetRef(), req.GetPatch(), apptest.SeatService_Apply_FullMethodName)
-}
-
 func (s SeatServiceServer) apply(ctx context.Context, ref *apptest.SeatRef, doc *patchpb.Patch, by string) (*apptest.Seat, error) {
 	plan := &ormpatch.Plan{Entity: seatOrmEntity}
 	if doc != nil {

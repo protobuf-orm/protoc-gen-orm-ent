@@ -7,6 +7,7 @@ package apptest;
 
 import "apptest/shift.proto";
 import "google/protobuf/timestamp.proto";
+import "orm.proto";
 import "patch/patch.proto";
 
 option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
@@ -18,14 +19,14 @@ service ShiftService {
 	rpc Get(ShiftGetRequest) returns (Shift);
 	// Patch updates an existing Shift
 	rpc Patch(ShiftPatchRequest) returns (Shift);
-	// Apply applies a patch document to an existing Shift
-	rpc Apply(ShiftApplyRequest) returns (Shift);
 	// Erase deletes a Shift
 	rpc Erase(ShiftRef) returns (ShiftEraseResponse);
 }
 
 message ShiftAddRequest {
-	bytes id = 1;
+	bytes id = 1 [
+		(orm.field) = {type: TYPE_UUID}
+	];
 	string desk = 2 [
 		features.field_presence = IMPLICIT
 	];
@@ -39,7 +40,9 @@ message ShiftRefBySlot {
 
 message ShiftRef {
 	oneof key {
-		bytes id = 1;
+		bytes id = 1 [
+			(orm.field) = {type: TYPE_UUID}
+		];
 		ShiftRefBySlot slot = 2;
 	}
 }
@@ -59,11 +62,6 @@ message ShiftPatchRequest {
 	ShiftRef ref = 1;
 	string desk = 4;
 	google.protobuf.Timestamp starts_at = 6;
-}
-
-message ShiftApplyRequest {
-	ShiftRef ref = 1;
-	patch.Patch patch = 2;
 }
 
 message ShiftEraseResponse {
@@ -87,4 +85,56 @@ message WriteOnlyAddRequest {
 	string value = 2 [
 		features.field_presence = IMPLICIT
 	];
+}
+
+service TallyService {
+	// Add creates a new Tally
+	rpc Add(TallyAddRequest) returns (Tally);
+	// Get retrieves a Tally
+	rpc Get(TallyGetRequest) returns (Tally);
+	// Apply applies a patch document to an existing Tally
+	rpc Apply(TallyApplyRequest) returns (Tally);
+	// Erase deletes a Tally
+	rpc Erase(TallyRef) returns (TallyEraseResponse);
+}
+
+message TallyAddRequest {
+	string id = 1 [
+		features.field_presence = IMPLICIT
+	];
+	map<string, int64> counts = 2;
+	string label = 3 [
+		features.field_presence = IMPLICIT
+	];
+}
+
+message TallyRef {
+	oneof key {
+		string id = 1;
+	}
+}
+
+message TallySelect {
+	bool all = 1;
+	bool counts = 2;
+	bool label = 3;
+}
+
+message TallyGetRequest {
+	TallyRef ref = 1;
+	TallySelect select = 2;
+}
+
+message TallyApplyRequest {
+	TallyRef ref = 1;
+	patch.Patch patch = 2;
+}
+
+message TallyEraseResponse {
+	// Erased is whether this call is the one that erased the row.
+	// 
+	// False for a row that was already gone, was never there, or is out
+	// of this caller's reach -- which are one answer on purpose, and the
+	// reason the RPC does not fail instead.
+	bool erased = 1;
 }

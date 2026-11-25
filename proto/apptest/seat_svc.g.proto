@@ -8,7 +8,7 @@ package apptest;
 import "apptest/seat.proto";
 import "apptest/tenant_svc.g.proto";
 import "apptest/user_svc.g.proto";
-import "patch/patch.proto";
+import "orm.proto";
 
 option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
 
@@ -21,14 +21,14 @@ service SeatService {
 	rpc Get(SeatGetRequest) returns (Seat);
 	// Patch updates an existing Seat
 	rpc Patch(SeatPatchRequest) returns (Seat);
-	// Apply applies a patch document to an existing Seat
-	rpc Apply(SeatApplyRequest) returns (Seat);
 	// Erase deletes a Seat
 	rpc Erase(SeatRef) returns (SeatEraseResponse);
 }
 
 message SeatAddRequest {
-	bytes id = 1;
+	bytes id = 1 [
+		(orm.field) = {type: TYPE_UUID}
+	];
 	UserRef holder = 2;
 	TenantRef org = 3;
 	UserRef deputy = 4;
@@ -53,7 +53,9 @@ message SeatRefByDeputy {
 
 message SeatRef {
 	oneof key {
-		bytes id = 1;
+		bytes id = 1 [
+			(orm.field) = {type: TYPE_UUID}
+		];
 		SeatRefByPlace place = 2;
 		SeatRefByDeputy deputy = 4;
 	}
@@ -81,11 +83,6 @@ message SeatPatchRequest {
 	// "leave it alone", so no value could have meant NULL. It wins
 	// outright: setting both this and deputy clears.
 	bool deputy_null = 9;
-}
-
-message SeatApplyRequest {
-	SeatRef ref = 1;
-	patch.Patch patch = 2;
 }
 
 message SeatEraseResponse {

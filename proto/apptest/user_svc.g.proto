@@ -8,6 +8,7 @@ package apptest;
 import "apptest/tenant_svc.g.proto";
 import "apptest/user.proto";
 import "google/protobuf/timestamp.proto";
+import "orm.proto";
 import "patch/patch.proto";
 
 option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
@@ -28,7 +29,9 @@ service UserService {
 }
 
 message UserAddRequest {
-	bytes id = 1;
+	bytes id = 1 [
+		(orm.field) = {type: TYPE_UUID}
+	];
 	TenantRef tenant = 2;
 	string alias = 4;
 	string name = 5;
@@ -52,7 +55,9 @@ message UserRefByAlias {
 
 message UserRef {
 	oneof key {
-		bytes id = 1;
+		bytes id = 1 [
+			(orm.field) = {type: TYPE_UUID}
+		];
 		UserRefByAlias alias = 4;
 	}
 }

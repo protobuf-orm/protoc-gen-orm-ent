@@ -23,7 +23,7 @@ message Shift {
   google.protobuf.Timestamp starts_at = 3;
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {add: {}, get: {}, patch: {}, erase: {}}
     indexes: [
       {
         name: "slot"
@@ -48,4 +48,16 @@ message WriteOnly {
   string id = 1 [(orm.field) = {key: true}];
   string value = 2;
   option (orm.message) = {rpc: {add: {}}};
+}
+
+// Tally asks for Apply and not for Patch: its counts are edited a key at a
+// time, which a PatchRequest has no shape for. Its write path is the one
+// Patch runs elsewhere, and is here without a Patch.
+message Tally {
+  string id = 1 [(orm.field) = {key: true}];
+  map<string, int64> counts = 2;
+  string label = 3;
+  option (orm.message) = {
+    rpc: {add: {}, get: {}, apply: {}, erase: {}}
+  };
 }

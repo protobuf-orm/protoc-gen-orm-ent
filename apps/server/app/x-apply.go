@@ -23,11 +23,11 @@ import (
 // The compile step is in ormpatch, which knows the schema but nothing about
 // SQL, and the rendering is in entpatch, which knows ent. Nothing here does
 // either: this emits the wiring, the column table, and the error mapping.
+//
+// It is written only where the entity asks for Apply. The path it runs is
+// [fileWork.xApplyPath], which Patch runs too and which is there without it.
 func (w *fileWork) xApply() {
 	name_x := w.Ident.GoName
-	v := lowerFirst(name_x)
-
-	w.xApplyColumns()
 
 	w.P("func (s ", name_x, "ServiceServer) Apply(",
 		/* */ "ctx ", work.PkgContext.Ident("Context"), ",",
@@ -47,6 +47,15 @@ func (w *fileWork) xApply() {
 		w.Src.GoImportPath.Ident(name_x+"Service_Apply_FullMethodName"), ")")
 	w.P("}")
 	w.P("")
+}
+
+// xApplyPath emits `apply`, the write Patch and Apply both run, which writes a
+// compiled document through the table [fileWork.xApplyColumns] emits. It is
+// not the Apply RPC, so it is there for an entity with either verb, and Patch
+// works without an Apply.
+func (w *fileWork) xApplyPath() {
+	name_x := w.Ident.GoName
+	v := lowerFirst(name_x)
 
 	// apply is the whole write path, and the only one: Patch converts its
 	// request into a document and arrives here too.
