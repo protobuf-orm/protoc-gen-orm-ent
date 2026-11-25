@@ -56,10 +56,21 @@ func (h *Handler) Run(p *protogen.Plugin) error {
 		}
 	}
 
-	h.Schema.Run(ctx, p, g)
-	h.Ent.Run(ctx, p, g)
-	h.Server.Run(ctx, p, g)
-	h.Store.Run(ctx, p, g)
+	// Each app's error is the plugin's. They were dropped, so a server app
+	// that refused an entity, or failed on one, answered with a package that
+	// was missing it and said nothing.
+	if err := h.Schema.Run(ctx, p, g); err != nil {
+		return err
+	}
+	if err := h.Ent.Run(ctx, p, g); err != nil {
+		return err
+	}
+	if err := h.Server.Run(ctx, p, g); err != nil {
+		return err
+	}
+	if err := h.Store.Run(ctx, p, g); err != nil {
+		return err
+	}
 
 	return nil
 }
