@@ -98,6 +98,7 @@ func (w *fileWork) xErase() {
 	if del := w.Entity.GetErasedField(); del == nil {
 		w.P("	n, err := st.Db.", name, ".Delete().Where(p).Exec(ctx)")
 		w.P("	if err != nil {")
+		w.xEraseRefused()
 		w.P("		return nil, err")
 		w.P("	}")
 	} else {
@@ -151,4 +152,28 @@ func (w *fileWork) xErase() {
 	w.P("	return res, nil")
 	w.P("}")
 	w.P("")
+}
+
+// xEraseRefused emits what Erase answers when the database refuses the delete
+// because another row still names this one: an edge that says
+// `ON_DELETE_RESTRICT`, or one that says nothing and is required, for which
+// the fork's default is NO ACTION. It is written inside the `if err != nil {`
+// after the delete and falls through to it for anything else.
+//
+// `FailedPrecondition`: the row is there and stays there, and erasing it can
+// work once whatever names it is erased or pointed elsewhere, which is the
+// caller's to do. It used to be the driver's own error, so `Unknown`, with a
+// message that on PostgreSQL named both tables and the constraint.
+//
+// Without the driver's words, for the reasons [fileWork.xConstraintError]
+// gives, and without saying which row or table names it: a caller allowed to
+// erase this row may not be allowed to know what refers to it. The driver's
+// error is dropped as those are.
+func (w *fileWork) xEraseRefused() {
+	name := w.Ident.GoName
+	w.P("		if err, ok := err.(*", w.ent.Ident("ConstraintError"), "); ok && ",
+		work.PkgEntSqlGraph.Ident("IsForeignKeyConstraintError"), "(err) {")
+	w.P("			return nil, ", work.PkgGrpcStatus.Ident("Error"), "(", work.PkgGrpcCodes.Ident("FailedPrecondition"),
+		", \"", name, " is still named by another row and cannot be erased\")")
+	w.P("		}")
 }

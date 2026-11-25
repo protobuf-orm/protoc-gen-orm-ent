@@ -57,3 +57,24 @@ func (WriteOnly) Annotations() []schema.Annotation {
 		entsql.Annotation{Table: "writeonly"},
 	}
 }
+
+type Tally struct {
+	ent.Schema
+}
+
+func (Tally) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("id").
+			Unique().
+			Immutable(),
+		field.Json("counts", map[string]int64{}).
+			Optional(),
+		field.String("label"),
+	}
+}
+
+func (Tally) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{Table: "tally"},
+	}
+}

@@ -45,7 +45,7 @@ message Note {
   }];
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {add: {}, get: {}, patch: {}, apply: {}, erase: {}}
     indexes: [
       // Unique among the rows that are still there, so the alias of an erased
       // Note can be used again.

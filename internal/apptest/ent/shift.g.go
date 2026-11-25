@@ -21,3 +21,10 @@ func (e *WriteOnly) Proto() *apptest.WriteOnly {
 	x.SetValue(e.Value)
 	return x
 }
+func (e *Tally) Proto() *apptest.Tally {
+	x := &apptest.Tally{}
+	x.SetId(e.Id)
+	x.SetCounts(e.Counts)
+	x.SetLabel(e.Label)
+	return x
+}

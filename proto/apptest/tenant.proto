@@ -24,6 +24,6 @@ message Tenant {
   }];
 
   option (orm.message) = {
-    rpc: {crud: true}
+    rpc: {add: {}, get: {}, patch: {}, erase: {}}
   };
 }

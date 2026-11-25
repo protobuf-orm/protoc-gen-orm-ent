@@ -35,8 +35,11 @@ message User {
 
   option (orm.message) = {
     rpc: {
-      crud: true
       add: {many: {}}
+      get: {}
+      patch: {}
+      apply: {}
+      erase: {}
     }
     indexes: [
       {

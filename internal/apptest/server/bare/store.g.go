@@ -11,12 +11,15 @@ import (
 	dialect "github.com/protobuf-orm/ent/dialect"
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
+	book "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/book"
 	mapfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/mapfield"
 	messagefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/messagefield"
 	note "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/note"
 	predicate "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/predicate"
 	seat "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/seat"
+	shelf "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/shelf"
 	shift "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/shift"
+	tally "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tally"
 	tenant "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/tenant"
 	user "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/user"
 	valuefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/valuefield"
@@ -480,10 +483,16 @@ func WithAdmission(check Admission, entities ...string) Option {
 		a.methods["/apptest.UserService"] = "apptest.User"
 		a.types["Seat"] = "apptest.Seat"
 		a.methods["/apptest.SeatService"] = "apptest.Seat"
+		a.types["Shelf"] = "apptest.Shelf"
+		a.methods["/apptest.ShelfService"] = "apptest.Shelf"
+		a.types["Book"] = "apptest.Book"
+		a.methods["/apptest.BookService"] = "apptest.Book"
 		a.types["Shift"] = "apptest.Shift"
 		a.methods["/apptest.ShiftService"] = "apptest.Shift"
 		a.types["WriteOnly"] = "apptest.WriteOnly"
 		a.methods["/apptest.WriteOnlyService"] = "apptest.WriteOnly"
+		a.types["Tally"] = "apptest.Tally"
+		a.methods["/apptest.TallyService"] = "apptest.Tally"
 		for _, name := range entities {
 			found := false
 			for _, v := range a.types {
@@ -635,8 +644,11 @@ type Scope interface {
 	TenantScope(ctx context.Context) (predicate.Tenant, error)
 	UserScope(ctx context.Context) (predicate.User, error)
 	SeatScope(ctx context.Context) (predicate.Seat, error)
+	ShelfScope(ctx context.Context) (predicate.Shelf, error)
+	BookScope(ctx context.Context) (predicate.Book, error)
 	ShiftScope(ctx context.Context) (predicate.Shift, error)
 	WriteOnlyScope(ctx context.Context) (predicate.WriteOnly, error)
+	TallyScope(ctx context.Context) (predicate.Tally, error)
 }
 
 // Unscoped is a [Scope] that narrows nothing. Embed it and write out the
@@ -672,10 +684,19 @@ func (Unscoped) UserScope(_ context.Context) (predicate.User, error) {
 func (Unscoped) SeatScope(_ context.Context) (predicate.Seat, error) {
 	return nil, nil
 }
+func (Unscoped) ShelfScope(_ context.Context) (predicate.Shelf, error) {
+	return nil, nil
+}
+func (Unscoped) BookScope(_ context.Context) (predicate.Book, error) {
+	return nil, nil
+}
 func (Unscoped) ShiftScope(_ context.Context) (predicate.Shift, error) {
 	return nil, nil
 }
 func (Unscoped) WriteOnlyScope(_ context.Context) (predicate.WriteOnly, error) {
+	return nil, nil
+}
+func (Unscoped) TallyScope(_ context.Context) (predicate.Tally, error) {
 	return nil, nil
 }
 
@@ -838,6 +859,46 @@ func (ss Scopes) SeatScope(ctx context.Context) (predicate.Seat, error) {
 	return seat.And(ps...), nil
 }
 
+func (ss Scopes) ShelfScope(ctx context.Context) (predicate.Shelf, error) {
+	ps := make([]predicate.Shelf, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.ShelfScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return shelf.And(ps...), nil
+}
+
+func (ss Scopes) BookScope(ctx context.Context) (predicate.Book, error) {
+	ps := make([]predicate.Book, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.BookScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return book.And(ps...), nil
+}
+
 func (ss Scopes) ShiftScope(ctx context.Context) (predicate.Shift, error) {
 	ps := make([]predicate.Shift, 0, len(ss))
 	for _, s := range ss {
@@ -876,6 +937,26 @@ func (ss Scopes) WriteOnlyScope(ctx context.Context) (predicate.WriteOnly, error
 	}
 
 	return writeonly.And(ps...), nil
+}
+
+func (ss Scopes) TallyScope(ctx context.Context) (predicate.Tally, error) {
+	ps := make([]predicate.Tally, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.TallyScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return tally.And(ps...), nil
 }
 
 // Minter decides the key a row is stored under. It is asked once per Add,
@@ -1064,7 +1145,10 @@ func (s Server) Note() apptest.NoteServiceServer     { return NoteServiceServer{
 func (s Server) Tenant() apptest.TenantServiceServer { return TenantServiceServer{Store: s.Store} }
 func (s Server) User() apptest.UserServiceServer     { return UserServiceServer{Store: s.Store} }
 func (s Server) Seat() apptest.SeatServiceServer     { return SeatServiceServer{Store: s.Store} }
+func (s Server) Shelf() apptest.ShelfServiceServer   { return ShelfServiceServer{Store: s.Store} }
+func (s Server) Book() apptest.BookServiceServer     { return BookServiceServer{Store: s.Store} }
 func (s Server) Shift() apptest.ShiftServiceServer   { return ShiftServiceServer{Store: s.Store} }
 func (s Server) WriteOnly() apptest.WriteOnlyServiceServer {
 	return WriteOnlyServiceServer{Store: s.Store}
 }
+func (s Server) Tally() apptest.TallyServiceServer { return TallyServiceServer{Store: s.Store} }

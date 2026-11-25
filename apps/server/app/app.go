@@ -10,6 +10,7 @@ import (
 	"github.com/protobuf-orm/protobuf-orm/graph"
 	"github.com/protobuf-orm/protoc-gen-orm-ent/internal/work"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type App struct {
@@ -51,6 +52,7 @@ func (a *App) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error
 		}
 	}
 
+	needs := needsOf(g)
 	for _, f := range p.Files {
 		for _, m := range f.Messages {
 			entity, ok := g.Entities[m.Desc.FullName()]
@@ -65,7 +67,7 @@ func (a *App) Run(ctx context.Context, p *protogen.Plugin, g *graph.Graph) error
 			}
 
 			fw := work.NewFileWork(w, f, entity, gf)
-			if err := a.doWork(ctx, fw); err != nil {
+			if err := a.doWork(ctx, fw, needs); err != nil {
 				handle_err(err)
 				continue
 			}
@@ -83,7 +85,7 @@ type fileWork struct {
 	ent protogen.GoImportPath
 }
 
-func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
+func (a *App) doWork(ctx context.Context, base *work.FileWork, needs needs) error {
 	w := &fileWork{
 		FileWork: base,
 		ent:      work.At(base.Src.GoImportPath, string(a.ent)),
@@ -91,10 +93,10 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 
 	w.xServer()
 	rpcs := w.Entity.Rpcs()
-	if rpcs.HasAdd() || rpcs.HasPatch() || rpcs.HasErase() {
+	writes := rpcs.HasPatch() || rpcs.HasApply()
+	if rpcs.HasAdd() || writes || rpcs.HasErase() {
 		w.xSnapshots()
 	}
-	need_pick := false
 	if rpcs.HasAdd() {
 		w.xAdd()
 	}
@@ -104,25 +106,99 @@ func (a *App) doWork(ctx context.Context, base *work.FileWork) error {
 		w.xSelectedFields()
 		w.xSelect()
 		w.xSelectInit()
-		need_pick = true
 	}
+	// Patch and Apply are two verbs and one write: Patch converts its request
+	// into a document and runs the path Apply runs. That path is not the Apply
+	// RPC, so it is here for either of them, and the RPC only where there is
+	// an Apply.
+	name := w.Entity.FullName()
 	if rpcs.HasPatch() {
 		w.xPatch()
+	}
+	if needs.key[name] {
 		w.xGetKey()
-		// protobuf-orm has no `apply` option, so Apply rides on `patch` --
-		// the same gate protoc-gen-orm-service uses to emit the RPC.
+	}
+	if writes {
+		w.xApplyColumns()
+	}
+	if rpcs.HasApply() {
 		w.xApply()
-		need_pick = true
+	}
+	if writes {
+		w.xApplyPath()
 	}
 	if rpcs.HasErase() {
 		w.xErase()
-		need_pick = true
 	}
-	if need_pick {
+	if needs.pick[name] {
 		w.xPick()
 	}
 
 	return nil
+}
+
+// needs says, of each entity, which of the functions a verb leans on are
+// written for it.
+//
+// They are not only its own verbs': an Add or a Patch that points an edge at a
+// row resolves the target's Ref to a key with the target's <Entity>GetKey, and
+// a Pick by a unique index over an edge composes the target's <Entity>Pick.
+// So each is asked of what calls it, wherever that is.
+type needs struct {
+	// <Entity>GetKey: its own write path, and every write of another entity
+	// that points an edge at it.
+	key map[protoreflect.FullName]bool
+	// <Entity>Pick: Get, Erase, GetKey, and every Pick that composes it.
+	pick map[protoreflect.FullName]bool
+}
+
+func needsOf(g *graph.Graph) needs {
+	n := needs{
+		key:  map[protoreflect.FullName]bool{},
+		pick: map[protoreflect.FullName]bool{},
+	}
+	for name, e := range g.Entities {
+		rpcs := e.Rpcs()
+		writes := rpcs.HasPatch() || rpcs.HasApply()
+		if writes {
+			n.key[name] = true
+		}
+		if writes || rpcs.HasAdd() {
+			for ed := range e.Edges() {
+				if !ed.IsList() {
+					n.key[ed.Target().FullName()] = true
+				}
+			}
+		}
+	}
+	for name, e := range g.Entities {
+		rpcs := e.Rpcs()
+		if n.key[name] || rpcs.HasGet() || rpcs.HasErase() {
+			n.pick[name] = true
+		}
+	}
+	for grew := true; grew; {
+		grew = false
+		for name, e := range g.Entities {
+			if !n.pick[name] {
+				continue
+			}
+			for idx := range e.Indexes() {
+				if !idx.IsUnique() {
+					continue
+				}
+				for p := range idx.Props() {
+					ed, ok := p.(graph.Edge)
+					if !ok || n.pick[ed.Target().FullName()] {
+						continue
+					}
+					n.pick[ed.Target().FullName()] = true
+					grew = true
+				}
+			}
+		}
+	}
+	return n
 }
 
 func (a *App) newGeneratedSchemaFile(p *protogen.Plugin, f *protogen.File) (*protogen.GeneratedFile, string, error) {

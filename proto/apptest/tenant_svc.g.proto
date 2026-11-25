@@ -7,7 +7,7 @@ package apptest;
 
 import "apptest/tenant.proto";
 import "google/protobuf/timestamp.proto";
-import "patch/patch.proto";
+import "orm.proto";
 
 option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
 
@@ -18,14 +18,14 @@ service TenantService {
 	rpc Get(TenantGetRequest) returns (Tenant);
 	// Patch updates an existing Tenant
 	rpc Patch(TenantPatchRequest) returns (Tenant);
-	// Apply applies a patch document to an existing Tenant
-	rpc Apply(TenantApplyRequest) returns (Tenant);
 	// Erase deletes a Tenant
 	rpc Erase(TenantRef) returns (TenantEraseResponse);
 }
 
 message TenantAddRequest {
-	bytes id = 1;
+	bytes id = 1 [
+		(orm.field) = {type: TYPE_UUID}
+	];
 	string alias = 4;
 	string name = 5;
 	map<string, string> labels = 7;
@@ -34,7 +34,9 @@ message TenantAddRequest {
 
 message TenantRef {
 	oneof key {
-		bytes id = 1;
+		bytes id = 1 [
+			(orm.field) = {type: TYPE_UUID}
+		];
 	}
 }
 
@@ -56,11 +58,6 @@ message TenantPatchRequest {
 	string alias = 8;
 	string name = 10;
 	map<string, string> labels = 14;
-}
-
-message TenantApplyRequest {
-	TenantRef ref = 1;
-	patch.Patch patch = 2;
 }
 
 message TenantEraseResponse {

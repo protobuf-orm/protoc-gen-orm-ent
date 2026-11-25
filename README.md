@@ -18,7 +18,7 @@ The handler runs four sub-generators in order:
 | ---------- | ----------------------------------- | ------------------------------------------------------------------------ |
 | **Schema** | `schema/<name>.go`                  | ent schema types — `Fields()`, `Edges()`, `Indexes()`, `Annotations()`.  |
 | **Ent**    | `ent/<name>.go`, `ent/orm.g.go`     | proto ↔ ent conversion helpers for each entity, and what the ent client will not say about itself. |
-| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing Add/AddMany/Get/Patch/Apply/Erase, and the add rule. |
+| **Server** | `server/.../<name>.g.go`            | `<Entity>ServiceServer{ Db *ent.Client }` implementing the verbs the entity names (Add/AddMany/Get/Patch/Apply/Erase), and the add rule. |
 | **Store**  | `store.g.go`                        | server/client registration wiring (like protoc-gen-orm-go's store).      |
 
 The generated ent schema (`schema/*.go`) is then consumed by ent's own code
@@ -93,7 +93,10 @@ stacked in front of these servers, and both are worse there.
 **A write cannot be watched from in front.** `Add`, `Get`, `Patch`, `Apply` and
 `Erase` are five RPCs and four code paths: `Patch` turns its request into a
 patch document and joins `Apply`'s path *inside* this server, below anything
-that can be stacked on top. A layer in front sees two shapes, has to convert one
+that can be stacked on top. That path is not the `Apply` RPC: an entity that
+names `patch` and not `apply` has a `Patch` and no `Apply`, and one that names
+`apply` and not `patch` the other way round, and a recorder is told the RPC
+that wrote. A layer in front sees two shapes, has to convert one
 of them itself, once per entity and once more for every entity added afterwards
 — and still cannot tell a document that wrote something from one that only
 asserted.
@@ -301,6 +304,46 @@ field's own `unique`. Only the SQL moves.
 to ask for one. An app that needs to restore something, or to look at what was
 erased, writes that by hand against the client — which is what it does for every
 other RPC nothing generates.
+
+## What a delete does to the rows that name it
+
+An edge may say what becomes of its row when the row it names is deleted
+(`orm.edge.on_delete`), and it is written into the foreign key of the table:
+
+```proto
+Shelf kept = 2 [(orm.edge) = {nullable: true, on_delete: ON_DELETE_RESTRICT}];
+```
+
+```go
+edge.To("kept", Shelf.Type).Unique().Field("kept_id").
+	Annotations(entsql.OnDelete(entsql.Restrict)),
+```
+
+| `on_delete` | the foreign key | what `Erase` of the named row does |
+| --- | --- | --- |
+| unset | as before: `SET NULL` for a nullable edge, `NO ACTION` for a required one | the same as one of the two below |
+| `ON_DELETE_RESTRICT` | `RESTRICT` | refused: `FailedPrecondition`, `<Entity> is still named by another row and cannot be erased`, and both rows stay as they were |
+| `ON_DELETE_CASCADE` | `CASCADE` | the naming row is deleted with it |
+| `ON_DELETE_SET_NULL` | `SET NULL` | the naming row stays, and the edge is cleared |
+
+A required edge that says nothing refuses the same way and gets the same
+answer. The answer says neither which row nor which table still names the
+erased one: a caller allowed to erase a row may not be allowed to know what
+refers to it. The store's own words are dropped, as they are for the other
+constraints (see `x-constraint.go`).
+
+ent reads the action from the edge written `To`. protobuf-orm says it on the
+edge that holds the key. Those are one edge unless the key holder is written
+with `from`, and then the annotation goes on the edge it is written from.
+
+A row that erases softly is not deleted, so none of this happens to it: the
+rows that name it are left as they are.
+
+The database enforces the action. SQLite does so only with foreign keys on
+(`_fk=1`, as the tests open it); without them every action is ignored and a
+delete always succeeds. PostgreSQL checks `RESTRICT` at once and `NO ACTION` at
+the end of the statement, which only differs for a constraint that is deferred,
+and nothing here defers one.
 
 ## Field mapping
 

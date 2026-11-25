@@ -1,0 +1,54 @@
+edition = "2023";
+
+package apptest;
+
+import "apptest/note.proto";
+import "orm.proto";
+
+option features.field_presence = IMPLICIT;
+option go_package = "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest";
+
+// Shelf is the row a Book names. What becomes of a Book when its Shelf is
+// deleted is what the Book's edge says.
+message Shelf {
+  string id = 1 [(orm.field) = {key: true}];
+
+  option (orm.message) = {
+    rpc: {get: {}, erase: {}}
+  };
+}
+
+// Book names a Shelf by an edge for each `on_delete`. Every one is nullable, so
+// each differs from the default the fork gives a nullable edge, SET NULL,
+// except `lent`, which says it, and `near`, which says nothing.
+message Book {
+  string id = 1 [(orm.field) = {key: true}];
+
+  // The Shelf cannot be deleted while this names it.
+  Shelf kept = 2 [(orm.edge) = {
+    nullable: true
+    on_delete: ON_DELETE_RESTRICT
+  }];
+  // The Book is deleted with the Shelf.
+  Shelf filed = 3 [(orm.edge) = {
+    nullable: true
+    on_delete: ON_DELETE_CASCADE
+  }];
+  // The edge is cleared.
+  Shelf lent = 4 [(orm.edge) = {
+    nullable: true
+    on_delete: ON_DELETE_SET_NULL
+  }];
+  // Says nothing, and is written as before: the fork's default.
+  Shelf near = 5 [(orm.edge) = {nullable: true}];
+  // A Note is erased softly, so erasing one deletes nothing and this is never
+  // asked.
+  Note pinned = 7 [(orm.edge) = {
+    nullable: true
+    on_delete: ON_DELETE_RESTRICT
+  }];
+
+  option (orm.message) = {
+    rpc: {add: {}, get: {}, erase: {}}
+  };
+}

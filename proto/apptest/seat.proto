@@ -29,8 +29,10 @@ message Seat {
 
   option (orm.message) = {
     rpc: {
-      crud: true
       add: {many: {max: 3}}
+      get: {}
+      patch: {}
+      erase: {}
     }
     indexes: [
       {

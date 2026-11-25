@@ -733,6 +733,9 @@ func (s UserServiceServer) Erase(ctx context.Context, req *apptest.UserRef) (*ap
 	tx.Writing()
 	n, err := st.Db.User.Delete().Where(p).Exec(ctx)
 	if err != nil {
+		if err, ok := err.(*ent.ConstraintError); ok && sqlgraph.IsForeignKeyConstraintError(err) {
+			return nil, status.Error(codes.FailedPrecondition, "User is still named by another row and cannot be erased")
+		}
 		return nil, err
 	}
 	if n > 0 {
