@@ -87,9 +87,28 @@ func fieldBuilder(w *work.FileWork, p graph.Field) (string, string, string) {
 	}
 
 	if p.IsList() {
+		// A list is kept as a JSON array of the proto's own element type,
+		// whatever the field's type says. The type says what the elements
+		// are -- identifiers, instants -- and not how they are kept: a
+		// `repeated bytes` that says TYPE_UUID is `[][]byte` here, as it is
+		// without the option, so saying it on an existing field changes
+		// nothing stored, and `Proto()` and the writes, which hand the list
+		// over as the proto holds it, agree with the column. It was the
+		// type's Go type -- `[]uuid.UUID`, `[]time.Time` -- and the package
+		// did not compile.
+		//
+		// A list of messages is a list of messages whatever its type: a
+		// Timestamp is kept as protobuf JSON like any other message, which is
+		// also what a patch document writes into it.
 		id = "Json"
 		if ctor == "" {
-			ctor = gogen.GoTypeOf(p, w.QualifiedGoIdent)
+			d := p.Descriptor()
+			ctor = gogen.GoType(d, ormpb.Type_TYPE_UNSPECIFIED, w.QualifiedGoIdent)
+			if m := heldMessage(w, d); m != "" {
+				ctor = "*" + m
+				vs := w.QualifiedGoIdent(work.PkgEntPb.Ident("ListValueScanner"))
+				chain = fmt.Sprintf(".ValueScanner(%s[*%s]{})", vs, m)
+			}
 		}
 		ctor = "[]" + ctor + "{}"
 	} else {

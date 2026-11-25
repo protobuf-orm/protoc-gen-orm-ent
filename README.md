@@ -362,6 +362,14 @@ builder:
 | `UUID` / `TIME`                        | `field.UUID` / `field.Time`     |
 | `JSON`, `map<>`, repeated              | `field.JSON`          |
 
+On a repeated field, `type` says what the elements are and does not change how
+they are kept. A list is a JSON array of the proto's own element type, whatever
+its type says. `repeated bytes` with `TYPE_UUID` is `field.Json("…", [][]byte{})`,
+which is the same line it has without the option. So saying the option on an
+existing field changes nothing that is stored and nothing a server reads. A
+`repeated google.protobuf.Timestamp` (`TYPE_TIME`) is a list of messages and is
+kept as protobuf JSON, as any other message list is.
+
 Constraints map to ent modifiers: key → `.Unique().Immutable()`, `unique` →
 `.Unique()`, nullable (non-key, non-JSON) → `.Nillable()`, `immutable` →
 `.Immutable()`, optional (non-key) → `.Optional()`.

@@ -12,6 +12,7 @@ import (
 	apptest "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest"
 	ent "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent"
 	book "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/book"
+	listfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/listfield"
 	mapfield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/mapfield"
 	messagefield "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/messagefield"
 	note "github.com/protobuf-orm/protoc-gen-orm-ent/internal/apptest/ent/note"
@@ -475,6 +476,8 @@ func WithAdmission(check Admission, entities ...string) Option {
 		a.methods["/apptest.MessageFieldService"] = "apptest.MessageField"
 		a.types["MapField"] = "apptest.MapField"
 		a.methods["/apptest.MapFieldService"] = "apptest.MapField"
+		a.types["ListField"] = "apptest.ListField"
+		a.methods["/apptest.ListFieldService"] = "apptest.ListField"
 		a.types["Note"] = "apptest.Note"
 		a.methods["/apptest.NoteService"] = "apptest.Note"
 		a.types["Tenant"] = "apptest.Tenant"
@@ -640,6 +643,7 @@ type Scope interface {
 	ValueFieldScope(ctx context.Context) (predicate.ValueField, error)
 	MessageFieldScope(ctx context.Context) (predicate.MessageField, error)
 	MapFieldScope(ctx context.Context) (predicate.MapField, error)
+	ListFieldScope(ctx context.Context) (predicate.ListField, error)
 	NoteScope(ctx context.Context) (predicate.Note, error)
 	TenantScope(ctx context.Context) (predicate.Tenant, error)
 	UserScope(ctx context.Context) (predicate.User, error)
@@ -670,6 +674,9 @@ func (Unscoped) MessageFieldScope(_ context.Context) (predicate.MessageField, er
 	return nil, nil
 }
 func (Unscoped) MapFieldScope(_ context.Context) (predicate.MapField, error) {
+	return nil, nil
+}
+func (Unscoped) ListFieldScope(_ context.Context) (predicate.ListField, error) {
 	return nil, nil
 }
 func (Unscoped) NoteScope(_ context.Context) (predicate.Note, error) {
@@ -777,6 +784,26 @@ func (ss Scopes) MapFieldScope(ctx context.Context) (predicate.MapField, error) 
 	}
 
 	return mapfield.And(ps...), nil
+}
+
+func (ss Scopes) ListFieldScope(ctx context.Context) (predicate.ListField, error) {
+	ps := make([]predicate.ListField, 0, len(ss))
+	for _, s := range ss {
+		p, err := s.ListFieldScope(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			continue
+		}
+
+		ps = append(ps, p)
+	}
+	if len(ps) == 0 {
+		return nil, nil
+	}
+
+	return listfield.And(ps...), nil
 }
 
 func (ss Scopes) NoteScope(ctx context.Context) (predicate.Note, error) {
@@ -1140,6 +1167,9 @@ func (s Server) MessageField() apptest.MessageFieldServiceServer {
 }
 func (s Server) MapField() apptest.MapFieldServiceServer {
 	return MapFieldServiceServer{Store: s.Store}
+}
+func (s Server) ListField() apptest.ListFieldServiceServer {
+	return ListFieldServiceServer{Store: s.Store}
 }
 func (s Server) Note() apptest.NoteServiceServer     { return NoteServiceServer{Store: s.Store} }
 func (s Server) Tenant() apptest.TenantServiceServer { return TenantServiceServer{Store: s.Store} }
