@@ -323,6 +323,21 @@ func (rs Recorders) Record(ctx context.Context, s Server, c Change) error {
 // conflict that was never its own. Keeping the trail is this server's
 // job, so failing to is this server's fault.
 //
+// But for one case: the call's own context has ended and what the
+// recorder returned is that context's error. Then the answer is the
+// context's code, Canceled or DeadlineExceeded, as it is for a write
+// whose own statement the context interrupted; a caller who went away
+// mid-write is no fault of this server's. Told by the context and not
+// by the error alone: a context's error on a call still live is the
+// recorder's own failure.
+//
+// The answer is a [recordFailed], which unwraps to what the recorder
+// returned. The code and the words are for the caller; the cause is for
+// code around this server in the same process, which can then tell a
+// transaction the database aborted on the recorder's row from a write
+// that is wrong, as it can when the entity's own statement is the one
+// aborted.
+//
 // It is also where [Change.Method] is filled in. The write sites know
 // which RPC of this server they are, and the request knows what it was
 // asked for; asking gRPC once here is what keeps the two from being
@@ -351,10 +366,34 @@ func record(ctx context.Context, rec Recorder, admit *admission, db *ent.Client,
 		return nil
 	}
 	if err := rec.Record(ctx, Server{Store: Store{Db: db}}, c); err != nil {
-		return status.Errorf(codes.Internal, "record the write by %s: %s", c.By, err)
+		code := codes.Internal
+		if ended := ctx.Err(); ended != nil && errors.Is(err, ended) {
+			code = status.FromContextError(ended).Code()
+		}
+		return &recordFailed{
+			status: status.Newf(code, "record the write by %s: %s", c.By, err),
+			cause:  err,
+		}
 	}
 	return nil
 }
+
+// recordFailed is what [record] answers for a recorder that failed: a
+// status in this server's words, over the error the recorder returned.
+// gRPC answers the status ([recordFailed.GRPCStatus]), and errors.Is and
+// errors.As reach the cause ([recordFailed.Unwrap]).
+//
+// A type of its own, written here, rather than one the runtime module
+// exports: an app installs this generator at its newest and keeps the
+// runtime it has, so what is generated must not need a newer runtime.
+type recordFailed struct {
+	status *status.Status
+	cause  error
+}
+
+func (e *recordFailed) Error() string              { return e.status.Err().Error() }
+func (e *recordFailed) GRPCStatus() *status.Status { return e.status }
+func (e *recordFailed) Unwrap() error              { return e.cause }
 
 func snapshotOrNil(v proto.Message) proto.Message {
 	if v == nil || !v.ProtoReflect().IsValid() {

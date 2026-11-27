@@ -201,6 +201,16 @@ The server a recorder is handed carries neither hook: it does not record, so a
 trail cannot audit itself into a loop, and it is not narrowed, so it can read
 what it has just been told about.
 
+A recorder that fails takes the write down, and the write answers `Internal`,
+`record the write by <By>: <the recorder's error>`, whatever code the recorder
+said: a conflict on the trail's row is not the caller's conflict. Only a call
+whose own context has ended, with the recorder returning that context's error,
+is answered its code instead, `Canceled` or `DeadlineExceeded`, in the same
+words. In the same process the answer still unwraps to what the recorder
+returned, so an app that tries again a transaction the database aborted reads
+the driver's error with `errors.As` whichever statement was aborted, the
+entity's or the recorder's.
+
 `<Entity>Narrow` is where the scope is asked, and it is a function of the
 package rather than only a method, because the read most likely to forget is the
 one nothing generates. A `List` is not CRUD, so it is written by hand, and what
