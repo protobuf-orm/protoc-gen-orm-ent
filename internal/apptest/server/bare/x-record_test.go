@@ -2,9 +2,12 @@ package bare_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/protobuf-orm/ent/dialect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/lesomnus/protobuf-patch/patch"
 	"github.com/lesomnus/z"
@@ -556,5 +559,108 @@ func TestRecordMethod(t *testing.T) {
 		u := r.Only(x)
 		x.Equal(pb.TenantService_Add_FullMethodName, u.Method)
 		x.Equal(u.By, u.Method)
+	})
+}
+
+// abort is what a driver hands up for a transaction the database gave up on
+// -- a deadlock, a serialization failure -- as a type of its own, which is how
+// an app that tries such a write again recognises it.
+type abort struct{ reason string }
+
+func (e *abort) Error() string { return "the database aborted this transaction: " + e.reason }
+
+// What a recorder's failure answers is Internal in this server's words, and
+// still the recorder's error underneath. The words are the server's so that a
+// code the recorder's own write was answered with is not read as the caller's
+// (TestRecordIsPartOfTheWrite); the cause is kept so that an app around the
+// store, in the same process, can tell a store that could not finish this just
+// then from a write that is wrong, whichever statement of the transaction the
+// database aborted.
+func TestRecordFailureKeepsItsCause(t *testing.T) {
+	// Taken from what the server answered before the cause was kept, and held
+	// byte for byte: nothing a client reads changes.
+	const said = "record the write by /apptest.TenantService/Add: the database aborted this transaction: deadlock"
+
+	build := func(t *testing.T, do func(context.Context, bare.Server, bare.Change) error) *Server {
+		s := NewServerWith(t, bare.WithRecorder(&recorder{Do: do}))
+		t.Cleanup(func() { s.Close() })
+		return s
+	}
+
+	t.Run("a driver's error is Internal in the same words, and unwraps to it", func(t *testing.T) {
+		x := require.New(t)
+		s := build(t, func(context.Context, bare.Server, bare.Change) error {
+			return fmt.Errorf("write the trail: %w", &abort{reason: "deadlock"})
+		})
+
+		_, err := s.Tenant().Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
+
+		v, ok := status.FromError(err)
+		x.True(ok, "still a status")
+		x.Equal(codes.Internal, v.Code())
+		x.Equal("record the write by "+pb.TenantService_Add_FullMethodName+": write the trail: the database aborted this transaction: deadlock", v.Message())
+
+		var cause *abort
+		x.True(errors.As(err, &cause), "the driver's error is reachable")
+		x.Equal("deadlock", cause.reason)
+	})
+	t.Run("a client reads the same code and words as before", func(t *testing.T) {
+		x := require.New(t)
+		s := build(t, func(context.Context, bare.Server, bare.Change) error {
+			return &abort{reason: "deadlock"}
+		})
+		c := NewClient(t, s)
+		defer c.Close()
+
+		_, err := c.Tenant().Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
+
+		v, ok := status.FromError(err)
+		x.True(ok)
+		x.Equal(codes.Internal, v.Code())
+		x.Equal(said, v.Message())
+	})
+	t.Run("the call's context cancelled is Canceled, in the same words", func(t *testing.T) {
+		x := require.New(t)
+		ctx, cancel := context.WithCancel(t.Context())
+		s := build(t, func(ctx context.Context, _ bare.Server, _ bare.Change) error {
+			// As a driver that saw the context go mid-statement does: its own
+			// error, wrapping the context's.
+			cancel()
+			return fmt.Errorf("the database aborted this transaction: deadlock: %w", ctx.Err())
+		})
+
+		_, err := s.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
+
+		v, ok := status.FromError(err)
+		x.True(ok)
+		x.Equal(codes.Canceled, v.Code())
+		x.Equal(said+": context canceled", v.Message())
+		x.ErrorIs(err, context.Canceled)
+	})
+	t.Run("the call's deadline passed is DeadlineExceeded", func(t *testing.T) {
+		x := require.New(t)
+		ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
+		defer cancel()
+		s := build(t, func(ctx context.Context, _ bare.Server, _ bare.Change) error {
+			<-ctx.Done()
+			return ctx.Err()
+		})
+
+		_, err := s.Tenant().Add(ctx, pb.TenantAddRequest_builder{}.Build())
+		x.Equal(codes.DeadlineExceeded, status.Code(err))
+		x.ErrorIs(err, context.DeadlineExceeded)
+	})
+	t.Run("a context's error on a live call is the recorder's own, and Internal", func(t *testing.T) {
+		// Told by the call's context and not by the error: a recorder that
+		// ran something of its own on a context that ended has failed, and
+		// the call it served has not been cancelled.
+		x := require.New(t)
+		s := build(t, func(context.Context, bare.Server, bare.Change) error {
+			return context.Canceled
+		})
+
+		_, err := s.Tenant().Add(t.Context(), pb.TenantAddRequest_builder{}.Build())
+		x.Equal(codes.Internal, status.Code(err))
+		x.ErrorIs(err, context.Canceled)
 	})
 }
