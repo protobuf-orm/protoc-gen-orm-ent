@@ -122,7 +122,10 @@ func (w *fileWork) xAddCreate() {
 				set("v")
 				w.P("	}")
 			case ormpb.Type_TYPE_TIME:
-				set(u + ".AsTime()")
+				// Cut as a stamp is, so that the answer -- the row as built
+				// here, of which only the key is read back -- is what the
+				// database keeps. See the store's `written`.
+				set("written(" + u + ".AsTime())")
 			default:
 				set(u)
 			}

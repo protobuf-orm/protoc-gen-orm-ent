@@ -380,6 +380,20 @@ existing field changes nothing that is stored and nothing a server reads. A
 `repeated google.protobuf.Timestamp` (`TYPE_TIME`) is a list of messages and is
 kept as protobuf JSON, as any other message list is.
 
+A time a server writes to a `TIME` column is cut to the microsecond, on every
+database: the stamps (`date_created`, the version, an erase's mark, whatever the
+`Clock` says), a time an `Add` is handed, and a time a patch document assigns.
+That is what PostgreSQL's `timestamptz` keeps, so an `Add`, which answers the
+row it built, answers what a read gives, and SQLite stores what PostgreSQL
+would. A version therefore moves in steps of a microsecond. What is compared is
+not cut -- a version a `Patch` tests, a reference by a time -- so a row stored
+before, which on SQLite may hold nanoseconds, is still matched by what a read
+gives of it. A reference by a time therefore names what is stored: look a row
+up by the time an `Add` answered, not by one handed in with digits below the
+microsecond, which on SQLite matches nothing (and on PostgreSQL matches only
+where the driver cuts the parameter as it cut the value). A list of times is
+JSON and keeps what it is handed.
+
 Constraints map to ent modifiers: key → `.Unique().Immutable()`, `unique` →
 `.Unique()`, nullable (non-key, non-JSON) → `.Nillable()`, `immutable` →
 `.Immutable()`, optional (non-key) → `.Optional()`.

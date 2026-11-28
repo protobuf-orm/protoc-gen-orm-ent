@@ -131,7 +131,7 @@ func (st TenantServiceServer) create(ctx context.Context, req *apptest.TenantAdd
 		q.SetLabels(u)
 	}
 	if req.HasDateCreated() {
-		q.SetDateCreated(req.GetDateCreated().AsTime())
+		q.SetDateCreated(written(req.GetDateCreated().AsTime()))
 	} else {
 		q.SetDateCreated(st.now())
 	}
@@ -368,6 +368,14 @@ func (s TenantServiceServer) apply(ctx context.Context, ref *apptest.TenantRef, 
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 		}
 		plan = v
+		for i, u := range plan.Writes {
+			switch u.Prop.Number() {
+			case 15:
+				if op, ok := u.Op.(ormpatch.SetColumn); ok {
+					plan.Writes[i].Op = ormpatch.SetColumn{Value: writtenTimestamp(op.Value)}
+				}
+			}
+		}
 	}
 
 	pred, mod, err := entpatch.Build(plan, tenantPatchColumns, s.Db.Dialect())

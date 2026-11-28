@@ -472,10 +472,13 @@ func TestAddManyWritesWhatAddWould(t *testing.T) {
 	}))
 }
 
-// On PostgreSQL the images of an AddMany are the rows at the database's own
-// precision, read by its INSERT and matched to their items by key: a clock
-// with nanoseconds says which, since the column keeps them rounded to the
-// microsecond.
+// On PostgreSQL the images of an AddMany are the rows as its INSERT read them,
+// matched to their items by key. A clock with nanoseconds used to tell an
+// image read from the database from one built in memory: the server rounded
+// what it was sent to the microsecond its column keeps. A time written is now
+// cut to the microsecond before it is sent, so the two agree, and what is held
+// here is that each image is the row, and that the row holds the clock's time
+// cut and not rounded -- with these digits the two differ.
 func TestPostgresAddManyImages(t *testing.T) {
 	x := require.New(t)
 	ctx := t.Context()
@@ -500,7 +503,8 @@ func TestPostgresAddManyImages(t *testing.T) {
 		got, err := s.User().Get(ctx, res.GetItems()[i].Ref().Pick())
 		x.NoError(err)
 		x.True(proto.Equal(got, ch.Value), "change %d: %v, and the row is %v", i, ch.Value, got)
-		x.Equal(at().Round(time.Microsecond), ch.Value.(*pb.User).GetDateCreated().AsTime(), "rounded to the column, as PostgreSQL does")
+		x.Equal(at().Truncate(time.Microsecond), ch.Value.(*pb.User).GetDateCreated().AsTime(), "cut before it is written, not rounded by the server")
+		x.NotEqual(at().Round(time.Microsecond), at().Truncate(time.Microsecond), "the clock's digits do not tell the two apart")
 	}
 }
 
