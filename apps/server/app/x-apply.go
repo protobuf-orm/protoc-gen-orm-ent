@@ -96,6 +96,7 @@ func (w *fileWork) xApplyPath() {
 		w.QualifiedGoIdent(work.PkgGrpcCodes.Ident("InvalidArgument")))
 	w.P("		}")
 	w.P("		plan = v")
+	w.xApplyWrittenTimes()
 	w.P("	}")
 	w.P("")
 
@@ -254,6 +255,44 @@ func (w *fileWork) xApplyPath() {
 	w.P("	return out, nil")
 	w.P("}")
 	w.P("")
+}
+
+// xApplyWrittenTimes emits what cuts a time a compiled document assigns to a
+// column of its own to the microsecond, as an Add cuts the one it is handed and
+// every stamp is cut (the store's `written`). Nothing is emitted for an entity
+// with no such column.
+//
+// The writes and nothing else. A plan keeps its tests apart from its writes,
+// and a test -- the version a Patch is conditional on above all -- is the
+// caller's as it was sent: a row stored before this, which on SQLite can hold
+// nanoseconds, is matched by the version a read gives of it, and a cut
+// comparison would never match it.
+//
+// A list of times, and a time inside a message or a map, is JSON in a column of
+// its own kind, which keeps every digit it is given; those are not touched, and
+// neither is a column a document clears.
+func (w *fileWork) xApplyWrittenTimes() {
+	ns := []string{}
+	for p := range w.Entity.Props() {
+		f, ok := p.(graph.Field)
+		if !ok || graph.IsCollection(f) || f.Type() != ormpb.Type_TYPE_TIME {
+			continue
+		}
+		ns = append(ns, strconv.Itoa(int(f.Number())))
+	}
+	if len(ns) == 0 {
+		return
+	}
+
+	set := w.QualifiedGoIdent(work.PkgOrmPatch.Ident("SetColumn"))
+	w.P("		for i, u := range plan.Writes {")
+	w.P("			switch u.Prop.Number() {")
+	w.P("			case ", strings.Join(ns, ", "), ":")
+	w.P("				if op, ok := u.Op.(", set, "); ok {")
+	w.P("					plan.Writes[i].Op = ", set, "{Value: writtenTimestamp(op.Value)}")
+	w.P("				}")
+	w.P("			}")
+	w.P("		}")
 }
 
 // xNoRowError renders the answer to "the statement matched no row".

@@ -120,7 +120,7 @@ func (st ShiftServiceServer) create(ctx context.Context, req *apptest.ShiftAddRe
 		q.SetId(v)
 	}
 	q.SetDesk(req.GetDesk())
-	q.SetStartsAt(req.GetStartsAt().AsTime())
+	q.SetStartsAt(written(req.GetStartsAt().AsTime()))
 	return q, ds, nil
 }
 
@@ -348,6 +348,14 @@ func (s ShiftServiceServer) apply(ctx context.Context, ref *apptest.ShiftRef, do
 			return nil, status.Errorf(codes.InvalidArgument, "%s", err)
 		}
 		plan = v
+		for i, u := range plan.Writes {
+			switch u.Prop.Number() {
+			case 3:
+				if op, ok := u.Op.(ormpatch.SetColumn); ok {
+					plan.Writes[i].Op = ormpatch.SetColumn{Value: writtenTimestamp(op.Value)}
+				}
+			}
+		}
 	}
 
 	pred, mod, err := entpatch.Build(plan, shiftPatchColumns, s.Db.Dialect())

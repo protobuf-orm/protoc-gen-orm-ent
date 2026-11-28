@@ -32,6 +32,7 @@ import (
 	status "google.golang.org/grpc/status"
 	proto "google.golang.org/protobuf/proto"
 	protoadapt "google.golang.org/protobuf/protoadapt"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	strings "strings"
 	time "time"
 	uuid "uuid"
@@ -1078,6 +1079,9 @@ func mint(ctx context.Context, m Minter, entity string, given uuid.UUID, ok bool
 // [Minter]: a row has to be stamped with something, so there is no state
 // in which answering nothing is right.
 //
+// What it answers is stamped in UTC and at the microsecond, as the wall
+// clock is: see [Store.now].
+//
 //	s, err := bare.NewServer(db, bare.WithClock(func() time.Time { return at }))
 type Clock func() time.Time
 
@@ -1088,12 +1092,59 @@ type Clock func() time.Time
 // another way -- which is true and is not what anybody reading the
 // comparison expects. A Clock is free to answer in any zone; this is
 // what is stored.
+//
+// And at the microsecond, through [written], because that is what
+// PostgreSQL keeps: a stamp finer than that is answered by an Add and
+// never by a read. A Clock is cut the same way as the wall clock, so a
+// test that hands in nanoseconds is answered what is stored.
+//
+// So a version moves in steps of a microsecond, on SQLite as on
+// PostgreSQL, and two writes of one row within the same microsecond
+// leave the same version. That is known and accepted: a clock that fine
+// was never one the database kept.
 func (s Store) now() time.Time {
 	if s.Now == nil {
-		return time.Now().UTC()
+		return written(time.Now())
 	}
 
-	return s.Now().UTC()
+	return written(s.Now())
+}
+
+// written is `t` as these servers write it: UTC, and cut to the
+// microsecond, which is what a `timestamptz` keeps. Everything they
+// write goes through it -- what [Store.now] stamps, a time an Add is
+// handed, a time a patch document assigns -- on every database, so
+// that what is stored is the same on SQLite as on PostgreSQL and an
+// Add answers what a read will.
+//
+// Cut, not rounded: a time is never moved later than it was.
+//
+// Only what is written. A time that is compared -- a version a patch
+// tests, a reference by a time, a filter -- is the caller's, as it was
+// sent: a row stored before this, which on SQLite can hold
+// nanoseconds, is matched by the version a read gives of it, and a cut
+// comparison would never match it. Nothing stored changes shape: the
+// column is the time it was, with fewer digits written into it.
+func written(t time.Time) time.Time {
+	return t.UTC().Truncate(time.Microsecond)
+}
+
+// writtenTimestamp is [written] for a Timestamp a patch document
+// assigns to a column: a new message, so the document and the request
+// it came from keep what the caller sent. Anything that is not a
+// Timestamp is handed back as it is, for the renderer to refuse.
+func writtenTimestamp(v protoreflect.Value) protoreflect.Value {
+	m, ok := v.Interface().(protoreflect.Message)
+	if !ok || m.Descriptor().FullName() != "google.protobuf.Timestamp" {
+		return v
+	}
+	fs := m.Descriptor().Fields()
+	secs, nanos := fs.ByName("seconds"), fs.ByName("nanos")
+	t := written(time.Unix(m.Get(secs).Int(), m.Get(nanos).Int()))
+	u := m.New()
+	u.Set(secs, protoreflect.ValueOfInt64(t.Unix()))
+	u.Set(nanos, protoreflect.ValueOfInt32(int32(t.Nanosecond())))
+	return protoreflect.ValueOfMessage(u)
 }
 
 // ItemError is `err`, about the item at `i` of a call that carries many --
